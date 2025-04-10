@@ -1,0 +1,2 @@
+C:/Users/migue/Documents/Mis_Proyectos/LH_Tarja/app_lh_tarja/android/app/.cxx/Debug/y45121e5/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/migue/Documents/Mis_Proyectos/LH_Tarja/app_lh_tarja/android/app/.cxx/Debug/y45121e5/armeabi-v7a/CMakeFiles/rebuild_cache.dir
