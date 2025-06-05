@@ -243,7 +243,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   SizedBox(height: 20),
-                  // 🔒 Campo clave con animación de slide
+                  // 🔑 Campo contraseña con animación de slide
                   TweenAnimationBuilder(
                     duration: Duration(milliseconds: 1200),
                     tween: Tween<Offset>(
@@ -302,6 +302,7 @@ class _LoginPageState extends State<LoginPage> {
                             borderSide: BorderSide(color: Colors.green, width: 2),
                           ),
                         ),
+                        onSubmitted: (_) => login(),
                       ),
                     ),
                   ),

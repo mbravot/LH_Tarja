@@ -1,8 +1,11 @@
 import 'package:app_lh_tarja/pages/usuarios_page.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import 'pages/login_page.dart';
 import 'pages/home_page.dart';
+import 'providers/theme_provider.dart';
+import 'routes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,7 +16,12 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final String? token = prefs.getString('token');
 
-  runApp(MyApp(startPage: token == null ? LoginPage() : HomePage()));
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: MyApp(startPage: token == null ? LoginPage() : HomePage()),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -23,17 +31,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return MaterialApp(
-      title: 'LH Tarja',
+      title: 'LH Gestión Tarjas',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: themeProvider.currentTheme,
       home: startPage,
-      routes: {
-        '/home': (context) => HomePage(), // ✅ Agregamos la ruta correctamente
-        '/login': (context) =>
-            LoginPage(), // ✅ También agregamos la ruta del login
-        '/usuarios': (context) => UsuariosPage()
-      },
+      routes: appRoutes,
     );
   }
 }

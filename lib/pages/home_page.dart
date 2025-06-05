@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart';
 import 'cambiar_clave_page.dart';
 import 'cambiar_sucursal_page.dart';
+import '../widgets/layout/app_bar.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -131,57 +132,43 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return Stack(
       children: [
         Scaffold(
-          appBar: AppBar(
-            backgroundColor: Colors.green,
-            elevation: 0,
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  titulo,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.person, color: Colors.white, size: 16),
-                          SizedBox(width: 4),
-                          Text(
-                            userName,
-                            style: TextStyle(color: Colors.white, fontSize: 14),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.location_on, color: Colors.white70, size: 14),
-                          SizedBox(width: 4),
-                          Text(
-                            userSucursal,
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          appBar: CustomAppBar(
+            title: titulo,
             actions: [
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.person, color: Colors.white, size: 16),
+                        SizedBox(width: 4),
+                        Text(
+                          userName,
+                          style: TextStyle(color: Colors.white, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.location_on, color: Colors.white70, size: 14),
+                        SizedBox(width: 4),
+                        Text(
+                          userSucursal,
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
               RotationTransition(
                 turns: Tween(begin: 0.0, end: 1.0).animate(_animationController),
                 child: IconButton(
@@ -194,16 +181,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           drawer: _buildDrawer(),
           body: Column(
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
-                  ),
-                ),
-                child: _buildTabBar(),
-              ),
               Expanded(
                 child: _selectedIndex == 0
                     ? ActividadesPage(
@@ -240,7 +217,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           if (!snapshot.hasData) {
             return Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
               ),
             );
           }
@@ -250,14 +227,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
           return Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.green.shade700,
-                  Colors.green.shade500,
-                ],
-              ),
+              color: Theme.of(context).colorScheme.background,
             ),
             child: Column(
               children: [
@@ -265,7 +235,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.only(
                         topLeft: Radius.circular(30),
                         topRight: Radius.circular(30),
@@ -279,7 +249,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           icon: Icons.people,
                           title: "Usuarios",
                           onTap: () => Navigator.pushNamed(context, '/usuarios'),
-                          color: Colors.green,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                         _buildDrawerItem(
                           icon: Icons.group,
@@ -291,7 +261,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               MaterialPageRoute(builder: (context) => ContratistasPage()),
                             );
                           },
-                          color: Colors.green,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                         _buildDrawerItem(
                           icon: Icons.people,
@@ -303,7 +273,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               MaterialPageRoute(builder: (context) => TrabajadoresPage()),
                             );
                           },
-                          color: Colors.green,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                         Divider(height: 30),
                         _buildDrawerItem(
@@ -364,23 +334,23 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.person, color: Colors.green, size: 40),
+            child: Icon(Icons.person, color: Theme.of(context).colorScheme.primary, size: 40),
           ),
           SizedBox(height: 16),
           Text(
             "Bienvenido,",
             style: TextStyle(
-              color: Colors.white70,
+              color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
               fontSize: 16,
             ),
           ),
           Text(
             userName,
             style: TextStyle(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.onBackground,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -389,17 +359,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           Container(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.location_on, color: Colors.white70, size: 16),
+                Icon(Icons.location_on, color: Theme.of(context).colorScheme.primary, size: 16),
                 SizedBox(width: 4),
                 Text(
                   userSucursal,
-                  style: TextStyle(color: Colors.white, fontSize: 14),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground, fontSize: 14),
                 ),
               ],
             ),
@@ -444,54 +414,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildTabBar() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildTab(0, "Actividades", Icons.assignment),
-          _buildTab(1, "Rendimientos", Icons.trending_up),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTab(int index, String title, IconData icon) {
-    final isSelected = _selectedIndex == index;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
-      child: AnimatedContainer(
-        duration: Duration(milliseconds: 300),
-        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.green : Colors.white,
-            ),
-            SizedBox(width: 8),
-            Text(
-              title,
-              style: TextStyle(
-                color: isSelected ? Colors.green : Colors.white,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildBottomNavigationBar() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -503,10 +429,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       child: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) => setState(() => _selectedIndex = index),
-        backgroundColor: Colors.transparent,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
-        selectedItemColor: Colors.green,
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
         items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.assignment),

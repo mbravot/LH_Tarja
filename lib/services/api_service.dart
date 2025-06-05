@@ -5,7 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'login_services.dart';
 
 class ApiService {
-  final String baseUrl = 'http://192.168.1.69:5000/api';
+  //final String baseUrl = 'https://apilhtarja.lahornilla.cl/api';
+  final String baseUrl = 'http://192.168.1.52:5000/api/lahornilla_base_normalizada/';
 
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();

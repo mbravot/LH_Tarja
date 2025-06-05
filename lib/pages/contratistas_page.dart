@@ -144,8 +144,13 @@ class _ContratistasPageState extends State<ContratistasPage> with SingleTickerPr
   }
 
   Widget _buildContratistaCard(dynamic contratista) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     String estado = contratista['id_estado'] == 1 ? "Activo" : "Inactivo";
-    Color estadoColor = contratista['id_estado'] == 1 ? primaryColor : Colors.red;
+    Color estadoColor = contratista['id_estado'] == 1 ? theme.colorScheme.primary : Colors.red;
+    final cardColor = theme.colorScheme.surface;
+    final borderColor = isDark ? Colors.grey[800]! : Colors.grey[200]!;
+    final textColor = theme.colorScheme.onSurface;
 
     return Slidable(
       endActionPane: ActionPane(
@@ -153,7 +158,7 @@ class _ContratistasPageState extends State<ContratistasPage> with SingleTickerPr
         children: [
           SlidableAction(
             onPressed: (_) => _confirmarEdicion(contratista, context),
-            backgroundColor: Colors.blue,
+            backgroundColor: theme.colorScheme.primary,
             foregroundColor: Colors.white,
             icon: Icons.edit,
             label: 'Editar',
@@ -167,133 +172,109 @@ class _ContratistasPageState extends State<ContratistasPage> with SingleTickerPr
           child: Container(
             width: double.infinity,
             margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: contratista['id_estado'] == 1 ? primaryColor.withOpacity(0.3) : Colors.red.withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: InkWell(
-                onTap: () => _confirmarEdicion(contratista, context),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        contratista['id_estado'] == 1 
-                            ? primaryColor.withOpacity(0.05)
-                            : Colors.red.withOpacity(0.05),
-                        Colors.white,
-                      ],
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor, width: 1),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    contratista['nombre'] ?? "Sin nombre",
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    "RUT: ${contratista['rut']}",
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey[700],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
+                            Text(
+                              contratista['nombre'] ?? "Sin nombre",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            Container(
-                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: estadoColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: estadoColor.withOpacity(0.5),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    contratista['id_estado'] == 1
-                                        ? Icons.check_circle
-                                        : Icons.cancel,
-                                    size: 16,
-                                    color: estadoColor,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    estado,
-                                    style: TextStyle(
-                                      color: estadoColor,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
+                            SizedBox(height: 4),
+                            Text(
+                              "RUT: ${contratista['rut']}",
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: textColor.withOpacity(0.7),
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
                         ),
-                        SizedBox(height: 12),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(8),
+                      ),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: estadoColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: estadoColor.withOpacity(0.5),
+                            width: 1,
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.location_on,
-                                size: 16,
-                                color: primaryColor,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              contratista['id_estado'] == 1
+                                  ? Icons.check_circle
+                                  : Icons.cancel,
+                              size: 16,
+                              color: estadoColor,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              estado,
+                              style: TextStyle(
+                                color: estadoColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
                               ),
-                              SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  contratista['nombre_sucursal'] ?? "Sin sucursal",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.grey[800],
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.location_on,
+                          size: 16,
+                          color: primaryColor,
+                        ),
+                        SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            contratista['nombre_sucursal'] ?? "Sin sucursal",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey[800],
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -312,7 +293,7 @@ class _ContratistasPageState extends State<ContratistasPage> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
         backgroundColor: primaryColor,
         title: Text(
@@ -349,10 +330,11 @@ class _ContratistasPageState extends State<ContratistasPage> with SingleTickerPr
                           onSubmitted: (_) => FocusScope.of(context).unfocus(),
                           decoration: InputDecoration(
                             hintText: 'Buscar por nombre, RUT o sucursal',
-                            prefixIcon: Icon(Icons.search, color: primaryColor),
+                            hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                            prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
                             suffixIcon: searchController.text.isNotEmpty
                                 ? IconButton(
-                                    icon: Icon(Icons.clear),
+                                    icon: Icon(Icons.clear, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
                                     onPressed: () {
                                       searchController.clear();
                                       FocusScope.of(context).unfocus();
@@ -361,18 +343,18 @@ class _ContratistasPageState extends State<ContratistasPage> with SingleTickerPr
                                 : null,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: primaryColor),
+                              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.5)),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: primaryColor, width: 2),
+                              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: primaryColor.withOpacity(0.5)),
+                              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.5)),
                             ),
                             filled: true,
-                            fillColor: Colors.white,
+                            fillColor: Theme.of(context).colorScheme.surface,
                           ),
                         ),
                       ),

@@ -202,7 +202,7 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -216,11 +216,11 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
         onSubmitted: (_) => FocusScope.of(context).unfocus(),
         decoration: InputDecoration(
           hintText: 'Buscar por labor, contratista o CECO',
-          hintStyle: TextStyle(color: Colors.grey),
-          prefixIcon: Icon(Icons.search, color: primaryColor),
+          hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+          prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
           suffixIcon: searchController.text.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.clear, color: Colors.grey),
+                  icon: Icon(Icons.clear, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
                   onPressed: () {
                     searchController.clear();
                     FocusScope.of(context).unfocus();
@@ -228,7 +228,7 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
                 )
               : null,
           filled: true,
-          fillColor: Colors.grey[50],
+          fillColor: Theme.of(context).colorScheme.surface,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
             borderSide: BorderSide.none,
@@ -239,7 +239,7 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide(color: primaryColor, width: 2),
+            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
           ),
         ),
       ),
@@ -384,6 +384,11 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
         : estado.toLowerCase() == 'finalizada'
             ? Colors.green
             : Colors.grey;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardColor = theme.colorScheme.surface;
+    final borderColor = isDark ? Colors.grey[800]! : Colors.grey[200]!;
+    final textColor = theme.colorScheme.onSurface;
 
     return InkWell(
       onTap: () async {
@@ -402,9 +407,9 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
       child: Container(
         margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.grey[50],
+          color: cardColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[200]!, width: 1),
+          border: Border.all(color: borderColor, width: 1),
         ),
         child: Padding(
           padding: EdgeInsets.all(16),
@@ -413,7 +418,7 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
             children: [
               Row(
                 children: [
-                  Icon(Icons.work, color: primaryColor, size: 20),
+                  Icon(Icons.work, color: theme.colorScheme.primary, size: 20),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -421,6 +426,7 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
+                        color: textColor,
                       ),
                     ),
                   ),
@@ -448,7 +454,7 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
                   SizedBox(width: 8),
                   Text(
                     actividad['contratista'] ?? 'Sin contratista',
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: TextStyle(color: textColor.withOpacity(0.7)),
                   ),
                 ],
               ),
@@ -459,7 +465,7 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
                   SizedBox(width: 8),
                   Text(
                     'CECO: ${actividad['ceco'] ?? 'No especificado'}',
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: TextStyle(color: textColor.withOpacity(0.7)),
                   ),
                 ],
               ),
@@ -470,7 +476,7 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
                   SizedBox(width: 8),
                   Text(
                     'Rendimiento: ${actividad['tipo_rend'] ?? 'No especificado'}',
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: TextStyle(color: textColor.withOpacity(0.7)),
                   ),
                 ],
               ),

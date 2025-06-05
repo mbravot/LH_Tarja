@@ -1,0 +1,2 @@
+C:/Users/migue/Documents/Mis_Proyectos/LH_Tarja/app_lh_tarja/android/app/.cxx/RelWithDebInfo/kl392r6m/x86_64/CMakeFiles/edit_cache.dir
+C:/Users/migue/Documents/Mis_Proyectos/LH_Tarja/app_lh_tarja/android/app/.cxx/RelWithDebInfo/kl392r6m/x86_64/CMakeFiles/rebuild_cache.dir
