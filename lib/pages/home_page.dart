@@ -3,11 +3,16 @@ import 'actividades_page.dart';
 import 'rendimientos_page.dart';
 import 'contratistas_page.dart';
 import 'trabajadores_page.dart';
+import 'colaboradores_page.dart';
+import 'permisos_page.dart';
+import 'indicadores_page.dart';
+import 'horas_trabajadas_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart';
 import 'cambiar_clave_page.dart';
 import 'cambiar_sucursal_page.dart';
 import '../widgets/layout/app_bar.dart';
+import '../services/api_service.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -23,6 +28,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   
   Key _actividadesKey = UniqueKey();
   Key _rendimientosKey = UniqueKey();
+  List<Map<String, dynamic>> _sucursalesDisponibles = [];
 
   @override
   void initState() {
@@ -32,6 +38,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       vsync: this,
     );
     _cargarNombreUsuario();
+    _cargarSucursalesDisponibles();
   }
 
   @override
@@ -61,6 +68,87 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     } catch (e) {
       print("❌ Error cargando datos de usuario: $e");
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _cargarSucursalesDisponibles() async {
+    try {
+      final sucursales = await ApiService().getSucursales();
+      setState(() {
+        _sucursalesDisponibles = sucursales;
+      });
+    } catch (e) {
+      print("❌ Error al cargar sucursales disponibles: $e");
+    }
+  }
+
+  Future<void> _seleccionarSucursal(BuildContext context) async {
+    final seleccion = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Selecciona una sucursal'),
+          content: Container(
+            width: double.maxFinite,
+            child: _sucursalesDisponibles.isEmpty
+                ? Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _sucursalesDisponibles.length,
+                    itemBuilder: (context, index) {
+                      final suc = _sucursalesDisponibles[index];
+                      return ListTile(
+                        leading: Icon(Icons.location_on, color: Colors.green),
+                        title: Text(suc['nombre']),
+                        selected: suc['nombre'] == userSucursal,
+                        onTap: () => Navigator.pop(context, suc),
+                      );
+                    },
+                  ),
+          ),
+        );
+      },
+    );
+    
+    if (seleccion != null && seleccion['nombre'] != userSucursal) {
+      // Actualizar en backend
+      final exito = await ApiService().actualizarSucursalActiva(seleccion['id'].toString());
+      if (exito) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('id_sucursal', seleccion['id'].toString());
+        await prefs.setString('user_sucursal', seleccion['nombre']);
+        setState(() {
+          userSucursal = seleccion['nombre'];
+        });
+        _forzarRecargaPantallas();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Sucursal cambiada a ${seleccion['nombre']}'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Recargar la sucursal activa en el AppBar
+        await _recargarPagina();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white),
+                SizedBox(width: 8),
+                Text('No se pudo actualizar la sucursal en el servidor'),
+              ],
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -127,7 +215,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    String titulo = (_selectedIndex == 0) ? "Actividades" : "Rendimientos";
+    String titulo = (_selectedIndex == 0) ? "Actividades" : "Indicadores";
 
     return Stack(
       children: [
@@ -155,16 +243,23 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         ),
                       ],
                     ),
-                    Row(
+                    GestureDetector(
+                      onTap: () => _seleccionarSucursal(context),
+                      child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.location_on, color: Colors.white70, size: 14),
                         SizedBox(width: 4),
                         Text(
                           userSucursal,
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
                         ),
+                          Icon(Icons.arrow_drop_down, color: Colors.white70, size: 18),
                       ],
+                      ),
                     ),
                   ],
                 ),
@@ -173,7 +268,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 turns: Tween(begin: 0.0, end: 1.0).animate(_animationController),
                 child: IconButton(
                   icon: Icon(Icons.refresh, color: Colors.white),
-                  onPressed: _recargarPagina,
+                  onPressed: () async {
+                    await _recargarPagina();
+                    await _cargarSucursalesDisponibles();
+                  },
                 ),
               ),
             ],
@@ -185,12 +283,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 child: _selectedIndex == 0
                     ? ActividadesPage(
                         key: _actividadesKey,
-                        onRefresh: _forzarRecargaPantallas,
                       )
-                    : RendimientosPage(
-                        key: _rendimientosKey,
-                        onRefresh: _forzarRecargaPantallas,
-                      ),
+                    : IndicadoresPage(),
               ),
             ],
           ),
@@ -223,7 +317,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
 
           final prefs = snapshot.data!;
-          final esAdmin = prefs.getString('id_rol') == '1';
+          final esAdmin = prefs.getString('id_perfil') == '3';
 
           return Container(
             decoration: BoxDecoration(
@@ -252,7 +346,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           color: Theme.of(context).colorScheme.primary,
                         ),
                         _buildDrawerItem(
-                          icon: Icons.group,
+                          icon: Icons.business,
                           title: "Contratistas",
                           onTap: () {
                             Navigator.pop(context);
@@ -264,13 +358,49 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           color: Theme.of(context).colorScheme.primary,
                         ),
                         _buildDrawerItem(
-                          icon: Icons.people,
+                          icon: Icons.group,
                           title: "Trabajadores",
                           onTap: () {
                             Navigator.pop(context);
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => TrabajadoresPage()),
+                            );
+                          },
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        _buildDrawerItem(
+                          icon: Icons.groups,
+                          title: "Colaboradores",
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => ColaboradoresPage()),
+                            );
+                          },
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        _buildDrawerItem(
+                          icon: Icons.assignment_turned_in,
+                          title: "Permisos",
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => PermisosPage()),
+                            );
+                          },
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        _buildDrawerItem(
+                          icon: Icons.access_time,
+                          title: "Horas Trabajadas",
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => HorasTrabajadasPage()),
                             );
                           },
                           color: Theme.of(context).colorScheme.primary,
@@ -439,8 +569,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             label: 'Actividades',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.trending_up),
-            label: 'Rendimientos',
+            icon: Icon(Icons.analytics),
+            label: 'Indicadores',
           ),
         ],
       ),

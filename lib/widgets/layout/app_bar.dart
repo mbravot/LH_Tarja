@@ -19,6 +19,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       title: Text(title),
       actions: [
+        if (actions != null) ...actions!,
         IconButton(
           icon: Icon(
             themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
@@ -29,7 +30,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           },
           tooltip: themeProvider.isDarkMode ? 'Modo Claro' : 'Modo Oscuro',
         ),
-        if (actions != null) ...actions!,
       ],
     );
   }

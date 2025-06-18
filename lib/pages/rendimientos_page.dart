@@ -1,531 +1,643 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import 'nuevo_rendimiento_page.dart';
-import 'editar_rendimiento_page.dart';
-import 'package:intl/intl.dart';
-import 'package:intl/date_symbol_data_local.dart';
+import 'crear_rendimiento_individual_page.dart';
+import 'package:collection/collection.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'editar_rendimientos_individuales_page.dart';
+import 'editar_rendimientos_grupales_page.dart';
+import 'crear_rendimiento_grupal_page.dart';
 
 class RendimientosPage extends StatefulWidget {
-  final VoidCallback onRefresh;
+  final Map<String, dynamic> actividad;
 
   const RendimientosPage({
-    required this.onRefresh,
     Key? key,
+    required this.actividad,
   }) : super(key: key);
 
   @override
-  _RendimientosPageState createState() => _RendimientosPageState();
+  State<RendimientosPage> createState() => _RendimientosPageState();
 }
 
-class _RendimientosPageState extends State<RendimientosPage> with SingleTickerProviderStateMixin {
-  Future<List<dynamic>>? _futureRendimientos;
-  List<dynamic> actividades = [];
-  List<dynamic> todosRendimientos = [];
-  List<dynamic> rendimientosFiltrados = [];
-  Map<String, bool> _expansionState = {};
-  TextEditingController searchController = TextEditingController();
-  late AnimationController _refreshIconController;
-  bool _isLoading = false;
-
-  final Color primaryColor = Colors.green;
-  final Color secondaryColor = Colors.white;
-  final Color backgroundColor = Colors.grey[100]!;
+class _RendimientosPageState extends State<RendimientosPage> {
+  final ApiService _apiService = ApiService();
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _rendimientos = [];
+  List<Map<String, dynamic>> _rendimientosFiltrados = [];
+  String _error = '';
+  List<Map<String, dynamic>> colaboradores = [];
+  List<Map<String, dynamic>> porcentajesContratista = [];
+  List<Map<String, dynamic>> trabajadores = [];
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _refreshIconController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    initializeDateFormatting('es_ES', null).then((_) {
-      _cargarDatos();
-    });
-    searchController.addListener(_filtrarRendimientos);
-  }
-
-  @override
-  void dispose() {
-    _refreshIconController.dispose();
-    searchController.dispose();
-    super.dispose();
-  }
-
-  String _formatearFecha(String fechaOriginal) {
-    try {
-      final fecha = DateTime.parse(fechaOriginal);
-      return DateFormat("EEEE d 'de' MMMM, y", 'es_ES').format(fecha);
-    } catch (e) {
-      print("❌ Error al formatear fecha: $e");
-      return fechaOriginal;
-    }
-  }
-
-  Future<void> _cargarDatos() async {
-    setState(() => _isLoading = true);
-    try {
-      actividades = await ApiService().getActividades();
-      List<dynamic> rendimientos = await ApiService().getRendimientos(idActividad: null);
-
-      if (!mounted) return;
-
-      // Ordenar rendimientos por fecha (más reciente primero)
-      rendimientos.sort((a, b) {
-        try {
-          DateTime fechaA = DateTime.parse(a['fecha']);
-          DateTime fechaB = DateTime.parse(b['fecha']);
-          return fechaB.compareTo(fechaA);
-        } catch (e) {
-          return 0;
-        }
-      });
-
-      setState(() {
-        todosRendimientos = rendimientos;
-        rendimientosFiltrados = rendimientos;
-        _futureRendimientos = Future.value(rendimientos);
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      print("❌ Error al cargar datos: $e");
-      setState(() {
-        _futureRendimientos = Future.error("No se pudieron cargar los datos.");
-        _isLoading = false;
-      });
-      _mostrarError("No se pudieron cargar los datos");
-    }
-  }
-
-  void _mostrarError(String mensaje) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.error_outline, color: Colors.white),
-            SizedBox(width: 8),
-            Expanded(child: Text(mensaje)),
-          ],
-        ),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+    _searchController.addListener(_filtrarRendimientos);
+    _cargarColaboradoresYTrabajadoresYPorcentajesYRendimientos();
   }
 
   void _filtrarRendimientos() {
-    String query = searchController.text.toLowerCase();
+    String query = _searchController.text.toLowerCase();
+    if (query.isEmpty) {
+      setState(() => _rendimientosFiltrados = List.from(_rendimientos));
+      return;
+    }
     setState(() {
-      if (query.isEmpty) {
-        rendimientosFiltrados = [...todosRendimientos];
-      } else {
-        rendimientosFiltrados = todosRendimientos.where((rend) {
-          final actividad = _obtenerDatosActividad(rend['id_actividad']);
-          final labor = actividad['labor']?.toLowerCase() ?? '';
-          final contratista = actividad['contratista']?.toLowerCase() ?? '';
-          final trabajador = rend['trabajador']?.toString().toLowerCase() ?? '';
-
-          return labor.contains(query) ||
-              contratista.contains(query) ||
-              trabajador.contains(query);
-        }).toList();
-      }
+      _rendimientosFiltrados = _rendimientos.where((rend) {
+        String nombre = '';
+        if (rend['trabajador'] != null) {
+          nombre = rend['trabajador'].toString().toLowerCase();
+        } else if (rend['id_trabajador'] != null && trabajadores.isNotEmpty) {
+          final t = trabajadores.firstWhereOrNull((x) => x['id'].toString() == rend['id_trabajador'].toString());
+          if (t != null) {
+            nombre = ('${t['nombre']} ${t['apellido_paterno'] ?? ''} ${t['apellido_materno'] ?? ''}').toLowerCase();
+          }
+        } else if (rend['id_colaborador'] != null && colaboradores.isNotEmpty) {
+          final c = colaboradores.firstWhereOrNull((x) => x['id'].toString() == rend['id_colaborador'].toString());
+          if (c != null) {
+            nombre = ('${c['nombre']} ${c['apellido_paterno'] ?? ''} ${c['apellido_materno'] ?? ''}').toLowerCase();
+          }
+        }
+        return nombre.contains(query);
+      }).toList();
     });
   }
 
-  Map<String, dynamic> _obtenerDatosActividad(dynamic idActividad) {
+  Future<void> _cargarColaboradoresYTrabajadoresYPorcentajesYRendimientos() async {
     try {
-      final actividad = actividades.firstWhere(
-        (act) => act['id'].toString() == idActividad.toString(),
-        orElse: () => {
-          "id": '',
-          "labor": "No asignado",
-          "contratista": "No asignado",
-          'ceco': '',
-          'id_tipo_rend': 1,
-        },
-      );
-      
-      return {
-        "id": actividad['id'] ?? '',
-        "labor": actividad['labor'] ?? "No asignado",
-        "contratista": actividad['contratista'] ?? "No asignado",
-        'ceco': actividad['ceco'] ?? '',
-        'id_tipo_rend': actividad['id_tipo_rend'] ?? 1,
-      };
+      setState(() {
+        _isLoading = true;
+        _error = '';
+      });
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload(); // Forzar recarga
+      final idSucursal = prefs.getString('id_sucursal');
+      print('Sucursal activa usada para cargar colaboradores/rendimientos: $idSucursal');
+      if (idSucursal == null) throw Exception('No se encontró la sucursal activa');
+      final listaColaboradores = await ApiService().getColaboradores();
+      final listaPorcentajes = await ApiService().getPorcentajesContratista();
+      setState(() {
+        colaboradores = List<Map<String, dynamic>>.from(listaColaboradores);
+        porcentajesContratista = List<Map<String, dynamic>>.from(listaPorcentajes);
+      });
+      // Cargar trabajadores solo si es contratista
+      if (widget.actividad['id_tipotrabajador'] == 2 && widget.actividad['id_contratista'] != null) {
+        final listaTrabajadores = await ApiService().getTrabajadores(idSucursal, widget.actividad['id_contratista'].toString());
+        setState(() {
+          trabajadores = List<Map<String, dynamic>>.from(listaTrabajadores);
+        });
+      }
+      await _cargarRendimientos();
     } catch (e) {
-      print('Error al obtener datos de actividad: $e');
-      return {
-        "id": '',
-        "labor": "No asignado",
-        "contratista": "No asignado",
-        'ceco': '',
-        'id_tipo_rend': 1,
-      };
+      setState(() {
+        _error = 'Error al cargar colaboradores, trabajadores o porcentajes: $e';
+        _isLoading = false;
+      });
     }
   }
 
-  Future<void> _refreshRendimientos() async {
-    _refreshIconController.repeat();
-    await _cargarDatos();
-    _refreshIconController.stop();
-    widget.onRefresh();
+  Future<void> _cargarRendimientos() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = '';
+      });
+
+      final tipo = widget.actividad['id_tiporendimiento'];
+      final idTipotrabajador = widget.actividad['id_tipotrabajador'];
+      
+      if (tipo == 1) {
+        // Individual
+        if (idTipotrabajador == 1) {
+          // Propio
+          final rendimientosPropios = await _apiService.getRendimientosIndividualesPropios(
+            idActividad: widget.actividad['id'].toString()
+          );
+          setState(() {
+            _rendimientos = rendimientosPropios.map((r) {
+              final Map<String, dynamic> map = Map<String, dynamic>.from(r);
+              map['tipo'] = 'individual';
+              map['es_propio'] = true;
+              return map;
+            }).toList();
+            _rendimientosFiltrados = List.from(_rendimientos);
+            _isLoading = false;
+          });
+        } else if (idTipotrabajador == 2) {
+          // Contratista
+          final rendimientosContratistas = await _apiService.getRendimientosIndividualesContratistas();
+          setState(() {
+            _rendimientos = rendimientosContratistas.map((r) {
+              final Map<String, dynamic> map = Map<String, dynamic>.from(r);
+              map['tipo'] = 'individual';
+              map['es_propio'] = false;
+              return map;
+            }).toList();
+            _rendimientosFiltrados = List.from(_rendimientos);
+            _isLoading = false;
+          });
+        }
+      } else {
+        // Grupal
+        final data = await _apiService.getRendimientos(idActividad: widget.actividad['id'].toString());
+        if (data['rendimientos'] != null && data['rendimientos'] is List) {
+          final List<dynamic> rawRendimientos = data['rendimientos'];
+      setState(() {
+            _rendimientos = rawRendimientos.map((rendimiento) {
+              final Map<String, dynamic> map = Map<String, dynamic>.from(rendimiento);
+              map['tipo'] = 'grupal';
+              return map;
+            }).toList();
+            _rendimientosFiltrados = List.from(_rendimientos);
+        _isLoading = false;
+      });
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'Error al cargar los rendimientos: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _editarRendimiento(Map<String, dynamic> rendimiento) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditarRendimientosGrupalesPage(
+          rendimiento: rendimiento,
+        ),
+      ),
+    );
+    if (result == true) {
+      await _cargarRendimientos();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Stack(
-        children: [
-          RefreshIndicator(
-            onRefresh: _refreshRendimientos,
-            color: primaryColor,
-            child: Column(
-              children: [
-                _buildSearchBar(),
-                Expanded(child: _buildRendimientosList()),
-              ],
-            ),
-          ),
-          if (_isLoading)
-            Container(
-              color: Colors.black54,
-              child: Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-                ),
-              ),
-            ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton(
-              onPressed: () async {
-                final resultado = await Navigator.push<bool>(
-                  context,
-                  MaterialPageRoute(builder: (context) => NuevoRendimientoPage()),
-                );
-                if (resultado == true) {
-                  _refreshRendimientos();
-                }
-              },
-              backgroundColor: primaryColor,
-              child: Icon(Icons.add, color: Colors.white),
-              elevation: 4,
-            ),
-          ),
-        ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Rendimientos - ${widget.actividad['nombre']}'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Colors.white,
       ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: searchController,
-        onSubmitted: (_) => FocusScope.of(context).unfocus(),
-        decoration: InputDecoration(
-          hintText: 'Buscar por labor, contratista o trabajador',
-          hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
-          prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
-          suffixIcon: searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: Icon(Icons.clear, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
-                  onPressed: () {
-                    searchController.clear();
-                    FocusScope.of(context).unfocus();
-                  },
-                )
-              : null,
-          filled: true,
-          fillColor: Theme.of(context).colorScheme.surface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15),
-            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRendimientosList() {
-    return FutureBuilder<List<dynamic>>(
-      future: _futureRendimientos,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(primaryColor)),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return Center(
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : _error.isNotEmpty
+              ? Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.error_outline, size: 48, color: Colors.red),
                 SizedBox(height: 16),
-                Text(
-                  "Error al cargar los rendimientos",
-                  style: TextStyle(fontSize: 18, color: Colors.red),
-                ),
-                SizedBox(height: 8),
-                ElevatedButton.icon(
-                  onPressed: _refreshRendimientos,
-                  icon: RotationTransition(
-                    turns: Tween(begin: 0.0, end: 1.0).animate(_refreshIconController),
-                    child: Icon(Icons.refresh),
-                  ),
-                  label: Text("Reintentar"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
+                      Text(_error, textAlign: TextAlign.center),
+                      SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _cargarRendimientos,
+                        child: Text('Reintentar'),
                 ),
               ],
             ),
-          );
-        }
-
-        if (rendimientosFiltrados.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.search_off, size: 48, color: Colors.grey),
-                SizedBox(height: 16),
-                Text(
-                  searchController.text.isEmpty
-                      ? "No hay rendimientos registrados"
-                      : "No se encontraron resultados",
-                  style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          );
-        }
-
-        Map<String, List<dynamic>> rendimientosPorFecha = {};
-        for (var rendimiento in rendimientosFiltrados) {
-          String fecha = _formatearFecha(rendimiento['fecha']);
-          if (!rendimientosPorFecha.containsKey(fecha)) {
-            rendimientosPorFecha[fecha] = [];
-            _expansionState[fecha] = _expansionState[fecha] ?? true;
-          }
-          rendimientosPorFecha[fecha]!.add(rendimiento);
-        }
-
-        return ListView.builder(
-          padding: EdgeInsets.only(bottom: 80),
-          itemCount: rendimientosPorFecha.length,
-          itemBuilder: (context, index) {
-            String fecha = rendimientosPorFecha.keys.elementAt(index);
-            List<dynamic> rendimientosDelDia = rendimientosPorFecha[fecha]!;
-
-            return Card(
-              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Theme(
-                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                child: ExpansionTile(
-                  initiallyExpanded: _expansionState[fecha] ?? false,
-                  onExpansionChanged: (expanded) {
-                    setState(() => _expansionState[fecha] = expanded);
-                  },
-                  title: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          fecha.capitalize(),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: primaryColor,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                )
+              : Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Container(
                         decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
+                          color: Theme.of(context).colorScheme.surface,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                          borderRadius: BorderRadius.circular(15),
                         ),
-                        child: Text(
-                          '${rendimientosDelDia.length} ${rendimientosDelDia.length == 1 ? 'rendimiento' : 'rendimientos'}',
-                          style: TextStyle(
-                            color: primaryColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                        child: TextField(
+                          controller: _searchController,
+                          onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                          decoration: InputDecoration(
+                            hintText: 'Buscar por nombre o apellido',
+                            hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                            prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(Icons.clear, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      FocusScope.of(context).unfocus();
+                                    },
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                  children: rendimientosDelDia.map((rendimiento) {
-                    return _buildRendimientoCard(rendimiento);
-                  }).toList(),
+                    ),
+                    Expanded(
+                      child: _rendimientosFiltrados.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No hay rendimientos registrados',
+                                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.only(bottom: 80),
+                              itemCount: _rendimientosFiltrados.length,
+                              itemBuilder: (context, index) {
+                                final rendimiento = _rendimientosFiltrados[index];
+                                final bool esIndividual = rendimiento['tipo'] == 'individual';
+                                return _RendimientoCard(
+                                  rendimiento: rendimiento,
+                                  esIndividual: esIndividual,
+                                  trabajadores: trabajadores,
+                                  colaboradores: colaboradores,
+                                  porcentajesContratista: porcentajesContratista,
+                                  onEditar: () async {
+                                    final rendimientoConTipo = Map<String, dynamic>.from(rendimiento);
+                                    rendimientoConTipo['id_tipotrabajador'] ??= widget.actividad['id_tipotrabajador'];
+                                    rendimientoConTipo['id_contratista'] ??= widget.actividad['id_contratista'];
+                                    rendimientoConTipo['id_actividad'] ??= widget.actividad['id'];
+                                    if (rendimiento['tipo'] == 'grupal') {
+                                      final result = await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => EditarRendimientosGrupalesPage(rendimiento: rendimientoConTipo),
+                                        ),
+                                      );
+                                      if (result == true) {
+                                        _cargarRendimientos();
+                                      }
+                                    } else {
+                                      final result = await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => EditarRendimientosIndividualesPage(rendimiento: rendimientoConTipo),
+                                        ),
+                                      );
+                                      if (result == true) {
+                                        _cargarRendimientos();
+                                      }
+                                    }
+                                  },
+                                  onEliminar: () => _confirmarEliminarRendimiento(rendimiento),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final tipo = widget.actividad['id_tiporendimiento'];
+          final idTipotrabajador = widget.actividad['id_tipotrabajador'];
+          final idContratista = widget.actividad['id_contratista']?.toString();
+          if (tipo == 1) {
+            // Individual
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CrearRendimientoIndividualPage(
+                  idActividad: widget.actividad['id'].toString(),
+                  idTipotrabajador: idTipotrabajador,
+                  idContratista: idContratista,
                 ),
               ),
             );
-          },
-        );
-      },
+            if (result == true) {
+              _cargarRendimientos();
+            }
+          } else {
+            // Grupal
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CrearRendimientoGrupalPage(
+                  actividad: widget.actividad,
+                ),
+              ),
+            );
+            if (result == true) {
+              _cargarRendimientos();
+            }
+          }
+        },
+        child: Icon(Icons.add),
+        tooltip: 'Agregar Rendimiento',
+      ),
     );
   }
 
-  Widget _buildRendimientoCard(dynamic rendimiento) {
-    final actividad = _obtenerDatosActividad(rendimiento['id_actividad']);
-    final tipoRendimiento = actividad['id_tipo_rend'] == 1 ? 'Individual' : 'Grupal';
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final cardColor = theme.colorScheme.surface;
-    final borderColor = isDark ? Colors.grey[800]! : Colors.grey[200]!;
-    final textColor = theme.colorScheme.onSurface;
-
-    return InkWell(
-      onTap: () async {
-        final resultado = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EditarRendimientoPage(
-              rendimiento: rendimiento,
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
             ),
           ),
-        );
-        if (resultado == true) {
-          _refreshRendimientos();
+                  Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+            ),
+                  ),
+                ],
+              ),
+    );
+  }
+
+  Future<void> _confirmarEliminarRendimiento(Map<String, dynamic> rendimiento) async {
+    final bool confirmar = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Confirmar eliminación'),
+        content: Text('¿Estás seguro de que deseas eliminar este rendimiento? Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('Eliminar', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true) {
+      setState(() => _isLoading = true);
+      bool eliminado = false;
+
+      try {
+        if (rendimiento['tipo'] == 'grupal') {
+          eliminado = await ApiService().eliminarRendimientoGrupal(rendimiento['id'].toString());
+        } else {
+          // Determinar si es rendimiento propio o de contratista
+          if (rendimiento['id_trabajador'] != null) {
+            eliminado = await ApiService().eliminarRendimientoIndividualContratista(rendimiento['id'].toString());
+          } else {
+            eliminado = await ApiService().eliminarRendimientoIndividualPropio(rendimiento['id'].toString());
+          }
         }
-      },
-      child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderColor, width: 1),
+
+        if (eliminado) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Rendimiento eliminado correctamente', style: TextStyle(color: Colors.white)),
+              backgroundColor: Colors.green,
+            ),
+          );
+          _cargarRendimientos();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('No se pudo eliminar el rendimiento', style: TextStyle(color: Colors.white)),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al eliminar: $e', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+}
+
+class _RendimientoCard extends StatelessWidget {
+  final Map<String, dynamic> rendimiento;
+  final bool esIndividual;
+  final List<Map<String, dynamic>> trabajadores;
+  final List<Map<String, dynamic>> colaboradores;
+  final List<Map<String, dynamic>> porcentajesContratista;
+  final VoidCallback onEditar;
+  final VoidCallback onEliminar;
+
+  const _RendimientoCard({
+    required this.rendimiento,
+    required this.esIndividual,
+    required this.trabajadores,
+    required this.colaboradores,
+    required this.porcentajesContratista,
+    required this.onEditar,
+    required this.onEliminar,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    String nombre = '';
+    if (rendimiento['trabajador'] != null && rendimiento['trabajador'].toString().trim().isNotEmpty) {
+      nombre = rendimiento['trabajador'];
+    } else if (rendimiento['id_trabajador'] != null && trabajadores.isNotEmpty) {
+      final t = trabajadores.firstWhereOrNull((x) => x['id'].toString() == rendimiento['id_trabajador'].toString());
+      if (t != null) {
+        nombre = ('${t['nombre']} ${t['apellido_paterno'] ?? ''} ${t['apellido_materno'] ?? ''}').trim();
+      }
+    } else if (rendimiento['id_colaborador'] != null && colaboradores.isNotEmpty) {
+      final c = colaboradores.firstWhereOrNull((x) => x['id'].toString() == rendimiento['id_colaborador'].toString());
+      if (c != null) {
+        nombre = ('${c['nombre']} ${c['apellido_paterno'] ?? ''} ${c['apellido_materno'] ?? ''}').trim();
+      }
+    } else if (rendimiento['nombre'] != null) {
+      nombre = ('${rendimiento['nombre']} ${rendimiento['apellido_paterno'] ?? ''} ${rendimiento['apellido_materno'] ?? ''}').trim();
+    }
+    String porcentaje = '';
+    if ((rendimiento['porcentaje_trabajador'] != null && rendimiento['id_trabajador'] != null) || (rendimiento['porcentaje'] != null && rendimiento['id_trabajador'] != null)) {
+      if (rendimiento['porcentaje_trabajador'] != null) {
+        final valor = (rendimiento['porcentaje_trabajador'] is num ? rendimiento['porcentaje_trabajador'] : double.tryParse(rendimiento['porcentaje_trabajador'].toString()) ?? 0) * 100;
+        porcentaje = valor.toStringAsFixed(0) + '%';
+      } else {
+        var porc = rendimiento['porcentaje'] ?? rendimiento['porcentaje_individual'];
+        if (porc == null && rendimiento['id_porcentaje_individual'] != null && rendimiento['porcentajes'] is List) {
+          final p = (rendimiento['porcentajes'] as List).firstWhereOrNull((porc) => porc['id'].toString() == rendimiento['id_porcentaje_individual'].toString());
+          if (p != null && p['porcentaje'] != null) porc = p['porcentaje'];
+        }
+        if (porc != null) {
+          final valor = (porc is num ? porc : double.tryParse(porc.toString()) ?? 0) * 100;
+          porcentaje = valor.toStringAsFixed(0) + '%';
+        }
+      }
+    }
+    return InkWell(
+      borderRadius: BorderRadius.circular(15),
+      onTap: onEditar,
+      child: Card(
+        color: Colors.white,
+        elevation: 3,
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: BorderSide(color: Colors.grey[200]!),
         ),
         child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.work, color: theme.colorScheme.primary, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      actividad['labor'] ?? 'Sin labor',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: textColor,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.all(8),
+                child: Icon(Icons.speed, color: theme.colorScheme.primary, size: 32),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Icon(Icons.speed, color: theme.colorScheme.primary, size: 16),
-                        SizedBox(width: 4),
-                        Text(
-                          'Rendimiento: ${rendimiento['rendimiento'] ?? '0'}',
-                          style: TextStyle(
-                            color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: Text(
+                            nombre,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.black87,
+                            ),
                           ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.edit, color: theme.colorScheme.primary),
+                          onPressed: onEditar,
+                          tooltip: 'Editar',
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.delete, color: Colors.red),
+                          onPressed: onEliminar,
+                          tooltip: 'Eliminar',
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(Icons.business, color: Colors.blue, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    actividad['contratista'] ?? 'Sin contratista',
-                    style: TextStyle(color: textColor.withOpacity(0.7)),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.folder, color: Colors.amber, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'CECO: ${actividad['ceco'] ?? 'No especificado'}',
-                    style: TextStyle(color: textColor.withOpacity(0.7)),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.person, color: Colors.purple, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Trabajador: ${rendimiento['trabajador'] ?? 'No especificado'}',
-                    style: TextStyle(color: textColor.withOpacity(0.7)),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.group_work, color: Colors.teal, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Tipo Rendimiento: $tipoRendimiento',
-                    style: TextStyle(color: textColor.withOpacity(0.7)),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    if (esIndividual) ...[
+                      Row(
+                        children: [
+                          Icon(Icons.speed, color: Colors.green, size: 18),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Rendimiento: ',
+                            style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                          ),
+                          Text(
+                            rendimiento['rendimiento']?.toString() ?? '-',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          if (porcentaje.isNotEmpty) ...[
+                            const SizedBox(width: 12),
+                            Icon(Icons.percent, color: Colors.green, size: 18),
+                            const SizedBox(width: 2),
+                            Text(
+                              porcentaje,
+                              style: const TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Icon(Icons.speed, color: Colors.green, size: 18),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Rendimiento total: ',
+                            style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                          ),
+                          Text(
+                            rendimiento['rendimiento_total']?.toString() ?? '-',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.groups, color: Colors.green, size: 18),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Cantidad trabajadores: ',
+                            style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                          ),
+                          Text(
+                            rendimiento['cantidad_trab']?.toString() ?? '-',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.percent, color: Colors.green, size: 18),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Porcentaje: ',
+                            style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                          ),
+                          Text(
+                            (() {
+                              var porcentaje = rendimiento['porcentaje'] ?? rendimiento['porcentaje_trabajador'];
+                              if (porcentaje == null && rendimiento['id_porcentaje'] != null) {
+                                final p = porcentajesContratista.firstWhereOrNull((porc) => porc['id'].toString() == rendimiento['id_porcentaje'].toString());
+                                if (p != null && p['porcentaje'] != null) porcentaje = p['porcentaje'];
+                              }
+                              if (porcentaje != null) {
+                                final valor = (porcentaje is num ? porcentaje : double.tryParse(porcentaje.toString()) ?? 0) * 100;
+                                return valor.toStringAsFixed(0) + '%';
+                              }
+                              return '-';
+                            })(),
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
           ),
         ),
       ),
     );
-  }
-}
-
-extension StringExtension on String {
-  String capitalize() {
-    return "${this[0].toUpperCase()}${this.substring(1)}";
   }
 }

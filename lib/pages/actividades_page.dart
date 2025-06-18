@@ -6,17 +6,15 @@ import 'login_page.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'editar_actividad_page.dart';
+import 'rendimientos_page.dart';
 
 class ActividadesPage extends StatefulWidget {
-  final VoidCallback onRefresh;
-
   const ActividadesPage({
-    required this.onRefresh,
     Key? key,
   }) : super(key: key);
 
   @override
-  _ActividadesPageState createState() => _ActividadesPageState();
+  State<ActividadesPage> createState() => _ActividadesPageState();
 }
 
 class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProviderStateMixin {
@@ -135,9 +133,14 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
         actividadesFiltradas = [...todasActividades];
       } else {
         actividadesFiltradas = todasActividades.where((actividad) {
-          return actividad['labor'].toString().toLowerCase().contains(query) ||
-              actividad['contratista'].toString().toLowerCase().contains(query) ||
-              actividad['ceco'].toString().toLowerCase().contains(query);
+          final labor = (actividad['nombre_labor'] ?? '').toString().toLowerCase();
+          final contratista = (actividad['nombre_contratista'] ?? '').toString().toLowerCase();
+          final ceco = (obtenerNombreCeco(actividad) ?? '').toString().toLowerCase();
+          final tipoRendimiento = (actividad['nombre_tiporendimiento'] ?? '').toString().toLowerCase();
+          return labor.contains(query) ||
+                 contratista.contains(query) ||
+                 ceco.contains(query) ||
+                 tipoRendimiento.contains(query);
         }).toList();
       }
     });
@@ -147,7 +150,6 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
     _refreshIconController.repeat();
     await _cargarActividades();
     _refreshIconController.stop();
-    widget.onRefresh();
   }
 
   @override
@@ -377,52 +379,64 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
     );
   }
 
+  Map<String, dynamic> getEstadoActividad(int? id) {
+    switch (id) {
+      case 1:
+        return {"nombre": "CREADA", "color": Colors.orange};
+      case 2:
+        return {"nombre": "REVISADA", "color": Colors.green};
+      case 3:
+        return {"nombre": "APROBADA", "color": Colors.green};
+      case 4:
+        return {"nombre": "FINALIZADA", "color": Colors.blue};
+      default:
+        return {"nombre": "DESCONOCIDO", "color": Colors.grey};
+    }
+  }
+
   Widget _buildActividadCard(dynamic actividad) {
-    final estado = actividad['estado'] ?? 'pendiente';
-    final Color estadoColor = estado.toLowerCase() == 'creada' 
-        ? Colors.orange 
-        : estado.toLowerCase() == 'finalizada'
-            ? Colors.green
-            : Colors.grey;
+    final estadoData = getEstadoActividad(actividad['id_estadoactividad']);
+    final String estadoNombre = estadoData['nombre'];
+    final Color estadoColor = estadoData['color'];
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final cardColor = theme.colorScheme.surface;
     final borderColor = isDark ? Colors.grey[800]! : Colors.grey[200]!;
     final textColor = theme.colorScheme.onSurface;
 
-    return InkWell(
-      onTap: () async {
-        final resultado = await Navigator.push(
+    return GestureDetector(
+      onTap: () {
+        final actividadConNombre = Map<String, dynamic>.from(actividad);
+        actividadConNombre['nombre'] = actividad['nombre_labor'] ?? 'Sin nombre';
+        Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => EditarActividadPage(
-              actividad: actividad,
+            builder: (context) => RendimientosPage(
+              actividad: actividadConNombre,
             ),
           ),
         );
-        if (resultado == true) {
-          _refreshActividades();
-        }
       },
-      child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
+      child: Card(
           color: cardColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderColor, width: 1),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: BorderSide(color: borderColor, width: 1),
         ),
+        elevation: 0,
+        margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.work, color: theme.colorScheme.primary, size: 20),
+                  Icon(Icons.work, color: primaryColor),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      actividad['labor'] ?? 'Sin labor',
+                      actividad['nombre_labor'] ?? 'Sin labor',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -431,52 +445,160 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
                     ),
                   ),
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: estadoColor,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      estado.toUpperCase(),
+                      actividad['nombre_estado'] ?? 'Sin estado',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
                         fontWeight: FontWeight.bold,
+                        fontSize: 13,
                       ),
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 12),
+              SizedBox(height: 8),
               Row(
                 children: [
-                  Icon(Icons.business, color: Colors.blue, size: 20),
+                  Icon(Icons.category, color: Colors.purple, size: 20),
                   SizedBox(width: 8),
                   Text(
-                    actividad['contratista'] ?? 'Sin contratista',
+                    'Tipo CECO: ${actividad['nombre_tipoceco'] ?? 'Sin tipo de CECO'}',
                     style: TextStyle(color: textColor.withOpacity(0.7)),
                   ),
                 ],
               ),
               SizedBox(height: 8),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Icon(Icons.folder, color: Colors.amber, size: 20),
                   SizedBox(width: 8),
-                  Text(
-                    'CECO: ${actividad['ceco'] ?? 'No especificado'}',
-                    style: TextStyle(color: textColor.withOpacity(0.7)),
+                  Expanded(
+                    child: Text(
+                      'CECO: ${obtenerNombreCeco(actividad)}',
+                      style: TextStyle(color: textColor.withOpacity(0.7)),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.edit, color: Colors.green, size: 28),
+                    onPressed: () async {
+                      final resultado = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditarActividadPage(
+                            actividad: actividad,
+                          ),
+                        ),
+                      );
+                      if (resultado == true) _refreshActividades();
+                    },
+                    tooltip: 'Editar',
                   ),
                 ],
               ),
               SizedBox(height: 8),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.business, color: Colors.blue, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      actividad['nombre_contratista'] ?? 'PERSONAL PROPIO',
+                    style: TextStyle(color: textColor.withOpacity(0.7)),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Icon(Icons.assessment, color: Colors.purple, size: 20),
                   SizedBox(width: 8),
-                  Text(
-                    'Rendimiento: ${actividad['tipo_rend'] ?? 'No especificado'}',
+                  Expanded(
+                    child: Text(
+                      'Rendimiento: ${actividad['nombre_tiporendimiento'] ?? 'Sin tipo de rendimiento'}',
                     style: TextStyle(color: textColor.withOpacity(0.7)),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.delete, color: Colors.red, size: 28),
+                    onPressed: () async {
+                      final confirmacion = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: Text("¿Eliminar actividad?"),
+                          content: Text("¿Está seguro que desea eliminar esta actividad?"),
+                          actions: [
+                            TextButton(
+                              child: Text("Cancelar"),
+                              onPressed: () => Navigator.pop(context, false),
+                            ),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: Text("Eliminar"),
+                              onPressed: () => Navigator.pop(context, true),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmacion == true) {
+                        try {
+                          final exito = await ApiService().eliminarActividad(actividad['id'].toString());
+                          if (exito) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.check_circle, color: Colors.white),
+                                    SizedBox(width: 8),
+                                    Text("Actividad eliminada correctamente"),
+                                  ],
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                            _refreshActividades();
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.error_outline, color: Colors.white),
+                                    SizedBox(width: 8),
+                                    Text("No se pudo eliminar la actividad"),
+                                  ],
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  Icon(Icons.error_outline, color: Colors.white),
+                                  SizedBox(width: 8),
+                                  Text("Error al eliminar la actividad: "+e.toString()),
+                                ],
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    tooltip: 'Eliminar',
                   ),
                 ],
               ),
@@ -485,6 +607,39 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
         ),
       ),
     );
+  }
+
+  String obtenerNombreCeco(Map<String, dynamic> actividad) {
+    String nombreCeco = 'Sin CECO';
+    switch ((actividad['nombre_tipoceco'] ?? '').toString().toUpperCase()) {
+      case 'PRODUCTIVO':
+        if (actividad['cecos_productivos'] != null && actividad['cecos_productivos'].isNotEmpty) {
+          nombreCeco = actividad['cecos_productivos'][0]['nombre'] ?? 'Sin CECO';
+        }
+        break;
+      case 'RIEGO':
+        if (actividad['cecos_riego'] != null && actividad['cecos_riego'].isNotEmpty) {
+          nombreCeco = actividad['cecos_riego'][0]['nombre'] ?? 'Sin CECO';
+        }
+        break;
+      case 'MAQUINARIA':
+        if (actividad['cecos_maquinaria'] != null && actividad['cecos_maquinaria'].isNotEmpty) {
+          nombreCeco = actividad['cecos_maquinaria'][0]['nombre'] ?? 'Sin CECO';
+        }
+        break;
+      case 'INVERSION':
+        if (actividad['cecos_inversion'] != null && actividad['cecos_inversion'].isNotEmpty) {
+          nombreCeco = actividad['cecos_inversion'][0]['nombre'] ?? 'Sin CECO';
+        }
+        break;
+      case 'ADMINISTRATIVO':
+        if (actividad['cecos_administrativos'] != null && actividad['cecos_administrativos'].isNotEmpty) {
+          nombreCeco = actividad['cecos_administrativos'][0]['nombre'] ?? 'Sin CECO';
+        }
+        break;
+      // Puedes agregar más casos si tienes otros tipos
+    }
+    return nombreCeco;
   }
 }
 

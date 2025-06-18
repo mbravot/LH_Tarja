@@ -1,18 +1,14 @@
-import 'package:app_lh_tarja/pages/usuarios_page.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-import 'pages/login_page.dart';
-import 'pages/home_page.dart';
-import 'providers/theme_provider.dart';
-import 'routes.dart';
+import 'package:app_lh_tarja/pages/login_page.dart';
+import 'package:app_lh_tarja/pages/home_page.dart';
+import 'package:app_lh_tarja/theme/app_theme.dart';
+import 'package:app_lh_tarja/providers/theme_provider.dart';
+import 'package:app_lh_tarja/routes.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Agregamos el observer para detectar cierre de la app
-  WidgetsBinding.instance.addObserver(LifecycleEventHandler());
-
   final prefs = await SharedPreferences.getInstance();
   final String? token = prefs.getString('token');
 

@@ -1,28 +1,44 @@
-import 'package:app_lh_tarja/services/login_services.dart';
 import 'package:flutter/material.dart';
+import 'package:app_lh_tarja/services/login_services.dart';
+import 'package:app_lh_tarja/theme/app_theme.dart';
+import 'package:app_lh_tarja/pages/home_page.dart';
 
 class LoginPage extends StatefulWidget {
+  const LoginPage({Key? key}) : super(key: key);
+
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final AuthService authService = AuthService();
-  final TextEditingController correoController = TextEditingController();
-  final TextEditingController claveController = TextEditingController();
-  bool _obscureText = true;
+  final _formKey = GlobalKey<FormState>();
+  final _usuarioController = TextEditingController();
+  final _claveController = TextEditingController();
   bool _isLoading = false;
+  bool _obscureText = true;
 
-  void login() async {
-    if (!_validateInputs()) return;
+  @override
+  void dispose() {
+    _usuarioController.dispose();
+    _claveController.dispose();
+    super.dispose();
+  }
 
+  Future<void> _login() async {
+    if (_formKey.currentState!.validate()) {
     setState(() => _isLoading = true);
 
     try {
-      await authService.login(correoController.text, claveController.text);
-      if (mounted) {
+        await AuthService().login(
+          _usuarioController.text,
+          _claveController.text,
+        );
+
+        if (!mounted) return;
+
+        // Mostrar mensaje de bienvenida
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Row(
               children: [
                 Icon(Icons.check_circle, color: Colors.white),
@@ -30,56 +46,41 @@ class _LoginPageState extends State<LoginPage> {
                 Text('¡Bienvenido!'),
               ],
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: successColor,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(10)),
+            ),
           ),
         );
-        Navigator.pushReplacementNamed(context, '/home');
-      }
+
+        // Navegar a HomePage y reemplazar la página actual
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()),
+        );
     } catch (e) {
-      if (mounted) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
-                Icon(Icons.error_outline, color: Colors.white),
-                SizedBox(width: 8),
-                Text('Credenciales incorrectas'),
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('Usuario o clave incorrecto o sin acceso a la app!'),
               ],
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: errorColor,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
-      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
   }
-
-  bool _validateInputs() {
-    if (correoController.text.isEmpty || claveController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Por favor complete todos los campos'),
-            ],
-          ),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-      return false;
-    }
-    return true;
   }
 
   @override
@@ -113,11 +114,13 @@ class _LoginPageState extends State<LoginPage> {
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 30),
+              child: Form(
+                key: _formKey,
               child: Column(
                 children: [
                   // 🟢 Logo con animación de escala
                   TweenAnimationBuilder(
-                    duration: Duration(milliseconds: 600),
+                      duration: const Duration(milliseconds: 600),
                     tween: Tween<double>(begin: 0.5, end: 1.0),
                     curve: Curves.easeOutBack,
                     builder: (context, double value, child) {
@@ -127,7 +130,7 @@ class _LoginPageState extends State<LoginPage> {
                       );
                     },
                     child: Container(
-                      padding: EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
@@ -145,10 +148,10 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ),
-                  SizedBox(height: 30),
+                    const SizedBox(height: 30),
                   // 🟢 Título con animación de opacidad
                   TweenAnimationBuilder(
-                    duration: Duration(milliseconds: 800),
+                      duration: const Duration(milliseconds: 800),
                     tween: Tween<double>(begin: 0.0, end: 1.0),
                     builder: (context, double value, child) {
                       return Opacity(
@@ -158,7 +161,7 @@ class _LoginPageState extends State<LoginPage> {
                     },
                     child: Column(
                       children: [
-                        Text(
+                          const Text(
                           "Bienvenido a LH Tarja",
                           style: TextStyle(
                             fontSize: 26,
@@ -173,8 +176,8 @@ class _LoginPageState extends State<LoginPage> {
                             ],
                           ),
                         ),
-                        SizedBox(height: 8),
-                        Text(
+                          const SizedBox(height: 8),
+                          const Text(
                           "Inicia sesión para continuar 🌿",
                           style: TextStyle(
                             fontSize: 16,
@@ -191,92 +194,90 @@ class _LoginPageState extends State<LoginPage> {
                       ],
                     ),
                   ),
-                  SizedBox(height: 40),
-                  // 📨 Campo correo con animación de slide
+                    const SizedBox(height: 40),
+                    // 📨 Campo usuario con animación de slide
                   TweenAnimationBuilder(
-                    duration: Duration(milliseconds: 1000),
+                      duration: const Duration(milliseconds: 1000),
                     tween: Tween<Offset>(
-                      begin: Offset(-1, 0),
+                        begin: const Offset(-1, 0),
                       end: Offset.zero,
                     ),
-                    curve: Curves.easeOutCubic,
                     builder: (context, Offset offset, child) {
-                      return FractionalTranslation(
-                        translation: offset,
+                        return Transform.translate(
+                          offset: offset,
                         child: child,
                       );
                     },
                     child: Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(10),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
                             blurRadius: 10,
-                            offset: Offset(0, 5),
+                              spreadRadius: 2,
                           ),
                         ],
                       ),
-                      child: TextField(
-                        controller: correoController,
-                        style: TextStyle(color: Colors.black),
+                        child: TextFormField(
+                          controller: _usuarioController,
+                          style: const TextStyle(color: Colors.black),
                         decoration: InputDecoration(
-                          prefixIcon: Icon(Icons.email, color: Colors.green),
+                            prefixIcon: const Icon(Icons.person, color: primaryColor),
                           filled: true,
                           fillColor: Colors.white,
-                          hintText: 'Correo',
-                          hintStyle: TextStyle(color: Colors.grey),
+                            hintText: 'Usuario',
+                            hintStyle: const TextStyle(color: Colors.grey),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide.none,
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(15),
-                            borderSide: BorderSide.none,
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(15),
-                            borderSide: BorderSide(color: Colors.green, width: 2),
-                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Por favor ingrese su usuario';
+                            }
+                            return null;
+                          },
                         ),
                       ),
                     ),
-                  ),
-                  SizedBox(height: 20),
-                  // 🔑 Campo contraseña con animación de slide
+                    const SizedBox(height: 20),
+                    // 🔑 Campo clave con animación de slide
                   TweenAnimationBuilder(
-                    duration: Duration(milliseconds: 1200),
+                      duration: const Duration(milliseconds: 1200),
                     tween: Tween<Offset>(
-                      begin: Offset(1, 0),
+                        begin: const Offset(1, 0),
                       end: Offset.zero,
                     ),
-                    curve: Curves.easeOutCubic,
                     builder: (context, Offset offset, child) {
-                      return FractionalTranslation(
-                        translation: offset,
+                        return Transform.translate(
+                          offset: offset,
                         child: child,
                       );
                     },
                     child: Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(10),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
                             blurRadius: 10,
-                            offset: Offset(0, 5),
+                              spreadRadius: 2,
                           ),
                         ],
                       ),
-                      child: TextField(
-                        controller: claveController,
+                        child: TextFormField(
+                          controller: _claveController,
                         obscureText: _obscureText,
-                        style: TextStyle(color: Colors.black),
+                          style: const TextStyle(color: Colors.black),
+                          textInputAction: TextInputAction.done,
+                          onFieldSubmitted: (_) => _login(),
                         decoration: InputDecoration(
-                          prefixIcon: Icon(Icons.lock, color: Colors.green),
+                            prefixIcon: const Icon(Icons.lock, color: primaryColor),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscureText ? Icons.visibility_off : Icons.visibility,
+                                _obscureText ? Icons.visibility : Icons.visibility_off,
                               color: Colors.grey,
                             ),
                             onPressed: () {
@@ -288,93 +289,63 @@ class _LoginPageState extends State<LoginPage> {
                           filled: true,
                           fillColor: Colors.white,
                           hintText: 'Clave',
-                          hintStyle: TextStyle(color: Colors.grey),
+                            hintStyle: const TextStyle(color: Colors.grey),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide.none,
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(15),
-                            borderSide: BorderSide.none,
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(15),
-                            borderSide: BorderSide(color: Colors.green, width: 2),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Por favor ingrese su clave';
+                            }
+                            return null;
+                          },
+                        ),
                           ),
                         ),
-                        onSubmitted: (_) => login(),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 30),
-                  // ✅ Botón login con animación de slide
+                    const SizedBox(height: 30),
+                    // 🟢 Botón de login con animación de opacidad
                   TweenAnimationBuilder(
-                    duration: Duration(milliseconds: 1400),
-                    tween: Tween<Offset>(
-                      begin: Offset(0, 1),
-                      end: Offset.zero,
-                    ),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, Offset offset, child) {
-                      return FractionalTranslation(
-                        translation: offset,
+                      duration: const Duration(milliseconds: 1400),
+                      tween: Tween<double>(begin: 0.0, end: 1.0),
+                      builder: (context, double value, child) {
+                        return Opacity(
+                          opacity: value,
                         child: child,
                       );
                     },
-                    child: Container(
+                      child: SizedBox(
                       width: double.infinity,
-                      height: 55,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(30),
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.green.shade700,
-                            Colors.green.shade500,
-                          ],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.green.withOpacity(0.3),
-                            blurRadius: 10,
-                            offset: Offset(0, 5),
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _login,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
                           ),
-                        ],
-                      ),
-                      child: ElevatedButton.icon(
-                        onPressed: _isLoading ? null : login,
-                        icon: _isLoading
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
+                            elevation: 5,
+                          ),
+                          child: _isLoading
+                              ? const CircularProgressIndicator(
                                   color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
                               )
-                            : Icon(Icons.login),
-                        label: Text(
-                          _isLoading ? "Ingresando..." : "Ingresar",
+                              : const Text(
+                                  'Iniciar Sesión',
                           style: TextStyle(
-                            fontSize: 16,
+                                    fontSize: 18,
                             fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
                           ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          padding: EdgeInsets.symmetric(vertical: 14),
                         ),
                       ),
                     ),
-                  ),
-                  SizedBox(height: 30),
+                    const SizedBox(height: 30),
                   // Footer con animación de opacidad
                   TweenAnimationBuilder(
-                    duration: Duration(milliseconds: 1600),
+                      duration: const Duration(milliseconds: 1600),
                     tween: Tween<double>(begin: 0.0, end: 1.0),
                     builder: (context, double value, child) {
                       return Opacity(
@@ -382,8 +353,8 @@ class _LoginPageState extends State<LoginPage> {
                         child: child,
                       );
                     },
-                    child: Text(
-                      " 2025 La Hornilla - Departamento de TI",
+                      child: const Text(
+                        "© 2025 La Hornilla - Departamento de TI",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white70,
@@ -392,6 +363,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ],
+                ),
               ),
             ),
           ),

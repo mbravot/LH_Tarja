@@ -4,14 +4,24 @@ import 'package:intl/intl.dart';
 //import 'package:dropdown_search/dropdown_search.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:collection/collection.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/app_theme.dart';
+import 'ceco_administrativo_form.dart';
+import 'ceco_productivo_form.dart';
+import 'ceco_maquinaria_form.dart';
+import 'ceco_inversion_form.dart';
+import 'ceco_riego_form.dart';
 
 class NuevaActividadPage extends StatefulWidget {
+  const NuevaActividadPage({Key? key}) : super(key: key);
+
   @override
-  _NuevaActividadPageState createState() => _NuevaActividadPageState();
+  State<NuevaActividadPage> createState() => _NuevaActividadPageState();
 }
 
 class _NuevaActividadPageState extends State<NuevaActividadPage> {
   final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
 
   // Variables para cada campo
   DateTime selectedDate = DateTime.now();
@@ -33,15 +43,13 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
   String? selectedSucursal;
 
   // Listas cargadas desde la API
-  List<Map<String, dynamic>> especies = [];
-  List<Map<String, dynamic>> variedades = [];
-  List<Map<String, dynamic>> cecos = [];
   List<Map<String, dynamic>> labores = [];
   List<Map<String, dynamic>> unidades = [];
   List<Map<String, dynamic>> tiposTrabajadores = [];
   List<Map<String, dynamic>> contratistas = [];
   List<Map<String, dynamic>> tiposRendimientos = [];
   List<Map<String, dynamic>> sucursales = [];
+  List<Map<String, dynamic>> tipoCecos = [];
 
   // Valores por defecto
   final String estado = "creada";
@@ -62,82 +70,33 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
     try {
       idSucursalUsuario = await ApiService().getSucursalActiva();
       selectedSucursal = idSucursalUsuario;
-      await _cargarOpciones();
+      await _loadData();
     } catch (e) {
       print("❌ Error al obtener datos iniciales: $e");
     }
   }
 
-  Future<void> _cargarOpciones() async {
+  Future<void> _loadData() async {
     try {
-      especies = await ApiService().getEspecies();
-      labores = await ApiService().getLabores();
-      unidades = await ApiService().getUnidades();
-      tiposTrabajadores = await ApiService().getTipoTrabajadores();
-      tiposRendimientos = await ApiService().getTipoRendimientos();
-      sucursales = await ApiService().getSucursales();
-
-      if (especies.isNotEmpty) {
-        selectedEspecie = especies.first['id'].toString();
-        await _cargarVariedades(selectedEspecie!);
-      }
-
-      if (selectedEspecie != null && selectedVariedad != null) {
-        await _cargarCecos();
-      }
-
-      setState(() {});
-    } catch (e) {
-      print("❌ Error al cargar opciones: $e");
-    }
-  }
-
-  Future<void> _cargarVariedades(String? idEspecie) async {
-    if (idEspecie == null || idEspecie.isEmpty || idSucursalUsuario == null) {
-      print("⚠ No se envió un id_especie o id_sucursal válido");
-      print("🔍 idEspecie: $idEspecie, idSucursalUsuario: $idSucursalUsuario");
-      return;
-    }
-
-    print(
-        "🔍 Solicitando variedades para especie: $idEspecie y sucursal: $idSucursalUsuario");
-
-    try {
-      List<Map<String, dynamic>> fetchedVariedades =
-          await ApiService().getVariedades(idEspecie, idSucursalUsuario!);
-
-      print("✅ Variedades recibidas: $fetchedVariedades");
-
+      // Cargar datos de la API
+      final data = await ApiService().getOpciones();
+      print('Labores: \\${data['labores']}');
+      print('Unidades: \\${data['unidades']}');
+      print('TipoCecos: \\${data['tipoCecos']}');
       setState(() {
-        variedades = fetchedVariedades;
-        selectedVariedad = null;
+        tiposTrabajadores = List<Map<String, dynamic>>.from(data['tiposTrabajadores'] ?? []);
+        contratistas = List<Map<String, dynamic>>.from(data['contratistas'] ?? []);
+        tiposRendimientos = List<Map<String, dynamic>>.from(data['tiposRendimientos'] ?? []);
+        labores = List<Map<String, dynamic>>.from(data['labores'] ?? []);
+        unidades = List<Map<String, dynamic>>.from(data['unidades'] ?? []);
+        tipoCecos = List<Map<String, dynamic>>.from(data['tipoCecos'] ?? []);
+        // Seleccionar automáticamente el CECO Productivo (id = 2)
+        selectedCeco = '2';
       });
     } catch (e) {
-      print("❌ Error al cargar variedades: $e");
-    }
-  }
-
-  Future<void> _cargarCecos() async {
-    if (selectedEspecie == null ||
-        selectedVariedad == null ||
-        idSucursalUsuario == null) {
-      print("⚠ No se envió un id_especie, id_variedad o id_sucursal válido");
-      print(
-          "🔍 idEspecie: $selectedEspecie, idVariedad: $selectedVariedad, idSucursalUsuario: $idSucursalUsuario");
-      return;
-    }
-
-    print(
-        "🔍 Solicitando CECOs para especie: $selectedEspecie, variedad: $selectedVariedad y sucursal: $idSucursalUsuario");
-
-    try {
-      cecos = await ApiService()
-          .getCecos(selectedEspecie!, selectedVariedad!, idSucursalUsuario!);
-      print("✅ CECOs recibidos: $cecos");
-
-      setState(() {});
-    } catch (e) {
-      print("❌ Error al cargar CECOs: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al cargar datos: $e")),
+      );
     }
   }
 
@@ -154,7 +113,6 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
 
       final lista = await ApiService().getContratistas(
         idSucursalUsuario!,
-        selectedTipoTrabajador!,
       );
 
       String? contratistaPropioId;
@@ -205,41 +163,96 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
     }
   }
 
-  void _submit() async {
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      final horaInicioStr = horaInicio != null
-          ? "${horaInicio!.hour.toString().padLeft(2, '0')}:${horaInicio!.minute.toString().padLeft(2, '0')}:00"
-          : "";
-      final horaFinStr = horaFin != null
-          ? "${horaFin!.hour.toString().padLeft(2, '0')}:${horaFin!.minute.toString().padLeft(2, '0')}:00"
-          : "";
-
-      Map<String, dynamic> nuevaActividad = {
-        "fecha": selectedDate.toIso8601String().split("T").first,
-        "id_usuario": idUsuario,
-        "id_especie": selectedEspecie,
-        "id_variedad": selectedVariedad,
-        "id_ceco": selectedCeco,
-        "id_labor": selectedLabor,
-        "id_unidad": selectedUnidad,
-        "id_tipo_trab": selectedTipoTrabajador,
-        "id_contratista": selectedContratista,
-        "id_tipo_rend": selectedTipoRendimiento,
-        "id_sucursal": selectedSucursal,
-        "hora_inicio": horaInicioStr,
-        "hora_fin": horaFinStr,
-        "horas_trab": horasTrabajadas,
-        "estado": estado,
-        "tarifa": tarifaController.text,
-        "OC": oc,
-      };
+      _formKey.currentState!.save();
+      setState(() => _isLoading = true);
 
       try {
-        bool success = await ApiService().createActividad(nuevaActividad);
-        if (success) Navigator.pop(context, true);
+        final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString('token');
+        final idSucursal = prefs.getString('id_sucursal');
+
+        if (token == null || idSucursal == null) {
+          throw Exception('No se encontró el token o la sucursal');
+        }
+
+        final actividad = {
+          'fecha': DateFormat('yyyy-MM-dd').format(selectedDate),
+          'id_tipotrabajador': selectedTipoTrabajador,
+          'id_contratista': selectedTipoTrabajador == '2' ? selectedContratista : null,
+          'id_tiporendimiento': selectedTipoRendimiento,
+          'id_labor': selectedLabor,
+          'id_unidad': selectedUnidad,
+          'id_tipoceco': selectedCeco,
+          'tarifa': tarifaController.text,
+          'hora_inicio': horaInicio != null ? "${horaInicio!.hour.toString().padLeft(2, '0')}:${horaInicio!.minute.toString().padLeft(2, '0')}:00" : null,
+          'hora_fin': horaFin != null ? "${horaFin!.hour.toString().padLeft(2, '0')}:${horaFin!.minute.toString().padLeft(2, '0')}:00" : null,
+          'id_estadoactividad': 1, // Estado creada
+        };
+
+        final response = await ApiService().crearActividad(actividad);
+
+        if (response['success'] == true) {
+          final idActividad = response['id_actividad'];
+          
+          // Navegar al formulario de CECO correspondiente
+          if (!mounted) return;
+          
+          switch (selectedCeco) {
+            case '1':
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CecoAdministrativoForm(idActividad: idActividad),
+                ),
+              );
+              break;
+            case '2':
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CecoProductivoForm(idActividad: idActividad),
+                ),
+              );
+              break;
+            case '3':
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CecoMaquinariaForm(idActividad: idActividad),
+                ),
+              );
+              break;
+            case '4':
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CecoInversionForm(idActividad: idActividad),
+                ),
+              );
+              break;
+            case '5':
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CecoRiegoForm(idActividad: idActividad),
+                ),
+              );
+              break;
+          }
+        } else {
+          throw Exception(response['error'] ?? 'Error al crear la actividad');
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Error: $e")));
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
     }
   }
@@ -278,12 +291,13 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
                   SizedBox(height: 16),
                   
                   // Personal (Contratista)
+                  if (selectedTipoTrabajador == "2")
                   buildSearchableDropdown(
                     label: "Personal",
                     items: contratistas,
                     selectedValue: selectedContratista,
                     onChanged: (val) => setState(() => selectedContratista = val),
-                    isDisabled: selectedTipoTrabajador == "1",
+                      isDisabled: false,
                     icon: Icons.person,
                   ),
                   SizedBox(height: 16),
@@ -302,45 +316,6 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
                 Icons.work,
                 [
                   buildSearchableDropdown(
-                    label: "Especie",
-                    items: especies,
-                    selectedValue: selectedEspecie,
-                    onChanged: (val) {
-                      setState(() {
-                        selectedEspecie = val;
-                        selectedVariedad = null;
-                        _cargarVariedades(val!);
-                      });
-                    },
-                    icon: Icons.eco,
-                  ),
-                  SizedBox(height: 16),
-                  
-                  buildSearchableDropdown(
-                    label: "Variedad",
-                    items: variedades,
-                    selectedValue: selectedVariedad,
-                    onChanged: (val) {
-                      setState(() {
-                        selectedVariedad = val;
-                        selectedCeco = null;
-                        _cargarCecos();
-                      });
-                    },
-                    icon: Icons.category,
-                  ),
-                  SizedBox(height: 16),
-                  
-                  buildSearchableDropdown(
-                    label: "CECO",
-                    items: cecos,
-                    selectedValue: selectedCeco,
-                    onChanged: (val) => setState(() => selectedCeco = val),
-                    icon: Icons.business,
-                  ),
-                  SizedBox(height: 16),
-                  
-                  buildSearchableDropdown(
                     label: "Labor",
                     items: labores,
                     selectedValue: selectedLabor,
@@ -351,16 +326,27 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
                   
                   buildSearchableDropdown(
                     label: "Unidad",
-                    items: unidades.where((u) {
-                      final idUnidad = u['id'].toString();
-                      if (selectedTipoTrabajador == "2") {
-                        return idUnidad != "35" && idUnidad != "36";
-                      }
-                      return true;
-                    }).toList(),
+                    items: unidades,
                     selectedValue: selectedUnidad,
-                    onChanged: (val) => setState(() => selectedUnidad = val),
+                    onChanged: (val) {
+                      setState(() {
+                        selectedUnidad = val;
+                      });
+                    },
                     icon: Icons.straighten,
+                  ),
+                  SizedBox(height: 16),
+                  
+                  buildSearchableDropdown(
+                    label: "Tipo CECO",
+                    items: tipoCecos,
+                    selectedValue: selectedCeco,
+                    onChanged: (val) {
+                      setState(() {
+                        selectedCeco = val;
+                      });
+                    },
+                    icon: Icons.category,
                   ),
                   SizedBox(height: 16),
                   
@@ -433,7 +419,7 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
 
               // Botón de Submit
               ElevatedButton.icon(
-                onPressed: _submit,
+                onPressed: _submitForm,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: secondaryColor,

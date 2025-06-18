@@ -1,196 +1,299 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
 
 class NuevoContratistaPage extends StatefulWidget {
+  const NuevoContratistaPage({super.key});
+
   @override
-  _NuevoContratistaPageState createState() => _NuevoContratistaPageState();
+  State<NuevoContratistaPage> createState() => _NuevoContratistaPageState();
 }
 
 class _NuevoContratistaPageState extends State<NuevoContratistaPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _rutController = TextEditingController();
-  final TextEditingController _nombreController = TextEditingController();
-  final Color primaryColor = Colors.green;
+  final _apiService = ApiService();
+  bool _isLoading = false;
 
-  bool _guardando = false;
+  final _nombreController = TextEditingController();
+  final _rutController = TextEditingController();
+  final _codigoVerificadorController = TextEditingController();
+  int _estadoSeleccionado = 1;
 
-  Future<void> _guardar() async {
+  final List<Map<String, dynamic>> _estados = [
+    {"id": 1, "nombre": "Activo"},
+    {"id": 2, "nombre": "Inactivo"},
+  ];
+
+  void _calcularDV() {
+    String rut = _rutController.text.replaceAll('.', '').replaceAll('-', '');
+    if (rut.isEmpty || int.tryParse(rut) == null) {
+      _codigoVerificadorController.text = '';
+      return;
+    }
+    int suma = 0;
+    int multiplicador = 2;
+    for (int i = rut.length - 1; i >= 0; i--) {
+      suma += int.parse(rut[i]) * multiplicador;
+      multiplicador++;
+      if (multiplicador > 7) multiplicador = 2;
+    }
+    int resto = suma % 11;
+    int dvNum = 11 - resto;
+    String dv;
+    if (dvNum == 11) {
+      dv = '0';
+    } else if (dvNum == 10) {
+      dv = 'K';
+    } else {
+      dv = dvNum.toString();
+    }
+    _codigoVerificadorController.text = dv;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _rutController.addListener(_calcularDV);
+  }
+
+  @override
+  void dispose() {
+    _nombreController.dispose();
+    _rutController.dispose();
+    _codigoVerificadorController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _guardarContratista() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final data = {
-      "rut": _rutController.text.trim(),
-      "nombre": _nombreController.text.trim(),
-    };
+    setState(() => _isLoading = true);
 
-    setState(() {
-      _guardando = true;
-    });
+    try {
+      final contratistaData = {
+        'nombre': _nombreController.text,
+        'rut': int.parse(_rutController.text),
+        'codigo_verificador': _codigoVerificadorController.text,
+        'id_estado': _estadoSeleccionado,
+      };
 
-    final exito = await ApiService().crearContratista(data);
+      await _apiService.createContratista(contratistaData);
 
-    setState(() {
-      _guardando = false;
-    });
-
-    if (exito) {
+      if (!mounted) return;
+      Navigator.pop(context, true);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Contratista creado exitosamente')),
+        const SnackBar(
+          content: Text('Contratista creado exitosamente'),
+          backgroundColor: Colors.green,
+        ),
       );
-      Navigator.pop(context, true); // ⬅️ Volver indicando que se actualice
-    } else {
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al crear contratista')),
+        SnackBar(
+          content: Text('Error al crear el contratista: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
+
+  Widget _buildSection(String title, IconData icon, List<Widget> children) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: theme.colorScheme.primary, size: 24),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...children,
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          "Nuevo Contratista",
-          style: TextStyle(color: Colors.white),
-        ),
-        backgroundColor: primaryColor,
-        iconTheme: IconThemeData(color: Colors.white),
+        title: const Text('Nuevo Contratista', style: TextStyle(color: Colors.white)),
+        backgroundColor: theme.colorScheme.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.white,
-                Colors.green.withOpacity(0.1),
-              ],
-            ),
-          ),
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                      side: BorderSide(
-                        color: primaryColor.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.business, color: primaryColor),
-                              SizedBox(width: 10),
-                              Text(
-                                "Datos del Contratista",
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: primaryColor,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildSection(
+                      'Datos del Contratista',
+                      Icons.business,
+                      [
+                        TextFormField(
+                          controller: _nombreController,
+                          decoration: InputDecoration(
+                            labelText: 'Nombre',
+                            prefixIcon: Icon(Icons.person, color: theme.colorScheme.primary),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Por favor ingrese el nombre';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: TextFormField(
+                                controller: _rutController,
+                                decoration: InputDecoration(
+                                  labelText: 'RUT',
+                                  prefixIcon: Icon(Icons.badge, color: theme.colorScheme.primary),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.grey[50],
                                 ),
+                                keyboardType: TextInputType.number,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Por favor ingrese el RUT';
+                                  }
+                                  if (int.tryParse(value) == null) {
+                                    return 'El RUT debe ser un número';
+                                  }
+                                  return null;
+                                },
                               ),
-                            ],
-                          ),
-                          SizedBox(height: 20),
-                          TextFormField(
-                            controller: _rutController,
-                            decoration: InputDecoration(
-                              labelText: 'RUT',
-                              prefixIcon: Icon(Icons.badge_outlined, color: primaryColor),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: primaryColor),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey.withOpacity(0.05),
                             ),
-                            validator: (value) =>
-                                value?.isEmpty ?? true ? 'Ingrese el RUT' : null,
-                          ),
-                          SizedBox(height: 16),
-                          TextFormField(
-                            controller: _nombreController,
-                            decoration: InputDecoration(
-                              labelText: 'Nombre',
-                              prefixIcon: Icon(Icons.business_center_outlined, color: primaryColor),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              flex: 1,
+                              child: TextFormField(
+                                controller: _codigoVerificadorController,
+                                readOnly: true,
+                                decoration: InputDecoration(
+                                  labelText: 'DV',
+                                  prefixIcon: Icon(Icons.verified_user, color: theme.colorScheme.primary),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.grey[50],
+                                ),
+                                maxLength: 1,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Ingrese un RUT válido';
+                                  }
+                                  return null;
+                                },
                               ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: primaryColor),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey.withOpacity(0.05),
                             ),
-                            validator: (value) =>
-                                value?.isEmpty ?? true ? 'Ingrese el nombre' : null,
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<int>(
+                          value: _estadoSeleccionado,
+                          decoration: InputDecoration(
+                            labelText: 'Estado',
+                            prefixIcon: Icon(Icons.toggle_on, color: theme.colorScheme.primary),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
                           ),
-                        ],
-                      ),
+                          items: _estados.map((estado) {
+                            return DropdownMenuItem<int>(
+                              value: estado['id'] as int,
+                              child: Text(estado['nombre'] as String),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _estadoSeleccionado = value;
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _guardarContratista,
+                            icon: const Icon(Icons.save),
+                            label: const Text('Guardar'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.colorScheme.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _guardando ? null : _guardar,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 2,
-                    ),
-                    child: _guardando
-                        ? SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.save_outlined),
-                              SizedBox(width: 8),
-                              Text('Guardar'),
-                            ],
-                          ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
 }

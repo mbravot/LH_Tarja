@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'package:dropdown_search/dropdown_search.dart';
 
 class EditarTrabajadorPage extends StatefulWidget {
   final dynamic trabajador;
@@ -14,7 +15,9 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController rutController = TextEditingController();
   final TextEditingController nombreController = TextEditingController();
-  final TextEditingController apellidoController = TextEditingController();
+  final TextEditingController apellidoPController = TextEditingController();
+  final TextEditingController apellidoMController = TextEditingController();
+  final TextEditingController dvController = TextEditingController();
   final Color primaryColor = Colors.green;
 
   bool _guardando = false;
@@ -33,20 +36,22 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
   void initState() {
     super.initState();
     _cargarDatosIniciales();
-  }
-
-  Future<void> _cargarDatosIniciales() async {
     if (widget.trabajador != null) {
-      rutController.text = widget.trabajador['rut'] ?? '';
-      nombreController.text = widget.trabajador['nombre'] ?? '';
-      apellidoController.text = widget.trabajador['apellido'] ?? '';
+      rutController.text = widget.trabajador['rut']?.toString() ?? '';
+      nombreController.text = widget.trabajador['nombre']?.toString() ?? '';
+      apellidoPController.text = widget.trabajador['apellido_paterno']?.toString() ?? '';
+      apellidoMController.text = widget.trabajador['apellido_materno']?.toString() ?? '';
+      dvController.text = widget.trabajador['codigo_verificador']?.toString() ?? '';
       selectedContratista = widget.trabajador['id_contratista']?.toString();
       selectedPorcentaje = widget.trabajador['id_porcentaje']?.toString();
       selectedEstado = widget.trabajador['id_estado']?.toString();
     }
+    rutController.addListener(_calcularDV);
+  }
 
+  Future<void> _cargarDatosIniciales() async {
     contratistas = await ApiService().getContratistasPorSucursal();
-    porcentajes = await ApiService().getPorcentajes();
+    porcentajes = await ApiService().getPorcentajesContratista();
 
     setState(() {});
   }
@@ -66,17 +71,20 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
 
     try {
       final String nombre = nombreController.text.trim();
-      final String apellido = apellidoController.text.trim();
-      final String nomAp = "$nombre $apellido";
+      final String apellidoPaterno = apellidoPController.text.trim();
+      final String apellidoMaterno = apellidoMController.text.trim();
+      final String nomAp = "$nombre $apellidoPaterno $apellidoMaterno";
 
       Map<String, dynamic> data = {
-        "rut": rutController.text.trim(),
+        "rut": int.tryParse(rutController.text.trim()) ?? 0,
         "nombre": nombre,
-        "apellido": apellido,
+        "apellido_paterno": apellidoPaterno,
+        "apellido_materno": apellidoMaterno,
         "nom_ap": nomAp,
         "id_contratista": selectedContratista,
         "id_porcentaje": int.parse(selectedPorcentaje!),
         "id_estado": int.parse(selectedEstado!),
+        "codigo_verificador": dvController.text.trim(),
       };
 
       bool success =
@@ -96,8 +104,35 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
     }
   }
 
+  void _calcularDV() {
+    String rut = rutController.text.replaceAll('.', '').replaceAll('-', '');
+    if (rut.isEmpty || int.tryParse(rut) == null) {
+      dvController.text = '';
+      return;
+    }
+    int suma = 0;
+    int multiplicador = 2;
+    for (int i = rut.length - 1; i >= 0; i--) {
+      suma += int.parse(rut[i]) * multiplicador;
+      multiplicador++;
+      if (multiplicador > 7) multiplicador = 2;
+    }
+    int resto = suma % 11;
+    int dvNum = 11 - resto;
+    String dv;
+    if (dvNum == 11) {
+      dv = '0';
+    } else if (dvNum == 10) {
+      dv = 'K';
+    } else {
+      dv = dvNum.toString();
+    }
+    dvController.text = dv;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -136,7 +171,7 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
                 child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Row(
                         children: [
@@ -153,39 +188,71 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      TextFormField(
-                        controller: rutController,
-                        decoration: InputDecoration(
-                          labelText: 'RUT',
-                          prefixIcon: Icon(Icons.badge_outlined, color: primaryColor),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: TextFormField(
+                              controller: rutController,
+                              decoration: InputDecoration(
+                                labelText: 'RUT',
+                                prefixIcon: Icon(Icons.badge_outlined, color: primaryColor),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: primaryColor),
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey.withOpacity(0.05),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Ingrese el RUT';
+                                }
+                                return null;
+                              },
+                            ),
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 1,
+                            child: TextFormField(
+                              controller: dvController,
+                              readOnly: true,
+                              decoration: InputDecoration(
+                                labelText: 'DV',
+                                prefixIcon: Icon(Icons.verified_user_outlined, color: primaryColor),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: primaryColor, width: 2),
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey.withOpacity(0.05),
+                              ),
+                              maxLength: 1,
+                              validator: (value) {
+                                return null;
+                              },
+                            ),
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: primaryColor),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.withOpacity(0.05),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Ingrese el RUT';
-                          }
-                          return null;
-                        },
+                        ],
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: nombreController,
                         decoration: InputDecoration(
                           labelText: 'Nombre',
-                          prefixIcon: Icon(Icons.person_outline, color: primaryColor),
+                          prefixIcon: Icon(Icons.person_outline_outlined, color: primaryColor),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
@@ -201,19 +268,14 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
                           filled: true,
                           fillColor: Colors.grey.withOpacity(0.05),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Ingrese el nombre';
-                          }
-                          return null;
-                        },
+                        validator: (value) => value?.isEmpty ?? true ? 'Ingrese el nombre' : null,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
-                        controller: apellidoController,
+                        controller: apellidoPController,
                         decoration: InputDecoration(
-                          labelText: 'Apellido',
-                          prefixIcon: Icon(Icons.person_outline, color: primaryColor),
+                          labelText: 'Apellido Paterno',
+                          prefixIcon: Icon(Icons.person_outline_outlined, color: primaryColor),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
@@ -229,19 +291,14 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
                           filled: true,
                           fillColor: Colors.grey.withOpacity(0.05),
                         ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Ingrese el apellido';
-                          }
-                          return null;
-                        },
+                        validator: (value) => value?.isEmpty ?? true ? 'Ingrese el apellido paterno' : null,
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: selectedContratista,
+                      TextFormField(
+                        controller: apellidoMController,
                         decoration: InputDecoration(
-                          labelText: 'Contratista',
-                          prefixIcon: Icon(Icons.business_outlined, color: primaryColor),
+                          labelText: 'Apellido Materno (opcional)',
+                          prefixIcon: Icon(Icons.person_outline_outlined, color: primaryColor),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
@@ -257,45 +314,99 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
                           filled: true,
                           fillColor: Colors.grey.withOpacity(0.05),
                         ),
-                        items: contratistas.map((item) {
-                          return DropdownMenuItem<String>(
-                            value: item['id'].toString(),
-                            child: Text(item['nombre']),
-                          );
-                        }).toList(),
-                        onChanged: (val) => setState(() => selectedContratista = val),
-                        validator: (value) => value == null ? 'Seleccione un contratista' : null,
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: selectedPorcentaje,
-                        decoration: InputDecoration(
-                          labelText: 'Porcentaje',
-                          prefixIcon: Icon(Icons.percent_outlined, color: primaryColor),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                      if (contratistas.isEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text(
+                            'No hay contratistas disponibles para la sucursal.',
+                            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: primaryColor),
-                          ),
-                          filled: true,
-                          fillColor: Colors.grey.withOpacity(0.05),
                         ),
-                        items: porcentajes.map((item) {
-                          return DropdownMenuItem<String>(
-                            value: item['id'].toString(),
-                            child: Text('${item['porcentaje']}%'),
-                          );
-                        }).toList(),
-                        onChanged: (val) => setState(() => selectedPorcentaje = val),
-                        validator: (value) => value == null ? 'Seleccione un porcentaje' : null,
-                      ),
+                      ] else ...[
+                        DropdownSearch<Map<String, dynamic>>(
+                          items: List<Map<String, dynamic>>.from(contratistas),
+                          itemAsString: (item) => item['nombre'],
+                          selectedItem: (contratistas.isEmpty || selectedContratista == null)
+                            ? null
+                            : contratistas.firstWhere(
+                                (e) => e['id'].toString() == selectedContratista,
+                                orElse: () => <String, dynamic>{},
+                              ),
+                          onChanged: (val) {
+                            setState(() {
+                              selectedContratista = val?['id'].toString();
+                            });
+                          },
+                          dropdownDecoratorProps: DropDownDecoratorProps(
+                            dropdownSearchDecoration: InputDecoration(
+                              labelText: 'Contratista',
+                              prefixIcon: Icon(Icons.apartment, color: theme.colorScheme.primary),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[50],
+                            ),
+                          ),
+                          popupProps: PopupProps.menu(
+                            showSearchBox: true,
+                          ),
+                          validator: (val) => val == null ? 'Seleccione un contratista' : null,
+                          clearButtonProps: const ClearButtonProps(isVisible: true, icon: Icon(Icons.clear, size: 20)),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      if (porcentajes.isEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text(
+                            'No hay porcentajes disponibles.',
+                            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ] else ...[
+                        DropdownSearch<Map<String, dynamic>>(
+                          items: List<Map<String, dynamic>>.from(porcentajes),
+                          itemAsString: (item) => '${(item['porcentaje'] * 100).toStringAsFixed(0)}%',
+                          selectedItem: (porcentajes.isEmpty || selectedPorcentaje == null)
+                            ? null
+                            : porcentajes.firstWhere(
+                                (e) => e['id'].toString() == selectedPorcentaje,
+                                orElse: () => <String, dynamic>{},
+                              ),
+                          onChanged: (val) {
+                            setState(() {
+                              selectedPorcentaje = val?['id'].toString();
+                            });
+                          },
+                          dropdownDecoratorProps: DropDownDecoratorProps(
+                            dropdownSearchDecoration: InputDecoration(
+                              labelText: 'Porcentaje asignado',
+                              prefixIcon: Icon(Icons.percent, color: theme.colorScheme.primary),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[50],
+                            ),
+                          ),
+                          popupProps: PopupProps.menu(
+                            showSearchBox: true,
+                          ),
+                          validator: (val) => val == null ? 'Seleccione un porcentaje' : null,
+                          clearButtonProps: const ClearButtonProps(isVisible: true, icon: Icon(Icons.clear, size: 20)),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         value: selectedEstado,
@@ -304,23 +415,18 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
                           prefixIcon: Icon(Icons.toggle_on_outlined, color: primaryColor),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: primaryColor),
+                            borderSide: BorderSide(color: primaryColor, width: 2),
                           ),
                           filled: true,
                           fillColor: Colors.grey.withOpacity(0.05),
                         ),
-                        items: estados.map((item) {
+                        items: estados.map((estado) {
                           return DropdownMenuItem<String>(
-                            value: item['id'].toString(),
-                            child: Text(item['nombre']),
+                            value: estado['id'].toString(),
+                            child: Text(estado['nombre']),
                           );
                         }).toList(),
                         onChanged: (val) => setState(() => selectedEstado = val),
@@ -349,7 +455,7 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
                               )
                             : Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
+                                children: [
                                   Icon(Icons.save_outlined),
                                   SizedBox(width: 8),
                                   Text('Guardar Cambios'),

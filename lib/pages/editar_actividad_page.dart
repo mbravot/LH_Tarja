@@ -51,11 +51,11 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
 
     selectedEspecie = widget.actividad['id_especie']?.toString();
     selectedVariedad = widget.actividad['id_variedad']?.toString();
-    selectedCeco = widget.actividad['id_ceco']?.toString();
+    selectedCeco = widget.actividad['id_tipoceco']?.toString();
     selectedLabor = widget.actividad['id_labor']?.toString();
     selectedUnidad = widget.actividad['id_unidad']?.toString();
-    selectedTipoTrabajador = widget.actividad['id_tipo_trab']?.toString();
-    selectedTipoRendimiento = widget.actividad['id_tipo_rend']?.toString();
+    selectedTipoTrabajador = widget.actividad['id_tipotrabajador']?.toString();
+    selectedTipoRendimiento = widget.actividad['id_tiporendimiento']?.toString();
     selectedContratista = widget.actividad['id_contratista']?.toString();
 
     if (widget.actividad['hora_inicio'] != null) {
@@ -94,13 +94,13 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
       print("✅ Tipos Trabajadores cargados: $tiposTrabajadores");
       print("✅ Tipos Rendimientos cargados: $tiposRendimientos");
 
-      // ✅ Verificar que id_sucursal no sea nulo ni vacío antes de llamar a la API
-      String? idSucursal = widget.actividad['id_sucursal']?.toString();
+      // ✅ Verificar que id_sucursalactiva no sea nulo ni vacío antes de llamar a la API
+      String? idSucursal = widget.actividad['id_sucursalactiva']?.toString();
       if (idSucursal == null || idSucursal.isEmpty) {
         print(
-            "⚠️ Error: id_sucursal es nulo o vacío. No se pueden cargar contratistas.");
-      } else {
-        print("✅ id_sucursal obtenido correctamente: $idSucursal");
+            "⚠️ Error: id_sucursalactiva es nulo o vacío. No se pueden cargar contratistas.");
+      } else if (selectedTipoTrabajador != null) {
+        print("✅ id_sucursalactiva obtenido correctamente: $idSucursal");
         // ✅ Filtrar contratistas según el tipo de trabajador y sucursal
         await _cargarContratistas();
         print("✅ Contratistas cargados: $contratistas");
@@ -148,21 +148,17 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
   void _guardarCambios() async {
     try {
       final datosActualizados = {
-        "fecha": DateFormat("yyyy-MM-dd").format(selectedDate), // ✅ Corregido
-        "id_especie": selectedEspecie,
-        "id_variedad": selectedVariedad,
-        "id_ceco": selectedCeco,
+        "fecha": DateFormat("yyyy-MM-dd").format(selectedDate),
         "id_labor": selectedLabor,
         "id_unidad": selectedUnidad,
-        "id_tipo_trab": selectedTipoTrabajador,
-        "id_contratista": selectedContratista,
-        "id_tipo_rend": selectedTipoRendimiento,
-        "hora_inicio": horaInicio != null
-            ? "${horaInicio!.hour}:${horaInicio!.minute}:00"
-            : null,
-        "hora_fin":
-            horaFin != null ? "${horaFin!.hour}:${horaFin!.minute}:00" : null,
-        "tarifa": tarifaController.text
+        "id_tipotrabajador": selectedTipoTrabajador,
+        "id_contratista": selectedTipoTrabajador == "2" ? selectedContratista : null,
+        "id_tiporendimiento": selectedTipoRendimiento,
+        "hora_inicio": horaInicio != null ? "${horaInicio!.hour}:${horaInicio!.minute}:00" : null,
+        "hora_fin": horaFin != null ? "${horaFin!.hour}:${horaFin!.minute}:00" : null,
+        "id_estadoactividad": widget.actividad['id_estadoactividad'],
+        "tarifa": tarifaController.text,
+        "id_tipoceco": selectedCeco,
       };
 
       final response = await ApiService()
@@ -183,20 +179,20 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
 
   Future<void> _cargarContratistas() async {
     try {
-      String? idSucursal = widget.actividad['id_sucursal']?.toString();
+      String? idSucursal = widget.actividad['id_sucursalactiva']?.toString();
       if (idSucursal == null ||
           idSucursal.isEmpty ||
           selectedTipoTrabajador == null) {
         print(
-            "⚠ No se puede cargar contratistas sin id_sucursal o id_tipo_trab.");
+            "⚠ No se puede cargar contratistas sin id_sucursalactiva o id_tipo_trab.");
         return;
       }
 
       print(
-          "🔍 Cargando contratistas para id_sucursal: $idSucursal y id_tipo_trab: $selectedTipoTrabajador");
+          "🔍 Cargando contratistas para id_sucursalactiva: $idSucursal y id_tipo_trab: $selectedTipoTrabajador");
 
       contratistas = await ApiService()
-          .getContratistas(idSucursal, selectedTipoTrabajador!);
+          .getContratistas(idSucursal);
       print("✅ Contratistas filtrados cargados: $contratistas");
 
       setState(() {});
@@ -249,8 +245,8 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
                       buildSearchableDropdown(
                         label: "Personal",
                         items: contratistas,
-                        selectedValue: selectedContratista,
-                        onChanged: (val) => setState(() => selectedContratista = val),
+                        selectedValue: contratistas.firstWhereOrNull((e) => e['id'].toString() == selectedContratista),
+                        onChanged: (val) => setState(() => selectedContratista = val?['id']?.toString()),
                         isDisabled: selectedTipoTrabajador == "1",
                         icon: Icons.person,
                       ),
@@ -270,47 +266,20 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
                     Icons.work,
                     [
                       buildSearchableDropdown(
-                        label: "Especie",
-                        items: especies,
-                        selectedValue: selectedEspecie,
-                        onChanged: (val) {
-                          setState(() {
-                            selectedEspecie = val;
-                            _cargarOpciones();
-                          });
-                        },
-                        icon: Icons.eco,
-                      ),
-                      SizedBox(height: 16),
-                      
-                      buildSearchableDropdown(
-                        label: "Variedad",
-                        items: variedades,
-                        selectedValue: selectedVariedad,
-                        onChanged: (val) {
-                          setState(() {
-                            selectedVariedad = val;
-                            _cargarOpciones();
-                          });
-                        },
-                        icon: Icons.category,
-                      ),
-                      SizedBox(height: 16),
-                      
-                      buildSearchableDropdown(
-                        label: "CECO",
+                        label: "Tipo CECO",
                         items: cecos,
-                        selectedValue: selectedCeco,
-                        onChanged: (val) => setState(() => selectedCeco = val),
-                        icon: Icons.business,
+                        selectedValue: cecos.firstWhereOrNull((e) => e['id'].toString() == selectedCeco),
+                        onChanged: (Map<String, dynamic>? _) {},
+                        icon: Icons.category,
+                        isDisabled: true,
                       ),
                       SizedBox(height: 16),
                       
                       buildSearchableDropdown(
                         label: "Labor",
                         items: labores,
-                        selectedValue: selectedLabor,
-                        onChanged: (val) => setState(() => selectedLabor = val),
+                        selectedValue: labores.firstWhereOrNull((e) => e['id'].toString() == selectedLabor),
+                        onChanged: (val) => setState(() => selectedLabor = val?['id']?.toString()),
                         icon: Icons.engineering,
                       ),
                       SizedBox(height: 16),
@@ -326,8 +295,8 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
                           }
                           return true;
                         }).toList(),
-                        selectedValue: selectedUnidad,
-                        onChanged: (val) => setState(() => selectedUnidad = val),
+                        selectedValue: unidades.firstWhereOrNull((e) => e['id'].toString() == selectedUnidad),
+                        onChanged: (val) => setState(() => selectedUnidad = val?['id']?.toString()),
                         icon: Icons.straighten,
                       ),
                       SizedBox(height: 16),
@@ -636,8 +605,8 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
   Widget buildSearchableDropdown({
     required String label,
     required List<Map<String, dynamic>> items,
-    required String? selectedValue,
-    required Function(String?) onChanged,
+    required Map<String, dynamic>? selectedValue,
+    required void Function(Map<String, dynamic>?)? onChanged,
     String keyField = 'id',
     String labelField = 'nombre',
     bool isDisabled = false,
@@ -649,10 +618,8 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
       enabled: !isDisabled,
       items: items,
       itemAsString: (item) => item[labelField],
-      selectedItem: selectedValue == null
-          ? null
-          : items.firstWhereOrNull((e) => e[keyField].toString() == selectedValue),
-      onChanged: (val) => onChanged(val?[keyField].toString()),
+      selectedItem: selectedValue,
+      onChanged: onChanged,
       dropdownDecoratorProps: DropDownDecoratorProps(
         dropdownSearchDecoration: InputDecoration(
           labelText: label,

@@ -111,184 +111,110 @@ class _UsuariosPageState extends State<UsuariosPage> {
   Widget _buildUsuarioCard(dynamic usuario) {
     bool isActivo = usuario['id_estado'] == 1;
     String estado = isActivo ? "Activo" : "Inactivo";
-    
-    return Slidable(
-      endActionPane: ActionPane(
-        motion: const ScrollMotion(),
-        children: [
-          SlidableAction(
-            onPressed: (_) async {
-              final actualizado = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => EditarUsuarioPage(usuario: usuario),
-                ),
-              );
-              if (actualizado == true) {
-                _cargarUsuarios();
-              }
-            },
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-            icon: Icons.edit,
-            label: 'Editar',
-          ),
-        ],
+    final theme = Theme.of(context);
+    final textColor = theme.colorScheme.onSurface;
+    return Card(
+      color: Colors.white,
+      elevation: 2,
+      margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+        side: BorderSide(
+          color: isActivo ? primaryColor.withOpacity(0.3) : Colors.red.withOpacity(0.3),
+          width: 1,
+        ),
       ),
-      child: InkWell(
-        onTap: () async {
-          final actualizado = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => EditarUsuarioPage(usuario: usuario),
-            ),
-          );
-          if (actualizado == true) {
-            _cargarUsuarios();
-          }
-        },
-        child: Container(
-          width: double.infinity,
-          margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: isActivo ? primaryColor.withOpacity(0.3) : Colors.red.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white,
-                    isActivo ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
-                  ],
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.person, color: primaryColor),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    usuario['nombre'] ?? 'Sin nombre',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: textColor,
+                    ),
+                  ),
                 ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            usuario['nombre'] ?? 'Sin nombre',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isActivo ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isActivo ? Colors.green : Colors.red,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                isActivo ? Icons.check_circle : Icons.cancel,
-                                size: 16,
-                                color: isActivo ? Colors.green : Colors.red,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                estado,
-                                style: TextStyle(
-                                  color: isActivo ? Colors.green : Colors.red,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isActivo ? Colors.green : Colors.red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    estado,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      "Correo: ${usuario['correo'] ?? 'No especificado'}",
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Container(
-                      padding: EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.admin_panel_settings,
-                            size: 20,
-                            color: primaryColor,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            _formatearRol(usuario['id_rol']),
-                            style: TextStyle(
-                              color: Colors.black87,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (usuario['sucursal_activa_nombre'] != null) ...[
-                      SizedBox(height: 8),
-                      Container(
-                        padding: EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.location_on,
-                              size: 20,
-                              color: primaryColor,
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                "Sucursal Activa: ${usuario['sucursal_activa_nombre']}",
-                                style: TextStyle(
-                                  color: Colors.black87,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
+                IconButton(
+                  icon: Icon(Icons.edit, color: Colors.green, size: 28),
+                  onPressed: () async {
+                    final actualizado = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EditarUsuarioPage(usuario: usuario),
+                      ),
+                    );
+                    if (actualizado == true) {
+                      _cargarUsuarios();
+                    }
+                  },
+                  tooltip: 'Editar',
+                ),
+              ],
             ),
-          ),
+            SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.email, color: Colors.blue, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    usuario['correo'] ?? 'No especificado',
+                    style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.7)),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.admin_panel_settings, color: Colors.purple, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  _formatearRol(usuario['id_rol']),
+                  style: TextStyle(color: textColor.withOpacity(0.7), fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+            if (usuario['sucursal_activa_nombre'] != null) ...[
+              SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.location_on, color: Colors.amber, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Sucursal Activa: ${usuario['sucursal_activa_nombre']}",
+                      style: TextStyle(color: textColor.withOpacity(0.7)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
         ),
       ),
     );

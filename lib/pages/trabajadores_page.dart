@@ -17,11 +17,55 @@ class _TrabajadoresPageState extends State<TrabajadoresPage> {
   bool isRefreshing = false;
   final TextEditingController searchController = TextEditingController();
 
+  // NUEVO: Listas auxiliares para lookup
+  List<Map<String, dynamic>> contratistas = [];
+  List<Map<String, dynamic>> porcentajes = [];
+
+  // NUEVO: Estado de expansión por grupo de contratista
+  Map<String, bool> _expansionStateTrabajadores = {};
+
   @override
   void initState() {
     super.initState();
+    _cargarListasAuxiliares();
     _cargarTrabajadores();
     searchController.addListener(_filtrarTrabajadores);
+  }
+
+  Future<void> _cargarListasAuxiliares() async {
+    try {
+      final idSucursal = await ApiService().getSucursalActiva();
+      final listaContratistas = await ApiService().getContratistas(idSucursal!);
+      final listaPorcentajes = await ApiService().getPorcentajesContratista();
+      setState(() {
+        contratistas = listaContratistas;
+        porcentajes = listaPorcentajes;
+      });
+      // DEPURACIÓN MEJORADA
+      print('================ CONTRATISTAS CARGADOS ================');
+      if (contratistas.isEmpty) {
+        print('¡La lista de contratistas está VACÍA!');
+      } else {
+        for (var c in contratistas) {
+          print('Contratista: ${c.toString()}');
+        }
+      }
+      print('================ PORCENTAJES CARGADOS ================');
+      if (porcentajes.isEmpty) {
+        print('¡La lista de porcentajes está VACÍA!');
+      } else {
+        for (var p in porcentajes) {
+          print('Porcentaje: ${p.toString()}');
+        }
+      }
+      print('=======================================================');
+    } catch (e) {
+      // Si falla, deja las listas vacías
+      setState(() {
+        contratistas = [];
+        porcentajes = [];
+      });
+    }
   }
 
   Future<void> _cargarTrabajadores() async {
@@ -35,16 +79,19 @@ class _TrabajadoresPageState extends State<TrabajadoresPage> {
       List<dynamic> datos = await ApiService().getTrabajadoresPorSucursal();
       if (!mounted) return;
 
+      // Agrupar por id_contratista
       Map<String, List<dynamic>> agrupados = {};
       for (var trabajador in datos) {
-        String contratista = trabajador['nombre_contratista'] ?? "Sin Contratista";
-        if (!agrupados.containsKey(contratista)) {
-          agrupados[contratista] = [];
+        String idContratista = trabajador['id_contratista']?.toString() ?? 'sin';
+        if (!agrupados.containsKey(idContratista)) {
+          agrupados[idContratista] = [];
         }
-        agrupados[contratista]!.add(trabajador);
+        agrupados[idContratista]!.add(trabajador);
       }
 
-      List<String> keysOrdenadas = agrupados.keys.toList()..sort();
+      // Ordenar por nombre de contratista usando el lookup
+      List<String> keysOrdenadas = agrupados.keys.toList()
+        ..sort((a, b) => _getNombreContratista(a).compareTo(_getNombreContratista(b)));
       Map<String, List<dynamic>> trabajadoresOrdenados = {
         for (var key in keysOrdenadas) key: agrupados[key]!
       };
@@ -93,342 +140,455 @@ class _TrabajadoresPageState extends State<TrabajadoresPage> {
       return;
     }
 
-    Map<String, List<dynamic>> filtrados = {};
-    trabajadoresOriginales.forEach((contratista, lista) {
-      final coincidencias = lista.where((trabajador) {
-        final nombre = (trabajador['nom_ap'] ?? '').toLowerCase();
-        final rut = (trabajador['rut'] ?? '').toLowerCase();
-        final nombreContratista = contratista.toLowerCase();
+    // Unir todos los trabajadores en una lista plana
+    List<dynamic> todos = trabajadoresOriginales.values.expand((x) => x).toList();
+    // Filtrar por nombre, apellidos, rut o nombre de contratista
+    List<dynamic> filtrados = todos.where((trabajador) {
+      final nombre = (trabajador['nombre'] ?? '').toString().toLowerCase();
+      final ap = (trabajador['apellido_paterno'] ?? '').toString().toLowerCase();
+      final am = (trabajador['apellido_materno'] ?? '').toString().toLowerCase();
+      final rut = (trabajador['rut'] ?? '').toString().toLowerCase();
+      final dv = (trabajador['codigo_verificador'] ?? '').toString().toLowerCase();
+      final nombreContratista = _getNombreContratista(trabajador['id_contratista']).toLowerCase();
         return nombre.contains(query) || 
-               rut.contains(query) || 
+             ap.contains(query) ||
+             am.contains(query) ||
+             ('$rut-$dv').contains(query) ||
                nombreContratista.contains(query);
       }).toList();
 
-      if (coincidencias.isNotEmpty) {
-        filtrados[contratista] = coincidencias;
+    // Reagrupar los filtrados por contratista
+    Map<String, List<dynamic>> agrupados = {};
+    for (var trabajador in filtrados) {
+      String idContratista = trabajador['id_contratista']?.toString() ?? 'sin';
+      if (!agrupados.containsKey(idContratista)) {
+        agrupados[idContratista] = [];
       }
-    });
-
-    setState(() => trabajadoresAgrupados = filtrados);
-  }
-
-  Widget _buildTrabajadorCard(dynamic trabajador) {
-    bool isActivo = trabajador['id_estado'] == 1;
-    String estado = isActivo ? "Activo" : "Inactivo";
-    
-    return Slidable(
-      endActionPane: ActionPane(
-        motion: const ScrollMotion(),
-        children: [
-          SlidableAction(
-            onPressed: (_) async {
-              bool? actualizado = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => EditarTrabajadorPage(trabajador: trabajador),
-                ),
-              );
-              if (actualizado == true) {
-                _cargarTrabajadores();
-              }
-            },
-            backgroundColor: primaryColor,
-            foregroundColor: Colors.white,
-            icon: Icons.edit,
-            label: 'Editar',
-          ),
-        ],
-      ),
-      child: Hero(
-        tag: 'trabajador-${trabajador['id']}',
-        child: Material(
-          type: MaterialType.transparency,
-          child: Container(
-            width: double.infinity,
-            margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: InkWell(
-              onTap: () async {
-                bool? actualizado = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => EditarTrabajadorPage(trabajador: trabajador),
-                  ),
-                );
-                if (actualizado == true) {
-                  _cargarTrabajadores();
+      agrupados[idContratista]!.add(trabajador);
                 }
-              },
-              child: Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: isActivo ? primaryColor.withOpacity(0.3) : Colors.red.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white,
-                        isActivo ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
-                      ],
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                trabajador['nom_ap'] ?? "Sin nombre",
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isActivo ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: isActivo ? Colors.green : Colors.red,
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    isActivo ? Icons.check_circle : Icons.cancel,
-                                    size: 16,
-                                    color: isActivo ? Colors.green : Colors.red,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    estado,
-                                    style: TextStyle(
-                                      color: isActivo ? Colors.green : Colors.red,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          "RUT: ${trabajador['rut'] ?? 'No especificado'}",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.black54,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        SizedBox(height: 12),
-                        Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.business,
-                                size: 20,
-                                color: primaryColor,
-                              ),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  trabajador['nombre_contratista'] ?? 'No asignado',
-                                  style: TextStyle(
-                                    color: Colors.black87,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    // Ordenar por nombre de contratista
+    List<String> keysOrdenadas = agrupados.keys.toList()
+      ..sort((a, b) => _getNombreContratista(a).compareTo(_getNombreContratista(b)));
+    Map<String, List<dynamic>> trabajadoresOrdenados = {
+      for (var key in keysOrdenadas) key: agrupados[key]!
+    };
+
+    setState(() => trabajadoresAgrupados = trabajadoresOrdenados);
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: primaryColor,
-        title: Text(
-          "Trabajadores",
-          style: TextStyle(color: Colors.white),
-        ),
-        iconTheme: IconThemeData(color: Colors.white),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: () {
-              setState(() => isRefreshing = true);
-              _cargarTrabajadores();
-            },
-          ),
-        ],
+Widget build(BuildContext context) {
+  final theme = Theme.of(context);
+  return Scaffold(
+    appBar: AppBar(
+      backgroundColor: theme.colorScheme.primary,
+      title: const Text(
+        "Trabajadores",
+        style: TextStyle(color: Colors.white),
       ),
-      body: RefreshIndicator(
-        onRefresh: _cargarTrabajadores,
-        child: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.all(16),
-              child: TextField(
-                controller: searchController,
-                onSubmitted: (_) => FocusScope.of(context).unfocus(),
-                decoration: InputDecoration(
-                  hintText: 'Buscar por nombre, RUT o contratista',
-                  prefixIcon: Icon(Icons.search, color: primaryColor),
-                  suffixIcon: searchController.text.isNotEmpty
+      iconTheme: const IconThemeData(color: Colors.white),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _cargarTrabajadores,
+        ),
+      ],
+    ),
+    body: Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: TextField(
+              controller: searchController,
+              onSubmitted: (_) => FocusScope.of(context).unfocus(),
+              decoration: InputDecoration(
+                hintText: 'Buscar por nombre, apellido o RUT',
+                hintStyle: TextStyle(
+                    color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                prefixIcon: Icon(Icons.search,
+                    color: theme.colorScheme.primary),
+                suffixIcon: searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: Icon(Icons.clear),
+                        icon: Icon(Icons.clear,
+                            color: theme.colorScheme.onSurface
+                                .withOpacity(0.6)),
                         onPressed: () {
                           searchController.clear();
                           FocusScope.of(context).unfocus();
                         },
                       )
                     : null,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: primaryColor),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.withOpacity(0.05),
+                filled: true,
+                fillColor: theme.colorScheme.surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide(
+                      color: theme.colorScheme.primary, width: 2),
+                ),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
               ),
             ),
-            Expanded(
-              child: isLoading
-                ? Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-                    ),
-                  )
-                : trabajadoresAgrupados.isEmpty
+          ),
+        ),
+        Expanded(
+          child: isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : trabajadoresAgrupados.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            Icons.person_off,
-                            size: 64,
-                            color: Colors.grey,
-                          ),
-                          SizedBox(height: 16),
+                          Icon(Icons.search_off,
+                              size: 48, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
                           Text(
-                            "No hay trabajadores disponibles",
+                            'No hay trabajadores registrados',
                             style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[600],
-                            ),
+                                fontSize: 18, color: Colors.grey[600]),
                           ),
                         ],
                       ),
                     )
                   : ListView(
-                      children: trabajadoresAgrupados.keys.map((contratista) {
-                        final cantidadTrabajadores = trabajadoresAgrupados[contratista]!.length;
-                        return Theme(
-                          data: Theme.of(context).copyWith(
-                            dividerColor: Colors.transparent,
-                          ),
-                          child: ExpansionTile(
-                            title: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    contratista,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: primaryColor,
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: primaryColor.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: primaryColor.withOpacity(0.5),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    '$cantidadTrabajadores trabajadores',
-                                    style: TextStyle(
-                                      color: primaryColor,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                      padding: const EdgeInsets.only(bottom: 80),
+                      children: [
+                        for (final entry in trabajadoresAgrupados.entries)
+                          Card(
+                            margin: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
                             ),
-                            initiallyExpanded: true,
-                            children: trabajadoresAgrupados[contratista]!
-                              .map((trabajador) => _buildTrabajadorCard(trabajador))
-                              .toList(),
+                            child: Theme(
+                              data: Theme.of(context).copyWith(
+                                  dividerColor: Colors.transparent),
+                              child: ExpansionTile(
+                                key: PageStorageKey(entry.key),
+                                initiallyExpanded:
+                                    _expansionStateTrabajadores[entry.key] ??
+                                        true,
+                                onExpansionChanged: (expanded) {
+                                  setState(() => _expansionStateTrabajadores[
+                                      entry.key] = expanded);
+                                },
+                                tilePadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 4),
+                                title: Row(
+                                  children: [
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primary
+                                            .withOpacity(0.13),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.all(8),
+                                      child: Icon(Icons.apartment,
+                                          color: theme.colorScheme.primary,
+                                          size: 24),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _getNombreContratista(entry.key),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 17,
+                                          color: Colors.black87,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Container(
+                                      margin: const EdgeInsets.only(left: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primary
+                                            .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        '${entry.value.length} trabajador${entry.value.length == 1 ? '' : 'es'}',
+                                        style: TextStyle(
+                                          color: theme.colorScheme.primary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                children: [
+                                  for (final trabajador in entry.value)
+                                    InkWell(
+                                      borderRadius: BorderRadius.circular(15),
+                                      onTap: () async {
+                                        bool? actualizado =
+                                            await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                EditarTrabajadorPage(
+                                                    trabajador: trabajador),
+                                          ),
+                                        );
+                                        if (actualizado == true) {
+                                          _cargarTrabajadores();
+                                        }
+                                      },
+                                      child: Card(
+                                        color: Colors.white,
+                                        elevation: 3,
+                                        margin: const EdgeInsets.symmetric(
+                                            horizontal: 4, vertical: 8),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(15),
+                                          side: BorderSide(
+                                              color: Colors.grey[200]!),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 12, horizontal: 16),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              Container(
+                                                decoration: BoxDecoration(
+                                                  color: theme.colorScheme
+                                                      .primary
+                                                      .withOpacity(0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.all(8),
+                                                child: Icon(Icons.person,
+                                                    color: theme
+                                                        .colorScheme.primary,
+                                                    size: 32),
+                                              ),
+                                              const SizedBox(width: 16),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(
+                                                            _nombreCompleto(
+                                                                trabajador),
+                                                            style: const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                fontSize: 16,
+                                                                color: Colors
+                                                                    .black87),
+                                                          ),
+                                                        ),
+                                                        Container(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                      .symmetric(
+                                                                  horizontal:
+                                                                      10,
+                                                                  vertical: 4),
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: (trabajador[
+                                                                        'id_estado'] ==
+                                                                    1)
+                                                                ? Colors.green
+                                                                : Colors.red,
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        12),
+                                                          ),
+                                                          child: Text(
+                                                            (trabajador[
+                                                                        'id_estado'] ==
+                                                                    1)
+                                                                ? 'Activo'
+                                                                : 'Inactivo',
+                                                            style: const TextStyle(
+                                                                color: Colors
+                                                                    .white,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                fontSize: 13),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Row(
+                                                      children: [
+                                                        Icon(Icons.badge,
+                                                            color: theme
+                                                                .colorScheme
+                                                                .secondary,
+                                                            size: 18),
+                                                        const SizedBox(
+                                                            width: 4),
+                                                        Text(
+                                                          (trabajador['rut'] == null || trabajador['rut'].toString().isEmpty) && (trabajador['codigo_verificador'] == null || trabajador['codigo_verificador'].toString().isEmpty)
+                                                              ? 'SIN RUT'
+                                                              : '${trabajador['rut'] ?? ''}-${trabajador['codigo_verificador'] ?? ''}',
+                                                          style:
+                                                              const TextStyle(
+                                                            color: Colors.grey,
+                                                            fontSize: 14,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Row(
+                                                      children: [
+                                                        Icon(Icons.apartment,
+                                                            color: theme
+                                                                .colorScheme
+                                                                .primary,
+                                                            size: 18),
+                                                        const SizedBox(
+                                                            width: 4),
+                                                        Expanded(
+                                                          child: Text(
+                                                            _getNombreContratista(
+                                                                trabajador[
+                                                                    'id_contratista']),
+                                                            style:
+                                                                const TextStyle(
+                                                              color: Colors
+                                                                  .black54,
+                                                              fontSize: 14,
+                                                            ),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Row(
+                                                      children: [
+                                                        Icon(Icons.percent,
+                                                            color: theme
+                                                                .colorScheme
+                                                                .primary,
+                                                            size: 18),
+                                                        const SizedBox(
+                                                            width: 4),
+                                                        Text(
+                                                          _getValorPorcentaje(
+                                                              trabajador[
+                                                                  'id_porcentaje']),
+                                                          style:
+                                                              const TextStyle(
+                                                            color: Colors
+                                                                .black54,
+                                                            fontSize: 14,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
-                        );
-                      }).toList(),
+                      ],
                     ),
-            ),
-          ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          bool? creado = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => NuevoTrabajadorPage()),
-          );
-          if (creado == true) {
-            _cargarTrabajadores();
-          }
-        },
-        child: Icon(Icons.add, color: Colors.white),
-        backgroundColor: primaryColor,
-      ),
+      ],
+    ),
+    floatingActionButton: FloatingActionButton(
+      backgroundColor: theme.colorScheme.primary,
+      onPressed: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => NuevoTrabajadorPage(),
+          ),
+        );
+        _cargarTrabajadores();
+      },
+      child: const Icon(Icons.add, color: Colors.white),
+    ),
+  );
+}
+
+
+  String _nombreCompleto(dynamic trabajador) {
+    final nombre = trabajador['nombre'] ?? '';
+    final ap = trabajador['apellido_paterno'] ?? '';
+    final am = trabajador['apellido_materno'] ?? '';
+    return [nombre, ap, am].where((s) => s.isNotEmpty).join(' ');
+  }
+
+  // NUEVO: Métodos auxiliares para lookup
+  String _getNombreContratista(dynamic idContratista) {
+    if (idContratista == null) return 'Sin Contratista';
+    final c = contratistas.firstWhere(
+      (x) => x['id'].toString() == idContratista.toString(),
+      orElse: () => {},
     );
+    // DEPURACIÓN
+    print('Buscando contratista para id: $idContratista, encontrado: ${c['nombre']}');
+    return c.isNotEmpty ? (c['nombre'] ?? 'Sin Contratista') : 'Sin Contratista';
+  }
+
+  String _getValorPorcentaje(dynamic idPorcentaje) {
+    if (idPorcentaje == null) return '--';
+    final p = porcentajes.firstWhere(
+      (x) => x['id'].toString() == idPorcentaje.toString(),
+      orElse: () => {},
+    );
+    // DEPURACIÓN
+    print('Buscando porcentaje para id: $idPorcentaje, encontrado: ${p['porcentaje']}');
+    if (p.isNotEmpty && p['porcentaje'] != null) {
+      final valor = p['porcentaje'];
+      if (valor is num) {
+        return '${(valor * 100).round()}%';
+      }
+      return '$valor%';
+    }
+    return '--';
   }
 }
