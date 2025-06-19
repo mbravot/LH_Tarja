@@ -113,6 +113,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
     String estado = isActivo ? "Activo" : "Inactivo";
     final theme = Theme.of(context);
     final textColor = theme.colorScheme.onSurface;
+    
     return Card(
       color: Colors.white,
       elevation: 2,
@@ -129,13 +130,14 @@ class _UsuariosPageState extends State<UsuariosPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Nombre de usuario y estado
             Row(
               children: [
                 Icon(Icons.person, color: primaryColor),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    usuario['nombre'] ?? 'Sin nombre',
+                    usuario['usuario'] ?? 'Sin nombre',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -175,7 +177,8 @@ class _UsuariosPageState extends State<UsuariosPage> {
                 ),
               ],
             ),
-            SizedBox(height: 8),
+            Divider(height: 16, color: Colors.grey.withOpacity(0.3)),
+            // Correo electrónico
             Row(
               children: [
                 Icon(Icons.email, color: Colors.blue, size: 20),
@@ -189,31 +192,20 @@ class _UsuariosPageState extends State<UsuariosPage> {
               ],
             ),
             SizedBox(height: 8),
+            // Sucursal asignada
             Row(
               children: [
-                Icon(Icons.admin_panel_settings, color: Colors.purple, size: 20),
+                Icon(Icons.business, color: Colors.orange, size: 20),
                 SizedBox(width: 8),
-                Text(
-                  _formatearRol(usuario['id_rol']),
-                  style: TextStyle(color: textColor.withOpacity(0.7), fontWeight: FontWeight.w500),
+                Expanded(
+                  child: Text(
+                    usuario['nombre_sucursal'] ?? 'Sin sucursal asignada',
+                    style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.7)),
+                  ),
                 ),
               ],
             ),
-            if (usuario['sucursal_activa_nombre'] != null) ...[
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.location_on, color: Colors.amber, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "Sucursal Activa: ${usuario['sucursal_activa_nombre']}",
-                      style: TextStyle(color: textColor.withOpacity(0.7)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            SizedBox(height: 8),
           ],
         ),
       ),

@@ -5,6 +5,8 @@ import 'package:app_lh_tarja/pages/home_page.dart';
 import 'package:app_lh_tarja/theme/app_theme.dart';
 import 'package:app_lh_tarja/providers/theme_provider.dart';
 import 'package:app_lh_tarja/routes.dart';
+import 'package:app_lh_tarja/widgets/token_checker.dart';
+import 'package:app_lh_tarja/services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
@@ -32,8 +34,11 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'LH Gestión Tarjas',
       debugShowCheckedModeBanner: false,
+      navigatorKey: ApiService.navigatorKey,
       theme: themeProvider.currentTheme,
-      home: startPage,
+      home: startPage is HomePage 
+          ? TokenChecker(child: startPage) // Solo verificar token si está logueado
+          : startPage,
       routes: appRoutes,
     );
   }

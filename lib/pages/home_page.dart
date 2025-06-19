@@ -186,18 +186,43 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
               child: Text("Cerrar Sesión"),
               onPressed: () async {
-                Navigator.of(context).pop();
+                Navigator.of(context).pop(); // Cerrar el diálogo
                 setState(() => _isLoading = true);
+                
                 try {
+                  // Limpiar preferencias localmente primero
                   final prefs = await SharedPreferences.getInstance();
-                  await prefs.remove('token');
-                  await prefs.remove('user_name');
-                  await prefs.remove('user_sucursal');
-                  await prefs.remove('id_sucursal');
+                  await prefs.clear();
+                  
+                  // Mostrar mensaje de confirmación
                   if (mounted) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => LoginPage()),
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Sesión cerrada exitosamente.'),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                  
+                  // Navegar al login y limpiar el stack de navegación
+                  if (mounted) {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context, 
+                      '/login', 
+                      (route) => false
+                    );
+                  }
+                } catch (e) {
+                  print('Error al cerrar sesión: $e');
+                  // Si hay error, intentar cerrar sesión manualmente
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.clear();
+                  if (mounted) {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context, 
+                      '/login', 
+                      (route) => false
                     );
                   }
                 } finally {

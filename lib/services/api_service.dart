@@ -11,29 +11,47 @@ class ApiService {
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
 
-  Future<void> _manejarTokenExpirado() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+  Future<void> manejarTokenExpirado() async {
+    try {
+      // Limpiar todas las preferencias almacenadas
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear(); // Esto incluye token, refresh_token, y todos los demás datos
 
-    final context = navigatorKey.currentContext;
-    if (context != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      // Mostrar mensaje de error si hay contexto disponible
+      final context = navigatorKey.currentContext;
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+
+      // Navegar al login y limpiar el stack de navegación
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    } catch (e) {
+      print('Error al manejar token expirado: $e');
+      // Si hay algún error, intentar navegar al login de todas formas
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushNamedAndRemoveUntil('/login', (route) => false);
+      }
     }
-
-    navigatorKey.currentState
-        ?.pushNamedAndRemoveUntil('/login', (route) => false);
   }
 
   // Método para obtener el token almacenado en SharedPreferences
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token'); // Obtener el token almacenado
+  }
+
+  // Método para obtener el refresh token almacenado en SharedPreferences
+  Future<String?> getRefreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('refresh_token'); // Obtener el refresh token almacenado
   }
 
   // ✅ Obtener headers con token
@@ -49,37 +67,138 @@ class ApiService {
   }
 
   Future<http.Response> _manejarRespuesta(http.Response response) async {
-    if (response.statusCode == 401 &&
-        response.body.contains('Token has expired')) {
-      await _manejarTokenExpirado();
+    // Solo manejar errores específicos de token expirado en el body
+    if (response.statusCode != 401 && 
+        response.body.isNotEmpty && 
+        (response.body.toLowerCase().contains('token has expired') ||
+         response.body.toLowerCase().contains('token expired') ||
+         response.body.toLowerCase().contains('unauthorized'))) {
+      await manejarTokenExpirado();
+      throw Exception('Sesión expirada. Por favor, inicia sesión nuevamente.');
     }
     return response;
   }
 
-  /// 🔹 Método para reintentar la petición si el token expira
-  // ignore: unused_element
-  Future<http.Response> _retryRequest(http.Request request) async {
-    bool refreshed =
-        await AuthService().refreshToken(); // ✅ Llamada correcta a AuthService
-    if (refreshed) {
-      final newHeaders = await _getHeaders();
-      request.headers.clear();
-      request.headers.addAll(newHeaders);
-      return await http.Response.fromStream(await request.send());
+  /// 🔹 Método helper para hacer peticiones HTTP con manejo automático de tokens expirados
+  Future<http.Response> _makeRequest(Future<http.Response> Function() requestFunction) async {
+    try {
+      final response = await requestFunction();
+      
+      // Si la respuesta es 401, intentar refresh del token
+      if (response.statusCode == 401) {
+        print("🔄 Detectado error 401, intentando refresh del token...");
+        bool refreshed = await AuthService().refreshToken();
+        
+        if (refreshed) {
+          print("✅ Token refresh exitoso, reintentando petición original...");
+          // Reintentar la petición original con el nuevo token
+          final retryResponse = await requestFunction();
+          return await _manejarRespuesta(retryResponse);
+        } else {
+          // Si el refresh falla, manejar como token expirado
+          await manejarTokenExpirado();
+          throw Exception('Sesión expirada. Por favor, inicia sesión nuevamente.');
+        }
+      }
+      
+      return await _manejarRespuesta(response);
+    } catch (e) {
+      // Si es un error de red o conexión, no manejar como token expirado
+      if (e.toString().contains('Sesión expirada')) {
+        rethrow;
+      }
+      
+      // Verificar si es un error de conexión
+      if (e.toString().contains('SocketException') || 
+          e.toString().contains('Connection refused') ||
+          e.toString().contains('Network is unreachable')) {
+        throw Exception('Error de conexión. Verifica tu conexión a internet.');
+      }
+      
+      throw Exception('Error de conexión: $e');
     }
-    throw Exception('Sesión expirada, inicia sesión nuevamente.');
+  }
+
+  /// 🔹 Método para verificar si el token está expirado
+  Future<bool> verificarTokenValido() async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/usuarios/sucursal-activa'), // Usar endpoint que existe
+          headers: await _getHeaders(),
+        );
+      });
+      return response.statusCode == 200;
+    } catch (e) {
+      // Si hay cualquier error, asumir que el token no es válido
+      return false;
+    }
+  }
+
+  /// 🔹 Método para cerrar sesión manualmente
+  Future<void> cerrarSesion() async {
+    try {
+      // Limpiar todas las preferencias almacenadas
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear(); // Esto incluye token, refresh_token, y todos los demás datos
+
+      // Mostrar mensaje de confirmación si hay contexto disponible
+      final context = navigatorKey.currentContext;
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sesión cerrada exitosamente.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Navegar al login y limpiar el stack de navegación
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    } catch (e) {
+      print('Error al cerrar sesión: $e');
+      // Si hay algún error, intentar navegar al login de todas formas
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    }
+  }
+
+  /// 🔹 Método para reintentar la petición si el token expira
+  Future<http.Response> _retryRequest(http.Request request) async {
+    try {
+      print("🔄 Token expirado, intentando refresh...");
+      bool refreshed = await AuthService().refreshToken();
+      
+      if (refreshed) {
+        print("✅ Token refresh exitoso, reintentando petición...");
+        final newHeaders = await _getHeaders();
+        request.headers.clear();
+        request.headers.addAll(newHeaders);
+        return await http.Response.fromStream(await request.send());
+      } else {
+        print("❌ Falló el refresh del token");
+        throw Exception('Sesión expirada, inicia sesión nuevamente.');
+      }
+    } catch (e) {
+      print("❌ Error en retry request: $e");
+      throw Exception('Sesión expirada, inicia sesión nuevamente.');
+    }
   }
 
   //
 
   // Método para listar actividades con autenticación
   Future<List<dynamic>> getActividades() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/actividades/'),
-      headers: await _getHeaders(),
-    );
-
-    await _manejarRespuesta(response);
+    final response = await _makeRequest(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/actividades/'),
+        headers: await _getHeaders(),
+      );
+    });
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
@@ -90,13 +209,13 @@ class ApiService {
 
   // Método para crear una nueva actividad con autenticación
   Future<bool> createActividad(Map<String, dynamic> actividad) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/actividades/'),
-      headers: await _getHeaders(),
-      body: jsonEncode(actividad),
-    );
-
-    await _manejarRespuesta(response);
+    final response = await _makeRequest(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/actividades/'),
+        headers: await _getHeaders(),
+        body: jsonEncode(actividad),
+      );
+    });
 
     if (response.statusCode == 201) {
       return true;
@@ -108,25 +227,15 @@ class ApiService {
   // Metodo para editar una actividad
   Future<Map<String, dynamic>> editarActividad(
       String actividadId, Map<String, dynamic> datos) async {
-    final token = await getToken(); // Obtener el token almacenado
-    if (token == null) {
-      return {"error": "No se encontró un token. Inicia sesión nuevamente."};
-    }
+    final response = await _makeRequest(() async {
+      return await http.put(
+        Uri.parse('$baseUrl/actividades/$actividadId'),
+        headers: await _getHeaders(),
+        body: jsonEncode(datos),
+      );
+    });
 
-    final response = await http.put(
-      Uri.parse('$baseUrl/actividades/$actividadId'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization':
-            'Bearer $token', // 🔹 Ahora se envía el token correctamente
-      },
-      body: jsonEncode(datos),
-    );
-
-    await _manejarRespuesta(response);
-
-    print(
-        "🔍 Respuesta de editar actividad: ${response.statusCode} - ${response.body}");
+    print("🔍 Respuesta de editar actividad: ${response.statusCode} - ${response.body}");
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
@@ -146,13 +255,14 @@ class ApiService {
       final urlGrupal = '$baseUrl/rendimientos/$idActividad';
       print("🔍 Llamando a rendimientos grupales: $urlGrupal");
 
-      final responseGrupal = await http.get(
-        Uri.parse(urlGrupal),
-        headers: await _getHeaders(),
-      );
+      final responseGrupal = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse(urlGrupal),
+          headers: await _getHeaders(),
+        );
+      });
 
       print("📥 Respuesta rendimientos grupales: ${responseGrupal.statusCode} - ${responseGrupal.body}");
-      await _manejarRespuesta(responseGrupal);
 
       if (responseGrupal.statusCode == 200) {
         final data = json.decode(responseGrupal.body);
@@ -173,13 +283,13 @@ class ApiService {
 
   /// 📌 Crear un nuevo rendimiento
   Future<bool> createRendimientos(List<Map<String, dynamic>> rendimientos) async {
-    final response = await http.post(
-      Uri.parse("$baseUrl/rendimientos/"),
-      headers: await _getHeaders(),
-      body: jsonEncode(rendimientos),
-    );
-
-    await _manejarRespuesta(response);
+    final response = await _makeRequest(() async {
+      return await http.post(
+        Uri.parse("$baseUrl/rendimientos/"),
+        headers: await _getHeaders(),
+        body: jsonEncode(rendimientos),
+      );
+    });
 
     if (response.statusCode == 201) {
       return true;
@@ -191,13 +301,13 @@ class ApiService {
 
   /// 📌 Editar un rendimiento existente
   Future<bool> editarRendimiento(String id, Map<String, dynamic> rendimiento) async {
-    final response = await http.put(
-      Uri.parse("$baseUrl/rendimientos/$id"),
-      headers: await _getHeaders(),
-      body: jsonEncode(rendimiento),
-    );
-
-    await _manejarRespuesta(response);
+    final response = await _makeRequest(() async {
+      return await http.put(
+        Uri.parse("$baseUrl/rendimientos/$id"),
+        headers: await _getHeaders(),
+        body: jsonEncode(rendimiento),
+      );
+    });
 
     if (response.statusCode == 200) {
       return true;
@@ -209,12 +319,12 @@ class ApiService {
 
   /// 📌 Eliminar un rendimiento
   Future<bool> eliminarRendimiento(String id) async {
-    final response = await http.delete(
-      Uri.parse("$baseUrl/rendimientos/$id"),
-      headers: await _getHeaders(),
-    );
-
-    await _manejarRespuesta(response);
+    final response = await _makeRequest(() async {
+      return await http.delete(
+        Uri.parse("$baseUrl/rendimientos/$id"),
+        headers: await _getHeaders(),
+      );
+    });
 
     if (response.statusCode == 200) {
       return true;
@@ -226,16 +336,14 @@ class ApiService {
 
   // 🔹 Obtener sucursal activa del usuario logueado
   Future<String?> getSucursalActiva() async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$baseUrl/usuarios/sucursal-activa'), // ← este es el correcto
-      headers: headers,
-    );
+    final response = await _makeRequest(() async {
+      return await http.get(
+        Uri.parse('$baseUrl/usuarios/sucursal-activa'), // ← este es el correcto
+        headers: await _getHeaders(),
+      );
+    });
 
-    await _manejarRespuesta(response);
-
-    print(
-        "🔍 Respuesta API Sucursal Activa: ${response.statusCode} - ${response.body}");
+    print("🔍 Respuesta API Sucursal Activa: ${response.statusCode} - ${response.body}");
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(response.body);
@@ -248,40 +356,26 @@ class ApiService {
   }
 
   Future<bool> actualizarSucursalActiva(String nuevaSucursalId) async {
-    final headers = await _getHeaders();
-
-    final response = await http.post(
-      Uri.parse('$baseUrl/usuarios/sucursal-activa'),
-      headers: headers,
-      body: jsonEncode({"id_sucursal": nuevaSucursalId}),
-    );
-
-    await _manejarRespuesta(response);
+    final response = await _makeRequest(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/usuarios/sucursal-activa'),
+        headers: await _getHeaders(),
+        body: jsonEncode({"id_sucursal": nuevaSucursalId}),
+      );
+    });
 
     return response.statusCode == 200;
   }
 
   Future<Map<String, dynamic>> cambiarClave(
       String claveActual, String nuevaClave) async {
-    final prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString('token');
-
-    if (token == null) {
-      throw Exception('No se encontró un token. Inicia sesión nuevamente.');
-    }
-
-    final response = await http.post(
-      Uri.parse("$baseUrl/auth/cambiar-clave"), // ✅ URL corregida
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token"
-      },
-
-      body:
-          jsonEncode({"clave_actual": claveActual, "nueva_clave": nuevaClave}),
-    );
-
-    await _manejarRespuesta(response);
+    final response = await _makeRequest(() async {
+      return await http.post(
+        Uri.parse("$baseUrl/auth/cambiar-clave"), // ✅ URL corregida
+        headers: await _getHeaders(),
+        body: jsonEncode({"clave_actual": claveActual, "nueva_clave": nuevaClave}),
+      );
+    });
 
     return jsonDecode(response.body);
   }
@@ -651,39 +745,59 @@ class ApiService {
     }
   }
 
-  Future<bool> crearUsuario({
-    required String nombre,
+  Future<String?> crearUsuario({
+    required String usuario,
     required String correo,
     required String clave,
-    required int idSucursal,
-    required int idRol,
+    required int idSucursalActiva,
+    String? idColaborador,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('No se encontró un token. Inicia sesión nuevamente.');
+    }
 
-    final response = await http.post(
-      Uri.parse('$baseUrl/usuarios/'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        'nombre': nombre,
-        'correo': correo,
-        'clave': clave,
-        'id_Sucursal': idSucursal,
-        'id_estado': 1, // Activo
-        'id_rol': idRol,
-      }),
-    );
+    final Map<String, dynamic> userData = {
+      'usuario': usuario,
+      'correo': correo,
+      'clave': clave,
+      'id_sucursalactiva': idSucursalActiva,
+    };
 
-    await _manejarRespuesta(response);
+    if (idColaborador != null) {
+      userData['id_colaborador'] = idColaborador;
+    }
 
-    if (response.statusCode == 201) {
-      return true;
-    } else {
-      print("❌ Error al crear usuario: ${response.body}");
-      return false;
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/usuarios/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(userData),
+      );
+
+      await _manejarRespuesta(response);
+
+      if (response.statusCode == 201) {
+        // Intentar obtener el ID del usuario creado de la respuesta
+        try {
+          final responseData = jsonDecode(response.body);
+          if (responseData is Map<String, dynamic> && responseData.containsKey('id')) {
+            return responseData['id'].toString();
+          }
+        } catch (e) {
+          print('No se pudo obtener el ID del usuario creado: $e');
+        }
+        return null; // Si no se puede obtener el ID, retornar null
+      } else {
+        final error = jsonDecode(response.body);
+        throw Exception(error['error'] ?? 'Error al crear el usuario');
+      }
+    } catch (e) {
+      print("❌ Error al crear usuario: $e");
+      rethrow;
     }
   }
 
@@ -2112,6 +2226,228 @@ class ApiService {
       }
     } else {
       throw Exception('Error al obtener actividades: ${response.body}');
+    }
+  }
+
+  /// 🔹 Método para verificar si el token está próximo a expirar y hacer refresh proactivo
+  Future<bool> verificarYRefreshToken() async {
+    try {
+      // Usar un endpoint simple para verificar si el token es válido
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/usuarios/sucursal-activa'),
+          headers: await _getHeaders(),
+        );
+      });
+      
+      // Si la petición fue exitosa, el token es válido
+      return response.statusCode == 200;
+    } catch (e) {
+      // Si hay error, intentar refresh
+      print("🔄 Token puede estar expirado, intentando refresh proactivo...");
+      bool refreshed = await AuthService().refreshToken();
+      
+      if (refreshed) {
+        print("✅ Refresh proactivo exitoso");
+        return true;
+      } else {
+        print("❌ Refresh proactivo falló");
+        return false;
+      }
+    }
+  }
+
+  // Obtener sucursales para usuarios (nuevo endpoint)
+  Future<List<Map<String, dynamic>>> getSucursalesUsuarios() async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('No se encontró un token. Inicia sesión nuevamente.');
+    }
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/usuarios/sucursales'),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    await _manejarRespuesta(response);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return List<Map<String, dynamic>>.from(data);
+    } else {
+      throw Exception('Error al obtener las sucursales para usuarios');
+    }
+  }
+
+  // Obtener sucursales permitidas de un usuario específico
+  Future<List<Map<String, dynamic>>> getSucursalesPermitidasUsuario(String usuarioId) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('No se encontró un token. Inicia sesión nuevamente.');
+    }
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/usuarios/$usuarioId/sucursales-permitidas'),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    await _manejarRespuesta(response);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return List<Map<String, dynamic>>.from(data);
+    } else {
+      throw Exception('Error al obtener las sucursales permitidas del usuario');
+    }
+  }
+
+  // Asignar sucursales permitidas a un usuario
+  Future<void> asignarSucursalesPermitidas(String usuarioId, List<int> sucursalesIds) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('No se encontró un token. Inicia sesión nuevamente.');
+    }
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/usuarios/$usuarioId/sucursales-permitidas'),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({
+        "sucursales_ids": sucursalesIds,
+      }),
+    );
+
+    await _manejarRespuesta(response);
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al asignar sucursales permitidas al usuario');
+    }
+  }
+
+  // Eliminar todas las sucursales permitidas de un usuario
+  Future<void> eliminarSucursalesPermitidas(String usuarioId) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('No se encontró un token. Inicia sesión nuevamente.');
+    }
+
+    final response = await http.delete(
+      Uri.parse('$baseUrl/usuarios/$usuarioId/sucursales-permitidas'),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    await _manejarRespuesta(response);
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al eliminar las sucursales permitidas del usuario');
+    }
+  }
+
+  // Obtener todas las aplicaciones disponibles
+  Future<List<Map<String, dynamic>>> getAplicaciones() async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('No se encontró un token. Inicia sesión nuevamente.');
+    }
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/usuarios/apps'),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    await _manejarRespuesta(response);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return List<Map<String, dynamic>>.from(data);
+    } else {
+      throw Exception('Error al obtener las aplicaciones disponibles');
+    }
+  }
+
+  // Obtener aplicaciones permitidas de un usuario específico
+  Future<List<Map<String, dynamic>>> getAplicacionesPermitidasUsuario(String usuarioId) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('No se encontró un token. Inicia sesión nuevamente.');
+    }
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/usuarios/$usuarioId/apps-permitidas'),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    await _manejarRespuesta(response);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return List<Map<String, dynamic>>.from(data);
+    } else {
+      throw Exception('Error al obtener las aplicaciones permitidas del usuario');
+    }
+  }
+
+  // Asignar aplicaciones permitidas a un usuario
+  Future<void> asignarAplicacionesPermitidas(String usuarioId, List<int> aplicacionesIds) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('No se encontró un token. Inicia sesión nuevamente.');
+    }
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/usuarios/$usuarioId/apps-permitidas'),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({
+        "apps_ids": aplicacionesIds,
+      }),
+    );
+
+    await _manejarRespuesta(response);
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al asignar aplicaciones permitidas al usuario');
+    }
+  }
+
+  // Eliminar todas las aplicaciones permitidas de un usuario
+  Future<void> eliminarAplicacionesPermitidas(String usuarioId) async {
+    final token = await getToken();
+    if (token == null) {
+      throw Exception('No se encontró un token. Inicia sesión nuevamente.');
+    }
+
+    final response = await http.delete(
+      Uri.parse('$baseUrl/usuarios/$usuarioId/apps-permitidas'),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    await _manejarRespuesta(response);
+
+    if (response.statusCode != 200) {
+      throw Exception('Error al eliminar las aplicaciones permitidas del usuario');
     }
   }
 }

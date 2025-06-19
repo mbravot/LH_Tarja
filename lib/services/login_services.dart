@@ -34,6 +34,7 @@ class AuthService {
         final data = jsonDecode(response.body);
 
         final token = data['access_token'];
+        final refreshToken = data['refresh_token'];
         final nombreUsuario = data['usuario'];
         final idSucursal = data['id_sucursal'];
         final nombreSucursal = data['sucursal_nombre'];
@@ -42,6 +43,9 @@ class AuthService {
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', token);
+        if (refreshToken != null) {
+          await prefs.setString('refresh_token', refreshToken);
+        }
         await prefs.setString('user_name', nombreUsuario);
         await prefs.setString('id_sucursal', idSucursal.toString());
         await prefs.setString('user_sucursal', nombreSucursal);
@@ -67,26 +71,61 @@ class AuthService {
 
   /// 🔥 Método para renovar el token si expira
   Future<bool> refreshToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? refreshToken = prefs.getString('refresh_token');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? currentToken = prefs.getString('token');
 
-    if (refreshToken == null) {
-      return false;
-    }
+      if (currentToken == null) {
+        print("❌ No hay token actual para refresh");
+        return false;
+      }
 
-    final response = await http.post(
-      Uri.parse("$baseUrl/auth/refresh"),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $refreshToken",
-      },
-    );
+      print("🔄 Intentando refresh token...");
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      await prefs.setString('token', data['token']); // ✅ Actualizar el token
-      return true;
-    } else {
+      final response = await http.post(
+        Uri.parse("$baseUrl/auth/refresh"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $currentToken",
+        },
+      );
+
+      print("📡 Código de respuesta refresh: ${response.statusCode}");
+      print("📝 Respuesta del servidor refresh: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // Actualizar el token y otros datos si vienen en la respuesta
+        await prefs.setString('token', data['access_token']);
+        if (data['refresh_token'] != null) {
+          await prefs.setString('refresh_token', data['refresh_token']);
+        }
+        if (data['usuario'] != null) {
+          await prefs.setString('user_name', data['usuario']);
+        }
+        if (data['id_sucursal'] != null) {
+          await prefs.setString('id_sucursal', data['id_sucursal'].toString());
+        }
+        if (data['sucursal_nombre'] != null) {
+          await prefs.setString('user_sucursal', data['sucursal_nombre']);
+        }
+        if (data['id_rol'] != null) {
+          await prefs.setString('id_rol', data['id_rol'].toString());
+        }
+        if (data['id_perfil'] != null) {
+          await prefs.setString('id_perfil', data['id_perfil'].toString());
+        }
+
+        print("✅ Token refresh exitoso");
+        return true;
+      } else {
+        print("❌ Error en refresh token - Código: ${response.statusCode}");
+        print("❌ Detalle del error refresh: ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("🚨 Error de conexión en refresh: $e");
       return false;
     }
   }
