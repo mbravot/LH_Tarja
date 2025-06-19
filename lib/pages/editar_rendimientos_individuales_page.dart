@@ -4,6 +4,19 @@ import 'package:dropdown_search/dropdown_search.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:collection/collection.dart';
 
+// Sistema de logging condicional
+void logInfo(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("ℹ️ $message");
+  }
+}
+
+void logError(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("❌ $message");
+  }
+}
+
 class EditarRendimientosIndividualesPage extends StatefulWidget {
   final dynamic rendimiento;
   EditarRendimientosIndividualesPage({required this.rendimiento});
@@ -48,34 +61,34 @@ class _EditarRendimientosIndividualesPageState extends State<EditarRendimientosI
       final prefs = await SharedPreferences.getInstance();
       await prefs.reload();
       final idSucursal = prefs.getString('id_sucursal');
-      print('>>> idTipotrabajador: '
+      logInfo('>>> idTipotrabajador: '
           '[32m'
           '[1m'
           '[4m'
           '[7m'
           '[0m' + idTipotrabajador.toString());
-      print('>>> idSucursal: $idSucursal');
-      print('>>> idContratista: $idContratista');
+      logInfo('>>> idSucursal: $idSucursal');
+      logInfo('>>> idContratista: $idContratista');
       if (idSucursal == null) throw Exception('No se encontró la sucursal activa');
       if (idTipotrabajador == 2) {
         if (idContratista == null || idContratista!.isEmpty) throw Exception('No se encontró el contratista');
         final listaTrabajadores = await ApiService().getTrabajadores(idSucursal, idContratista!);
         final listaPorcentajes = await ApiService().getPorcentajesContratista();
-        print('>>> Trabajadores cargados: [32m${listaTrabajadores.length}[0m');
-        print('>>> Porcentajes cargados: [32m${listaPorcentajes.length}[0m');
+        logInfo('>>> Trabajadores cargados: [32m${listaTrabajadores.length}[0m');
+        logInfo('>>> Porcentajes cargados: [32m${listaPorcentajes.length}[0m');
         setState(() {
           trabajadores = List<Map<String, dynamic>>.from(listaTrabajadores);
           porcentajes = List<Map<String, dynamic>>.from(listaPorcentajes);
         });
       } else if (idTipotrabajador == 1) {
         final listaColaboradores = await ApiService().getColaboradores();
-        print('>>> Colaboradores cargados: [32m${listaColaboradores.length}[0m');
+        logInfo('>>> Colaboradores cargados: [32m${listaColaboradores.length}[0m');
         setState(() {
           colaboradores = List<Map<String, dynamic>>.from(listaColaboradores);
         });
       }
     } catch (e) {
-      print('>>> Error al cargar datos iniciales: $e');
+      logError('>>> Error al cargar datos iniciales: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al cargar datos: $e')),
       );
@@ -204,10 +217,10 @@ class _EditarRendimientosIndividualesPageState extends State<EditarRendimientosI
 
   @override
   Widget build(BuildContext context) {
-    print('>>> [build] idTipotrabajador: $idTipotrabajador');
-    print('>>> [build] trabajadores: [32m${trabajadores.length}[0m');
-    print('>>> [build] colaboradores: [32m${colaboradores.length}[0m');
-    print('>>> [build] porcentajes: [32m${porcentajes.length}[0m');
+    logInfo('>>> [build] idTipotrabajador: $idTipotrabajador');
+    logInfo('>>> [build] trabajadores: [32m${trabajadores.length}[0m');
+    logInfo('>>> [build] colaboradores: [32m${colaboradores.length}[0m');
+    logInfo('>>> [build] porcentajes: [32m${porcentajes.length}[0m');
     const primaryColor = Colors.green;
     const secondaryColor = Colors.white;
     return Scaffold(

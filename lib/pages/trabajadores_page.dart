@@ -3,6 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../services/api_service.dart';
 import 'editar_trabajador_page.dart';
+import 'package:app_lh_tarja/utils/colors.dart';
+import 'package:app_lh_tarja/pages/home_page.dart';
+
+// Sistema de logging condicional
+void logInfo(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("ℹ️ $message");
+  }
+}
+
+void logError(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("❌ $message");
+  }
+}
 
 class TrabajadoresPage extends StatefulWidget {
   @override
@@ -42,23 +57,23 @@ class _TrabajadoresPageState extends State<TrabajadoresPage> {
         porcentajes = listaPorcentajes;
       });
       // DEPURACIÓN MEJORADA
-      print('================ CONTRATISTAS CARGADOS ================');
+      logInfo('================ CONTRATISTAS CARGADOS ================');
       if (contratistas.isEmpty) {
-        print('¡La lista de contratistas está VACÍA!');
+        logInfo('¡La lista de contratistas está VACÍA!');
       } else {
         for (var c in contratistas) {
-          print('Contratista: ${c.toString()}');
+          logInfo('Contratista: ${c.toString()}');
         }
       }
-      print('================ PORCENTAJES CARGADOS ================');
+      logInfo('================ PORCENTAJES CARGADOS ================');
       if (porcentajes.isEmpty) {
-        print('¡La lista de porcentajes está VACÍA!');
+        logInfo('¡La lista de porcentajes está VACÍA!');
       } else {
         for (var p in porcentajes) {
-          print('Porcentaje: ${p.toString()}');
+          logInfo('Porcentaje: ${p.toString()}');
         }
       }
-      print('=======================================================');
+      logInfo('=======================================================');
     } catch (e) {
       // Si falla, deja las listas vacías
       setState(() {
@@ -570,7 +585,7 @@ Widget build(BuildContext context) {
       orElse: () => {},
     );
     // DEPURACIÓN
-    print('Buscando contratista para id: $idContratista, encontrado: ${c['nombre']}');
+    logInfo('Buscando contratista para id: $idContratista, encontrado: ${c['nombre']}');
     return c.isNotEmpty ? (c['nombre'] ?? 'Sin Contratista') : 'Sin Contratista';
   }
 
@@ -581,7 +596,7 @@ Widget build(BuildContext context) {
       orElse: () => {},
     );
     // DEPURACIÓN
-    print('Buscando porcentaje para id: $idPorcentaje, encontrado: ${p['porcentaje']}');
+    logInfo('Buscando porcentaje para id: $idPorcentaje, encontrado: ${p['porcentaje']}');
     if (p.isNotEmpty && p['porcentaje'] != null) {
       final valor = p['porcentaje'];
       if (valor is num) {

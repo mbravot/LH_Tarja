@@ -2,6 +2,19 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// Sistema de logging condicional
+void logInfo(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("ℹ️ $message");
+  }
+}
+
+void logError(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("❌ $message");
+  }
+}
+
 class CambiarSucursalPage extends StatefulWidget {
   @override
   _CambiarSucursalPageState createState() => _CambiarSucursalPageState();
@@ -39,7 +52,7 @@ class _CambiarSucursalPageState extends State<CambiarSucursalPage> {
         _cargando = false;
       });
     } catch (e) {
-      print("❌ Error al cargar sucursales: $e");
+      logError("Error al cargar sucursales: $e");
       if (!mounted) return;
       
       setState(() {

@@ -1,8 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:collection/collection.dart';
+import 'package:intl/intl.dart';
+
+// 🔧 Sistema de logging condicional
+void logDebug(String message) {
+  if (kDebugMode) {
+    print(message);
+  }
+}
+
+void logError(String message) {
+  if (kDebugMode) {
+    print("❌ $message");
+  }
+}
+
+void logInfo(String message) {
+  if (kDebugMode) {
+    print("ℹ️ $message");
+  }
+}
 
 class EditarActividadPage extends StatefulWidget {
   final Map<String, dynamic> actividad;
@@ -83,7 +104,7 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
 
   Future<void> _cargarOpciones() async {
     try {
-      print("🔍 Cargando opciones...");
+      logDebug("🔍 Cargando opciones...");
 
       especies = await ApiService().getEspecies();
       labores = await ApiService().getLabores();
@@ -91,33 +112,33 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
       tiposTrabajadores = await ApiService().getTipoTrabajadores();
       tiposRendimientos = await ApiService().getTipoRendimientos();
 
-      print("✅ Tipos Trabajadores cargados: $tiposTrabajadores");
-      print("✅ Tipos Rendimientos cargados: $tiposRendimientos");
+      logInfo("✅ Tipos Trabajadores cargados: $tiposTrabajadores");
+      logInfo("✅ Tipos Rendimientos cargados: $tiposRendimientos");
 
       // ✅ Verificar que id_sucursalactiva no sea nulo ni vacío antes de llamar a la API
       String? idSucursal = widget.actividad['id_sucursalactiva']?.toString();
       if (idSucursal == null || idSucursal.isEmpty) {
-        print(
+        logInfo(
             "⚠️ Error: id_sucursalactiva es nulo o vacío. No se pueden cargar contratistas.");
       } else if (selectedTipoTrabajador != null) {
-        print("✅ id_sucursalactiva obtenido correctamente: $idSucursal");
+        logInfo("✅ id_sucursalactiva obtenido correctamente: $idSucursal");
         // ✅ Filtrar contratistas según el tipo de trabajador y sucursal
         await _cargarContratistas();
-        print("✅ Contratistas cargados: $contratistas");
+        logInfo("✅ Contratistas cargados: $contratistas");
       }
 
       // ✅ Cargar variedades si hay un id_especie válido
       if (selectedEspecie != null && selectedEspecie!.isNotEmpty) {
         variedades =
             await ApiService().getVariedades(selectedEspecie!, idSucursal!);
-        print("✅ Variedades cargadas: $variedades");
+        logInfo("✅ Variedades cargadas: $variedades");
       }
 
       // ✅ Cargar CECOs si hay un id_especie y id_variedad válidos
       if (selectedEspecie != null && selectedVariedad != null) {
         cecos = await ApiService()
             .getCecos(selectedEspecie!, selectedVariedad!, idSucursal!);
-        print("✅ CECOs cargados: $cecos");
+        logInfo("✅ CECOs cargados: $cecos");
       }
 
       // 🔹 Asegurar que los valores de la actividad existen en las listas
@@ -132,7 +153,7 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
 
       setState(() {}); // 🔹 Actualizar UI después de cargar los datos
     } catch (e) {
-      print("❌ Error al cargar opciones: $e");
+      logError("❌ Error al cargar opciones: $e");
     }
   }
 
@@ -140,7 +161,7 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
     if (valor != null &&
         valor.isNotEmpty &&
         !lista.any((item) => item['id'].toString() == valor)) {
-      print("⚠️ Agregando valor seleccionado previamente: $valor");
+      logInfo("⚠️ Agregando valor seleccionado previamente: $valor");
       lista.insert(0, {'id': valor, 'nombre': 'Seleccionado previamente'});
     }
   }
@@ -171,7 +192,7 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
             SnackBar(content: Text("Error: ${response['error']}")));
       }
     } catch (e) {
-      print("❌ Error guardando cambios: $e");
+      logError("❌ Error guardando cambios: $e");
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error guardando cambios: ${e.toString()}")));
     }
@@ -183,21 +204,21 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
       if (idSucursal == null ||
           idSucursal.isEmpty ||
           selectedTipoTrabajador == null) {
-        print(
+        logInfo(
             "⚠ No se puede cargar contratistas sin id_sucursalactiva o id_tipo_trab.");
         return;
       }
 
-      print(
+      logInfo(
           "🔍 Cargando contratistas para id_sucursalactiva: $idSucursal y id_tipo_trab: $selectedTipoTrabajador");
 
       contratistas = await ApiService()
           .getContratistas(idSucursal);
-      print("✅ Contratistas filtrados cargados: $contratistas");
+      logInfo("✅ Contratistas filtrados cargados: $contratistas");
 
       setState(() {});
     } catch (e) {
-      print("❌ Error al cargar contratistas: $e");
+      logError("❌ Error al cargar contratistas: $e");
     }
   }
 
@@ -279,7 +300,42 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
                         label: "Labor",
                         items: labores,
                         selectedValue: labores.firstWhereOrNull((e) => e['id'].toString() == selectedLabor),
-                        onChanged: (val) => setState(() => selectedLabor = val?['id']?.toString()),
+                        onChanged: (val) async {
+                          final laborId = val?['id']?.toString();
+                          setState(() => selectedLabor = laborId);
+                          
+                          // Si se seleccionó una labor, cargar la unidad por defecto
+                          if (laborId != null) {
+                            try {
+                              final unidadDefault = await ApiService().getUnidadDefaultLabor(laborId);
+                              if (unidadDefault != null && unidadDefault['unidad_default'] != null) {
+                                final unidad = unidadDefault['unidad_default'];
+                                setState(() {
+                                  selectedUnidad = unidad['id'].toString();
+                                });
+                                
+                                // Mostrar mensaje informativo
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Row(
+                                        children: [
+                                          Icon(Icons.info_outline, color: Colors.white),
+                                          SizedBox(width: 8),
+                                          Text('Unidad por defecto cargada: ${unidad['nombre']}'),
+                                        ],
+                                      ),
+                                      backgroundColor: Colors.blue,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              }
+                            } catch (e) {
+                              logError("❌ Error al cargar unidad por defecto: $e");
+                            }
+                          }
+                        },
                         icon: Icons.engineering,
                       ),
                       SizedBox(height: 16),

@@ -135,7 +135,7 @@ class _CecoMaquinariaFormState extends State<CecoMaquinariaForm> {
 
         final response = await ApiService().crearCecoMaquinaria(cecoData);
 
-        if (response['success'] == true) {
+        if (response['success'] == true || response['success'] == "true" || response['success'] == 1) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('CECO Maquinaria creado exitosamente', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),

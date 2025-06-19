@@ -158,7 +158,7 @@ class _CecoProductivoFormState extends State<CecoProductivoForm> {
 
         final response = await ApiService().crearCecoProductivo(cecoData);
 
-        if (response['success'] == true) {
+        if (response['success'] == true || response['success'] == "true" || response['success'] == 1) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('CECO Productivo creado exitosamente', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),

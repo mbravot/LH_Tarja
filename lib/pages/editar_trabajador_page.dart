@@ -1,6 +1,21 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'package:dropdown_search/dropdown_search.dart';
+import 'package:app_lh_tarja/utils/colors.dart';
+import 'package:app_lh_tarja/pages/trabajadores_page.dart';
+
+// Sistema de logging condicional
+void logInfo(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("ℹ️ $message");
+  }
+}
+
+void logError(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("❌ $message");
+  }
+}
 
 class EditarTrabajadorPage extends StatefulWidget {
   final dynamic trabajador;
@@ -91,7 +106,7 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
         data["codigo_verificador"] = dvController.text.trim();
       }
 
-      print("📤 Datos a enviar: $data"); // Para debugging
+      logInfo("📤 Datos a enviar: $data"); // Para debugging
 
       bool success = await ApiService().editarTrabajador(widget.trabajador['id'].toString(), data);
 

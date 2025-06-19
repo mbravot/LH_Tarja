@@ -3,18 +3,39 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'login_services.dart';
 import '../pages/login_page.dart';
+
+// 🔧 Sistema de logging condicional
+void logDebug(String message) {
+  if (kDebugMode) {
+    print(message);
+  }
+}
+
+void logError(String message) {
+  if (kDebugMode) {
+    print("❌ $message");
+  }
+}
+
+void logInfo(String message) {
+  if (kDebugMode) {
+    print("ℹ️ $message");
+  }
+}
 
 class ApiService {
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
   final String baseUrl = 'https://apilhtarja.lahornilla.cl/api';
+  //final String baseUrl = 'http://192.168.1.60:5000/api';
 
   /// 🔹 Método para manejar token expirado
   Future<void> manejarTokenExpirado() async {
     try {
-      print("🔄 Token expirado, limpiando datos y redirigiendo al login...");
+      logDebug("🔄 Token expirado, limpiando datos y redirigiendo al login...");
       
       // Limpiar todas las preferencias almacenadas
       final prefs = await SharedPreferences.getInstance();
@@ -40,7 +61,7 @@ class ApiService {
         );
       }
     } catch (e) {
-      print('Error al manejar token expirado: $e');
+      logError('Error al manejar token expirado: $e');
       // Si hay algún error, intentar navegar al login de todas formas
       if (navigatorKey.currentState != null) {
         navigatorKey.currentState!.pushAndRemoveUntil(
@@ -70,7 +91,7 @@ class ApiService {
       final token = prefs.getString('access_token');
       
       if (token == null) {
-        print("❌ No hay token de acceso");
+        logError("❌ No hay token de acceso");
         throw Exception('No hay token de acceso disponible');
       }
 
@@ -80,7 +101,7 @@ class ApiService {
         'Authorization': 'Bearer $token',
       };
     } catch (e) {
-      print("❌ Error al obtener headers: $e");
+      logError("❌ Error al obtener headers: $e");
       throw Exception('Error al obtener headers: $e');
     }
   }
@@ -103,15 +124,15 @@ class ApiService {
     try {
       final response = await requestFunction();
       
-      print("🔍 Response status: ${response.statusCode}");
-      print("🔍 Response headers: ${response.headers}");
-      print("🔍 Response body: ${response.body}");
+      logDebug("🔍 Response status: ${response.statusCode}");
+      logDebug("🔍 Response headers: ${response.headers}");
+      logDebug("🔍 Response body: ${response.body}");
       
       // Si la respuesta es una redirección (3xx)
       if (response.statusCode >= 300 && response.statusCode < 400) {
         final redirectUrl = response.headers['location'];
         if (redirectUrl != null) {
-          print("🔄 Siguiendo redirección a: $redirectUrl");
+          logDebug("🔄 Siguiendo redirección a: $redirectUrl");
           final redirectResponse = await http.get(
             Uri.parse(redirectUrl),
             headers: await _getHeaders(),
@@ -122,11 +143,11 @@ class ApiService {
       
       // Si la respuesta es 401, intentar refresh del token
       if (response.statusCode == 401) {
-        print("🔄 Detectado error 401, intentando refresh del token...");
+        logDebug("🔄 Detectado error 401, intentando refresh del token...");
         bool refreshed = await AuthService().refreshToken();
         
         if (refreshed) {
-          print("✅ Token refresh exitoso, reintentando petición original...");
+          logDebug("✅ Token refresh exitoso, reintentando petición original...");
           // Reintentar la petición original con el nuevo token
           final retryResponse = await requestFunction();
           return await _manejarRespuesta(retryResponse);
@@ -139,13 +160,13 @@ class ApiService {
 
       // Verificar si la respuesta es HTML en lugar de JSON
       if (response.headers['content-type']?.toLowerCase().contains('text/html') == true) {
-        print("❌ Error: Respuesta HTML recibida cuando se esperaba JSON");
+        logError("❌ Error: Respuesta HTML recibida cuando se esperaba JSON");
         throw Exception('Error de servidor: Se recibió HTML cuando se esperaba JSON');
       }
       
       return await _manejarRespuesta(response);
     } catch (e) {
-      print("❌ Error en _makeRequest: $e");
+      logError("❌ Error en _makeRequest: $e");
       
       // Si es un error de red o conexión, no manejar como token expirado
       if (e.toString().contains('Sesión expirada')) {
@@ -206,7 +227,7 @@ class ApiService {
         );
       }
     } catch (e) {
-      print('Error al cerrar sesión: $e');
+      logError('Error al cerrar sesión: $e');
       // Si hay algún error, intentar navegar al login de todas formas
       if (navigatorKey.currentState != null) {
         navigatorKey.currentState!.pushAndRemoveUntil(
@@ -220,21 +241,21 @@ class ApiService {
   /// 🔹 Método para reintentar la petición si el token expira
   Future<http.Response> _retryRequest(http.Request request) async {
     try {
-      print("🔄 Token expirado, intentando refresh...");
+      logDebug("🔄 Token expirado, intentando refresh...");
       bool refreshed = await AuthService().refreshToken();
       
       if (refreshed) {
-        print("✅ Token refresh exitoso, reintentando petición...");
+        logDebug("✅ Token refresh exitoso, reintentando petición...");
         final newHeaders = await _getHeaders();
         request.headers.clear();
         request.headers.addAll(newHeaders);
         return await http.Response.fromStream(await request.send());
       } else {
-        print("❌ Falló el refresh del token");
+        logError("❌ Falló el refresh del token");
         throw Exception('Sesión expirada, inicia sesión nuevamente.');
       }
     } catch (e) {
-      print("❌ Error en retry request: $e");
+      logError("❌ Error en retry request: $e");
       throw Exception('Sesión expirada, inicia sesión nuevamente.');
     }
   }
@@ -285,7 +306,7 @@ class ApiService {
       );
     });
 
-    print("🔍 Respuesta de editar actividad: ${response.statusCode} - ${response.body}");
+    logDebug("🔍 Respuesta de editar actividad: ${response.statusCode} - ${response.body}");
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
@@ -303,7 +324,7 @@ class ApiService {
 
       // Obtener rendimientos grupales
       final urlGrupal = '$baseUrl/rendimientos/$idActividad';
-      print("🔍 Llamando a rendimientos grupales: $urlGrupal");
+      logDebug("🔍 Llamando a rendimientos grupales: $urlGrupal");
 
       final responseGrupal = await _makeRequest(() async {
         return await http.get(
@@ -312,7 +333,7 @@ class ApiService {
         );
       });
 
-      print("📥 Respuesta rendimientos grupales: ${responseGrupal.statusCode} - ${responseGrupal.body}");
+      logDebug("📥 Respuesta rendimientos grupales: ${responseGrupal.statusCode} - ${responseGrupal.body}");
 
       if (responseGrupal.statusCode == 200) {
         final data = json.decode(responseGrupal.body);
@@ -322,11 +343,11 @@ class ApiService {
         }
         return data;
       } else {
-        print("❌ Error al obtener rendimientos grupales: ${responseGrupal.statusCode} - ${responseGrupal.body}");
+        logError("❌ Error al obtener rendimientos grupales: ${responseGrupal.statusCode} - ${responseGrupal.body}");
         throw Exception('Error al obtener rendimientos grupales: ${responseGrupal.statusCode}');
       }
     } catch (e) {
-      print("❌ Error en getRendimientos: $e");
+      logError("❌ Error en getRendimientos: $e");
       throw Exception('Error al obtener rendimientos: $e');
     }
   }
@@ -344,7 +365,7 @@ class ApiService {
     if (response.statusCode == 201) {
       return true;
     } else {
-      print("❌ Error en la API: ${response.body}");
+      logError("❌ Error en la API: ${response.body}");
       return false;
     }
   }
@@ -362,7 +383,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return true;
     } else {
-      print("❌ Error en la API: ${response.body}");
+      logError("❌ Error en la API: ${response.body}");
       return false;
     }
   }
@@ -379,7 +400,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return true;
     } else {
-      print("❌ Error en la API: ${response.body}");
+      logError("❌ Error en la API: ${response.body}");
       return false;
     }
   }
@@ -393,14 +414,14 @@ class ApiService {
       );
     });
 
-    print("🔍 Respuesta API Sucursal Activa: ${response.statusCode} - ${response.body}");
+    logDebug("🔍 Respuesta API Sucursal Activa: ${response.statusCode} - ${response.body}");
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(response.body);
-      print("✅ Sucursal activa obtenida: ${data["sucursal_activa"]}");
+      logInfo("✅ Sucursal activa obtenida: ${data["sucursal_activa"]}");
       return data["sucursal_activa"].toString();
     } else {
-      print("❌ Error al obtener sucursal activa: ${response.body}");
+      logError("❌ Error al obtener sucursal activa: ${response.body}");
       return null;
     }
   }
@@ -507,7 +528,7 @@ class ApiService {
 
     await _manejarRespuesta(response);
 
-    print("🔍 Respuesta API CECOs: ${response.body}");
+    logDebug("🔍 Respuesta API CECOs: ${response.body}");
 
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(jsonDecode(response.body));
@@ -664,12 +685,12 @@ class ApiService {
 
   /// 🔹 Crear un nuevo contratista
   Future<Map<String, dynamic>> createContratista(Map<String, dynamic> contratistaData) async {
-    print("📤 Intentando crear contratista con datos: $contratistaData");
+    logDebug("📤 Intentando crear contratista con datos: $contratistaData");
     
     try {
       // Asegurarnos que la URL termina con /
       final url = '$baseUrl/contratistas/';
-      print("🔍 URL de la petición: $url");
+      logDebug("🔍 URL de la petición: $url");
       
       final response = await _makeRequest(() async {
         return await http.post(
@@ -682,20 +703,20 @@ class ApiService {
         );
       });
 
-      print("📥 Respuesta crear contratista - Status: ${response.statusCode}");
-      print("📥 Respuesta crear contratista - Headers: ${response.headers}");
-      print("📥 Respuesta crear contratista - Body: ${response.body}");
+      logDebug("📥 Respuesta crear contratista - Status: ${response.statusCode}");
+      logDebug("📥 Respuesta crear contratista - Headers: ${response.headers}");
+      logDebug("📥 Respuesta crear contratista - Body: ${response.body}");
 
       if (response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
-        print("✅ Contratista creado exitosamente: $responseData");
+        logInfo("✅ Contratista creado exitosamente: $responseData");
         return responseData;
       } else {
-        print("❌ Error al crear contratista: ${response.statusCode} - ${response.body}");
+        logError("❌ Error al crear contratista: ${response.statusCode} - ${response.body}");
         throw Exception('Error al crear el contratista: ${response.body}');
       }
     } catch (e) {
-      print("❌ Excepción al crear contratista: $e");
+      logError("❌ Excepción al crear contratista: $e");
       throw Exception('Error al crear el contratista: $e');
     }
   }
@@ -713,7 +734,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      print("❌ Error al actualizar contratista: ${response.statusCode} - ${response.body}");
+      logError("❌ Error al actualizar contratista: ${response.statusCode} - ${response.body}");
       throw Exception('Error al actualizar el contratista: ${response.body}');
     }
   }
@@ -764,9 +785,17 @@ class ApiService {
 
     if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['success'] == true) {
+        
+        // Si el backend devuelve un array directamente (caso especial)
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
+        
+        // Manejar tanto boolean como string para el campo success
+        final success = data['success'];
+        if (success == true || success == "true" || success == 1) {
           return List<Map<String, dynamic>>.from(data['sucursales'] ?? []);
-    } else {
+        } else {
           throw Exception(data['error'] ?? 'Error al obtener las sucursales');
         }
       } else {
@@ -774,7 +803,7 @@ class ApiService {
         throw Exception(error['error'] ?? 'Error al obtener las sucursales');
     }
     } catch (e) {
-      print('❌ Error al cargar sucursales disponibles: $e');
+      logError('❌ Error al cargar sucursales disponibles: $e');
       throw Exception('Error al obtener las sucursales: $e');
     }
   }
@@ -848,7 +877,7 @@ class ApiService {
             return responseData['id'].toString();
           }
         } catch (e) {
-          print('No se pudo obtener el ID del usuario creado: $e');
+          logError('No se pudo obtener el ID del usuario creado: $e');
         }
         return null; // Si no se puede obtener el ID, retornar null
       } else {
@@ -856,7 +885,7 @@ class ApiService {
         throw Exception(error['error'] ?? 'Error al crear el usuario');
       }
     } catch (e) {
-      print("❌ Error al crear usuario: $e");
+      logError("❌ Error al crear usuario: $e");
       rethrow;
     }
   }
@@ -875,10 +904,10 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      print("✅ Usuario editado correctamente");
+      logInfo("✅ Usuario editado correctamente");
       return true;
     } else {
-      print("❌ Error al editar usuario: ${response.body}");
+      logError("❌ Error al editar usuario: ${response.body}");
       return false;
     }
   }
@@ -891,8 +920,16 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        if (responseData['success'] == true) {
+        final responseData = jsonDecode(response.body);
+        
+        // Si el backend devuelve un array directamente (caso especial)
+        if (responseData is List) {
+          return List<Map<String, dynamic>>.from(responseData);
+        }
+        
+        // Manejar tanto boolean como string para el campo success
+        final success = responseData['success'];
+        if (success == true || success == "true" || success == 1) {
           final List<dynamic> data = responseData['data'];
           return data.cast<Map<String, dynamic>>();
         } else {
@@ -1516,7 +1553,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return true;
     } else {
-      print("❌ Error al eliminar actividad: ${response.body}");
+      logError("❌ Error al eliminar actividad: ${response.body}");
       return false;
     }
   }
@@ -1677,7 +1714,7 @@ class ApiService {
       await _manejarRespuesta(response);
       return response.statusCode == 200;
     } catch (e) {
-      print('Error al eliminar rendimiento individual: $e');
+      logError('Error al eliminar rendimiento individual: $e');
       return false;
     }
   }
@@ -1691,7 +1728,7 @@ class ApiService {
       await _manejarRespuesta(response);
       return response.statusCode == 200;
     } catch (e) {
-      print('Error al eliminar rendimiento grupal: $e');
+      logError('Error al eliminar rendimiento grupal: $e');
       return false;
     }
   }
@@ -1700,7 +1737,7 @@ class ApiService {
   Future<List<dynamic>> getRendimientosIndividualesPropios({String? idActividad}) async {
     try {
       final url = '$baseUrl/rendimientos/individual/propio${idActividad != null ? '?id_actividad=$idActividad' : ''}';
-      print("🔍 Llamando a rendimientos individuales propios: $url");
+      logDebug("🔍 Llamando a rendimientos individuales propios: $url");
       
       final response = await _makeRequest(() async {
         return await http.get(
@@ -1709,17 +1746,17 @@ class ApiService {
         );
       });
 
-      print("📥 Respuesta rendimientos individuales propios: ${response.statusCode} - ${response.body}");
+      logDebug("📥 Respuesta rendimientos individuales propios: ${response.statusCode} - ${response.body}");
 
       if (response.statusCode == 200) {
         final data = response.body.isEmpty ? [] : jsonDecode(response.body);
         return data;
       } else {
-        print("❌ Error al obtener rendimientos individuales propios: ${response.statusCode} - ${response.body}");
+        logError("❌ Error al obtener rendimientos individuales propios: ${response.statusCode} - ${response.body}");
         throw Exception('Error al obtener rendimientos individuales propios: ${response.statusCode}');
       }
     } catch (e) {
-      print("❌ Error en getRendimientosIndividualesPropios: $e");
+      logError("❌ Error en getRendimientosIndividualesPropios: $e");
       throw Exception('Error al obtener rendimientos individuales propios: $e');
     }
   }
@@ -1728,12 +1765,12 @@ class ApiService {
   Future<List<dynamic>> getRendimientosIndividualesContratistas({String? idActividad, String? idContratista}) async {
     try {
       if (idActividad == null || idActividad.isEmpty) {
-        print("❌ Error: ID de actividad es requerido");
+        logError("❌ Error: ID de actividad es requerido");
         throw Exception('ID de actividad es requerido');
       }
       
       if (idContratista == null || idContratista.isEmpty) {
-        print("❌ Error: ID de contratista es requerido");
+        logError("❌ Error: ID de contratista es requerido");
         throw Exception('ID de contratista es requerido');
       }
 
@@ -1745,10 +1782,10 @@ class ApiService {
       
       url += '?' + params.join('&');
       
-      print("🔍 ====== OBTENIENDO RENDIMIENTOS CONTRATISTAS ======");
-      print("🔍 URL: $url");
-      print("🔍 ID Actividad: $idActividad");
-      print("🔍 ID Contratista: $idContratista");
+      logDebug("🔍 ====== OBTENIENDO RENDIMIENTOS CONTRATISTAS ======");
+      logDebug("🔍 URL: $url");
+      logDebug("🔍 ID Actividad: $idActividad");
+      logDebug("🔍 ID Contratista: $idContratista");
       
       final response = await _makeRequest(() async {
         return await http.get(
@@ -1757,9 +1794,9 @@ class ApiService {
         );
       });
 
-      print("📥 Status Code: ${response.statusCode}");
-      print("📥 Headers: ${response.headers}");
-      print("📥 Body: ${response.body}");
+      logDebug("📥 Status Code: ${response.statusCode}");
+      logDebug("📥 Headers: ${response.headers}");
+      logDebug("📥 Body: ${response.body}");
 
       if (response.statusCode == 200) {
         final data = response.body.isEmpty ? [] : jsonDecode(response.body);
@@ -1769,23 +1806,23 @@ class ApiService {
           final coincideActividad = r['id_actividad'].toString() == idActividad;
           
           if (!coincideActividad) {
-            print("⚠️ Rendimiento con ID actividad incorrecto: ${r['id_actividad']} != $idActividad");
+            logError("⚠️ Rendimiento con ID actividad incorrecto: ${r['id_actividad']} != $idActividad");
           }
           
           return coincideActividad;
         }).toList();
         
-        print("✅ Rendimientos totales recibidos: ${data.length}");
-        print("✅ Rendimientos filtrados: ${rendimientosFiltrados.length}");
-        print("✅ ====== FIN OBTENCIÓN RENDIMIENTOS CONTRATISTAS ======");
+        logInfo("✅ Rendimientos totales recibidos: ${data.length}");
+        logInfo("✅ Rendimientos filtrados: ${rendimientosFiltrados.length}");
+        logDebug("✅ ====== FIN OBTENCIÓN RENDIMIENTOS CONTRATISTAS ======");
         
         return rendimientosFiltrados;
       } else {
-        print("❌ Error al obtener rendimientos individuales contratistas: ${response.statusCode} - ${response.body}");
+        logError("❌ Error al obtener rendimientos individuales contratistas: ${response.statusCode} - ${response.body}");
         throw Exception('Error al obtener rendimientos individuales contratistas: ${response.statusCode}');
       }
     } catch (e) {
-      print("❌ Error en getRendimientosIndividualesContratistas: $e");
+      logError("❌ Error en getRendimientosIndividualesContratistas: $e");
       throw Exception('Error al obtener rendimientos individuales contratistas: $e');
     }
   }
@@ -1803,7 +1840,7 @@ class ApiService {
     if (response.statusCode == 201) {
       return true;
     } else {
-      print("❌ Error en la API: ${response.body}");
+      logError("❌ Error en la API: ${response.body}");
       return false;
     }
   }
@@ -1821,11 +1858,11 @@ class ApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        print("❌ Error al actualizar rendimiento individual propio: ${response.statusCode} - ${response.body}");
+        logError("❌ Error al actualizar rendimiento individual propio: ${response.statusCode} - ${response.body}");
         throw Exception('Error al actualizar rendimiento individual propio: ${response.statusCode}');
       }
     } catch (e) {
-      print("❌ Error en actualizarRendimientoIndividualPropio: $e");
+      logError("❌ Error en actualizarRendimientoIndividualPropio: $e");
       throw Exception('Error al actualizar rendimiento individual propio: $e');
     }
   }
@@ -1843,7 +1880,7 @@ class ApiService {
   // Crear rendimiento individual contratista
   Future<bool> crearRendimientoIndividualContratista(Map<String, dynamic> rendimiento) async {
     try {
-      print('📤 Creando rendimiento contratista: $rendimiento');
+      logDebug('📤 Creando rendimiento contratista: $rendimiento');
       
       final response = await _makeRequest(() async {
         return await http.post(
@@ -1853,16 +1890,16 @@ class ApiService {
         );
       });
 
-      print('📥 Respuesta: ${response.statusCode} - ${response.body}');
+      logDebug('📥 Respuesta: ${response.statusCode} - ${response.body}');
 
       if (response.statusCode == 201) {
         return true;
       } else {
-        print("❌ Error en la API: ${response.body}");
+        logError("❌ Error en la API: ${response.body}");
         throw Exception('Error al crear rendimiento: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      print("❌ Error al crear rendimiento contratista: $e");
+      logError("❌ Error al crear rendimiento contratista: $e");
       throw Exception('Error al crear rendimiento: $e');
     }
   }
@@ -1880,11 +1917,11 @@ class ApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        print("❌ Error al actualizar rendimiento individual contratista: ${response.statusCode} - ${response.body}");
+        logError("❌ Error al actualizar rendimiento individual contratista: ${response.statusCode} - ${response.body}");
         throw Exception('Error al actualizar rendimiento individual contratista: ${response.statusCode}');
       }
     } catch (e) {
-      print("❌ Error en actualizarRendimientoIndividualContratista: $e");
+      logError("❌ Error en actualizarRendimientoIndividualContratista: $e");
       throw Exception('Error al actualizar rendimiento individual contratista: $e');
     }
   }
@@ -1905,7 +1942,7 @@ class ApiService {
       Uri.parse('$baseUrl/opciones/tiposinversion/actividad/$idActividad'),
       headers: await _getHeaders(),
     );
-    print('Respuesta tipos de inversión: \\${response.body}');
+    logDebug('Respuesta tipos de inversión: \\${response.body}');
     await _manejarRespuesta(response);
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(jsonDecode(response.body));
@@ -1920,7 +1957,7 @@ class ApiService {
       Uri.parse('$baseUrl/opciones/inversiones/actividad/$idActividad/$idTipoInversion'),
       headers: await _getHeaders(),
     );
-    print('Respuesta inversiones: \\${response.body}');
+    logDebug('Respuesta inversiones: \\${response.body}');
     await _manejarRespuesta(response);
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(jsonDecode(response.body));
@@ -1935,7 +1972,7 @@ class ApiService {
       Uri.parse('$baseUrl/opciones/cecosinversion/actividad/$idActividad/$idTipoInversion/$idInversion'),
       headers: await _getHeaders(),
     );
-    print('Respuesta cecos: \\${response.body}');
+    logDebug('Respuesta cecos: \\${response.body}');
     await _manejarRespuesta(response);
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(jsonDecode(response.body));
@@ -2021,11 +2058,11 @@ class ApiService {
 
   /// Crea un nuevo trabajador
   Future<bool> crearTrabajador(Map<String, dynamic> data) async {
-    print("📤 Intentando crear trabajador con datos: $data");
+    logDebug("📤 Intentando crear trabajador con datos: $data");
     
     try {
       final url = '$baseUrl/trabajadores/';
-      print("🔍 URL de la petición: $url");
+      logDebug("🔍 URL de la petición: $url");
       
       final response = await _makeRequest(() async {
         return await http.post(
@@ -2038,30 +2075,30 @@ class ApiService {
         );
       });
 
-      print("📥 Respuesta crear trabajador - Status: ${response.statusCode}");
-      print("📥 Respuesta crear trabajador - Headers: ${response.headers}");
-      print("📥 Respuesta crear trabajador - Body: ${response.body}");
+      logDebug("📥 Respuesta crear trabajador - Status: ${response.statusCode}");
+      logDebug("📥 Respuesta crear trabajador - Headers: ${response.headers}");
+      logDebug("📥 Respuesta crear trabajador - Body: ${response.body}");
 
       if (response.statusCode == 201) {
-        print("✅ Trabajador creado exitosamente");
+        logInfo("✅ Trabajador creado exitosamente");
         return true;
       } else {
-        print("❌ Error al crear trabajador: ${response.statusCode} - ${response.body}");
+        logError("❌ Error al crear trabajador: ${response.statusCode} - ${response.body}");
         throw Exception('Error al crear el trabajador: ${response.body}');
       }
     } catch (e) {
-      print("❌ Excepción al crear trabajador: $e");
+      logError("❌ Excepción al crear trabajador: $e");
       throw Exception('Error al crear el trabajador: $e');
     }
   }
 
   /// Edita un trabajador existente
   Future<bool> editarTrabajador(String id, Map<String, dynamic> data) async {
-    print("📤 Intentando editar trabajador ${id} con datos: $data");
+    logDebug("📤 Intentando editar trabajador ${id} con datos: $data");
     
     try {
       final url = '$baseUrl/trabajadores/$id';
-      print("🔍 URL de la petición: $url");
+      logDebug("🔍 URL de la petición: $url");
       
       final response = await _makeRequest(() async {
         return await http.put(
@@ -2075,18 +2112,18 @@ class ApiService {
         );
       });
 
-      print("📥 Respuesta editar trabajador - Status: ${response.statusCode}");
-      print("📥 Respuesta editar trabajador - Headers: ${response.headers}");
-      print("📥 Respuesta editar trabajador - Body: ${response.body}");
+      logDebug("📥 Respuesta editar trabajador - Status: ${response.statusCode}");
+      logDebug("📥 Respuesta editar trabajador - Headers: ${response.headers}");
+      logDebug("📥 Respuesta editar trabajador - Body: ${response.body}");
 
       if (response.statusCode == 200) {
         return true;
       } else {
-        print("❌ Error al actualizar trabajador: ${response.statusCode} - ${response.body}");
+        logError("❌ Error al actualizar trabajador: ${response.statusCode} - ${response.body}");
         throw Exception('Error al actualizar el trabajador: ${response.body}');
       }
     } catch (e) {
-      print("❌ Excepción al actualizar trabajador: $e");
+      logError("❌ Excepción al actualizar trabajador: $e");
       throw Exception('Error al actualizar el trabajador: $e');
     }
   }
@@ -2122,7 +2159,7 @@ class ApiService {
     if (response.statusCode == 201) {
       return jsonDecode(response.body);
     } else {
-      print("❌ Error al crear colaborador: ${response.statusCode} - ${response.body}");
+      logError("❌ Error al crear colaborador: ${response.statusCode} - ${response.body}");
       throw Exception('Error al crear colaborador: ${response.body}');
     }
   }
@@ -2139,7 +2176,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      print("❌ Error al editar colaborador: ${response.statusCode} - ${response.body}");
+      logError("❌ Error al editar colaborador: ${response.statusCode} - ${response.body}");
       throw Exception('Error al editar colaborador: ${response.body}');
     }
   }
@@ -2175,7 +2212,7 @@ class ApiService {
     if (response.statusCode == 201) {
       return jsonDecode(response.body);
     } else {
-      print("❌ Error al crear permiso: ${response.statusCode} - ${response.body}");
+      logError("❌ Error al crear permiso: ${response.statusCode} - ${response.body}");
       throw Exception('Error al crear permiso: ${response.body}');
     }
   }
@@ -2192,7 +2229,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      print("❌ Error al editar permiso: ${response.statusCode} - ${response.body}");
+      logError("❌ Error al editar permiso: ${response.statusCode} - ${response.body}");
       throw Exception('Error al editar permiso: ${response.body}');
     }
   }
@@ -2208,7 +2245,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return true;
     } else {
-      print("❌ Error al eliminar permiso: ${response.statusCode} - ${response.body}");
+      logError("❌ Error al eliminar permiso: ${response.statusCode} - ${response.body}");
       throw Exception('Error al eliminar permiso: ${response.body}');
     }
   }
@@ -2350,7 +2387,7 @@ class ApiService {
       // Primero verificar si hay token
       final token = await getToken();
       if (token == null) {
-        print("❌ No hay token disponible");
+        logError("❌ No hay token disponible");
         return false;
       }
 
@@ -2365,33 +2402,33 @@ class ApiService {
       // Si la petición fue exitosa, el token es válido
       return response.statusCode == 200;
     } catch (e) {
-      print("🔄 Error al verificar token: $e");
+      logError("🔄 Error al verificar token: $e");
       
       // Solo intentar refresh si el error es de autenticación
       if (e.toString().contains('401') || 
           e.toString().contains('token') || 
           e.toString().contains('Token')) {
         
-        print("🔄 Token puede estar expirado, intentando refresh proactivo...");
+        logDebug("🔄 Token puede estar expirado, intentando refresh proactivo...");
         try {
           bool refreshed = await AuthService().refreshToken();
           
           if (refreshed) {
-            print("✅ Refresh proactivo exitoso");
+            logDebug("✅ Refresh proactivo exitoso");
             return true;
           } else {
-            print("❌ Refresh proactivo falló");
+            logError("❌ Refresh proactivo falló");
             return false;
           }
         } catch (refreshError) {
-          print("❌ Error en refresh: $refreshError");
+          logError("❌ Error en refresh: $refreshError");
           return false;
         }
       }
       
       // Si no es un error de autenticación, asumir que el token es válido
       // (puede ser un error de red o servidor)
-      print("⚠️ Error no relacionado con autenticación, asumiendo token válido");
+      logInfo("⚠️ Error no relacionado con autenticación, asumiendo token válido");
       return true;
     }
   }
@@ -2596,11 +2633,11 @@ class ApiService {
       final refreshToken = prefs.getString('refresh_token');
       
       if (refreshToken == null) {
-        print("❌ No hay refresh token almacenado");
+        logError("❌ No hay refresh token almacenado");
         throw Exception('No hay refresh token disponible');
       }
 
-      print("🔄 Intentando refrescar token...");
+      logDebug("🔄 Intentando refrescar token...");
       final response = await http.post(
         Uri.parse('$baseUrl/auth/refresh'),
         headers: {
@@ -2609,17 +2646,17 @@ class ApiService {
         },
       );
 
-      print("📡 Código de respuesta refresh: ${response.statusCode}");
-      print("📝 Respuesta del servidor refresh: ${response.body}");
+      logDebug("📡 Código de respuesta refresh: ${response.statusCode}");
+      logDebug("📝 Respuesta del servidor refresh: ${response.body}");
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         await prefs.setString('access_token', data['access_token']);
         await prefs.setString('refresh_token', data['refresh_token']);
-        print("✅ Token refrescado exitosamente");
+        logInfo("✅ Token refrescado exitosamente");
       } else {
-        print("❌ Error en refresh token - Código: ${response.statusCode}");
-        print("❌ Detalle del error refresh: ${response.body}");
+        logError("❌ Error en refresh token - Código: ${response.statusCode}");
+        logError("❌ Detalle del error refresh: ${response.body}");
         
         // Si el refresh token expiró, limpiar tokens y redirigir al login
         await prefs.remove('access_token');
@@ -2631,8 +2668,47 @@ class ApiService {
         throw Exception('Sesión expirada. Por favor, inicia sesión nuevamente.');
       }
     } catch (e) {
-      print("❌ Error en refreshToken: $e");
+      logError("❌ Error en refreshToken: $e");
       throw Exception('Error al refrescar el token: $e');
+    }
+  }
+
+  /// 🔹 Obtener la unidad por defecto de una labor específica
+  Future<Map<String, dynamic>?> getUnidadDefaultLabor(String idLabor) async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/opciones/labor/$idLabor/unidad-default'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // Si no hay unidad por defecto, devolver null
+        if (data['unidad_default'] == null) {
+          return null;
+        }
+        return {
+          'id_unidad_default': data['id_unidad_default'],
+          'unidad_default': data['unidad_default'],
+        };
+      } else if (response.statusCode == 404) {
+        // Endpoint no existe, devolver null silenciosamente
+        logInfo("ℹ️ Endpoint de unidad por defecto no disponible para labor $idLabor");
+        return null;
+      } else {
+        logError("❌ Error al obtener unidad por defecto: ${response.statusCode}");
+        return null;
+      }
+    } catch (e) {
+      // Si es un error de conexión, asumir que el endpoint no existe
+      if (e.toString().contains('Failed to fetch') || e.toString().contains('ClientException')) {
+        logInfo("ℹ️ Endpoint de unidad por defecto no disponible para labor $idLabor");
+        return null;
+      }
+      logError("❌ Error en getUnidadDefaultLabor: $e");
+      return null;
     }
   }
 

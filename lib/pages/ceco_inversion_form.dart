@@ -134,7 +134,7 @@ class _CecoInversionFormState extends State<CecoInversionForm> {
 
         final response = await ApiService().crearCecoInversion(cecoData);
 
-        if (response['success'] == true) {
+        if (response['success'] == true || response['success'] == "true" || response['success'] == 1) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('CECO Inversión creado exitosamente', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),

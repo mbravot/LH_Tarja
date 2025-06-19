@@ -4,6 +4,20 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'package:app_lh_tarja/pages/actividades_page.dart';
 import 'package:app_lh_tarja/pages/home_page.dart';
+import 'package:flutter/foundation.dart';
+
+// Sistema de logging condicional
+void logInfo(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("ℹ️ $message");
+  }
+}
+
+void logError(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("❌ $message");
+  }
+}
 
 class CecoRiegoForm extends StatefulWidget {
   final String idActividad;
@@ -102,12 +116,16 @@ class _CecoRiegoFormState extends State<CecoRiegoForm> {
     if (value != null) {
       try {
         setState(() => _isLoading = true);
-        print('Llamando a getSectoresRiegoPorEquipo con id_equiporiego: ${value['id']}');
-        final sectores = await ApiService().getSectoresRiegoPorEquipo(value['id'].toString());
-        print('Sectores recibidos: $sectores');
-        sectores.sort((a, b) => a['nombre']?.toString().compareTo(b['nombre']?.toString() ?? '') ?? 0);
+        logInfo('Llamando a getSectoresRiegoPorEquipo con id_equiporiego: ${value['id']}');
+        final sectorList = await ApiService().getSectoresRiegoPorEquipo(value['id']);
+        logInfo('Sectores recibidos: $sectorList');
+        sectorList.sort((a, b) => a['nombre'].toString().compareTo(b['nombre'].toString()));
         setState(() {
-          sectoresRiego = sectores;
+          sectoresRiego = sectorList;
+          // Si solo hay un sector, autocompletar
+          if (sectorList.length == 1) {
+            _selectedSectorRiego = sectorList[0]['id'].toString();
+          }
         });
       } catch (e) {
         if (!mounted) return;
@@ -136,7 +154,7 @@ class _CecoRiegoFormState extends State<CecoRiegoForm> {
 
         final response = await ApiService().crearCecoRiego(cecoData);
 
-        if (response['success'] == true) {
+        if (response['success'] == true || response['success'] == "true" || response['success'] == 1) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('CECO Riego creado exitosamente', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),

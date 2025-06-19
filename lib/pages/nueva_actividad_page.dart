@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../services/api_service.dart';
 import 'package:intl/intl.dart';
 //import 'package:dropdown_search/dropdown_search.dart';
@@ -11,6 +12,25 @@ import 'ceco_productivo_form.dart';
 import 'ceco_maquinaria_form.dart';
 import 'ceco_inversion_form.dart';
 import 'ceco_riego_form.dart';
+
+// 🔧 Sistema de logging condicional
+void logDebug(String message) {
+  if (kDebugMode) {
+    print(message);
+  }
+}
+
+void logError(String message) {
+  if (kDebugMode) {
+    print("❌ $message");
+  }
+}
+
+void logInfo(String message) {
+  if (kDebugMode) {
+    print("ℹ️ $message");
+  }
+}
 
 class NuevaActividadPage extends StatefulWidget {
   const NuevaActividadPage({Key? key}) : super(key: key);
@@ -72,7 +92,7 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
       selectedSucursal = idSucursalUsuario;
       await _loadData();
     } catch (e) {
-      print("❌ Error al obtener datos iniciales: $e");
+      logError("❌ Error al obtener datos iniciales: $e");
     }
   }
 
@@ -80,9 +100,9 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
     try {
       // Cargar datos de la API
       final data = await ApiService().getOpciones();
-      print('Labores: \\${data['labores']}');
-      print('Unidades: \\${data['unidades']}');
-      print('TipoCecos: \\${data['tipoCecos']}');
+      logDebug('Labores: \\${data['labores']}');
+      logDebug('Unidades: \\${data['unidades']}');
+      logDebug('TipoCecos: \\${data['tipoCecos']}');
       setState(() {
         tiposTrabajadores = List<Map<String, dynamic>>.from(data['tiposTrabajadores'] ?? []);
         contratistas = List<Map<String, dynamic>>.from(data['contratistas'] ?? []);
@@ -102,13 +122,13 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
 
   Future<void> _cargarContratistas() async {
     if (idSucursalUsuario == null || selectedTipoTrabajador == null) {
-      print(
+      logError(
           "⚠ No se puede cargar contratistas sin sucursal o tipo de trabajador.");
       return;
     }
 
     try {
-      print(
+      logInfo(
           "🔍 Cargando contratistas para id_sucursal: $idSucursalUsuario y id_tipo_trab: $selectedTipoTrabajador");
 
       final lista = await ApiService().getContratistas(
@@ -120,7 +140,7 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
       // 🔹 Si tipo es propio (1), seleccionar automáticamente
       if (selectedTipoTrabajador == "1" && lista.isNotEmpty) {
         contratistaPropioId = lista.first['id'].toString();
-        print(
+        logInfo(
             "✅ Contratista propio seleccionado automáticamente: $contratistaPropioId");
       }
 
@@ -139,7 +159,7 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
         }
       });
     } catch (e) {
-      print("❌ Error al cargar contratistas: $e");
+      logError("❌ Error al cargar contratistas: $e");
     }
   }
 
@@ -193,7 +213,7 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
 
         final response = await ApiService().crearActividad(actividad);
 
-        if (response['success'] == true) {
+        if (response['success'] == true || response['success'] == "true" || response['success'] == 1) {
           final idActividad = response['id_actividad'];
           
           // Navegar al formulario de CECO correspondiente
@@ -319,7 +339,41 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
                     label: "Labor",
                     items: labores,
                     selectedValue: selectedLabor,
-                    onChanged: (val) => setState(() => selectedLabor = val),
+                    onChanged: (val) async {
+                      setState(() => selectedLabor = val);
+                      
+                      // Si se seleccionó una labor, cargar la unidad por defecto
+                      if (val != null) {
+                        try {
+                          final unidadDefault = await ApiService().getUnidadDefaultLabor(val);
+                          if (unidadDefault != null && unidadDefault['unidad_default'] != null) {
+                            final unidad = unidadDefault['unidad_default'];
+                            setState(() {
+                              selectedUnidad = unidad['id'].toString();
+                            });
+                            
+                            // Mostrar mensaje informativo
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      Icon(Icons.info_outline, color: Colors.white),
+                                      SizedBox(width: 8),
+                                      Text('Unidad por defecto cargada: ${unidad['nombre']}'),
+                                    ],
+                                  ),
+                                  backgroundColor: Colors.blue,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          }
+                        } catch (e) {
+                          logError("❌ Error al cargar unidad por defecto: $e");
+                        }
+                      }
+                    },
                     icon: Icons.engineering,
                   ),
                   SizedBox(height: 16),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'actividades_page.dart';
 import 'rendimientos_page.dart';
 import 'contratistas_page.dart';
@@ -14,6 +15,25 @@ import 'cambiar_sucursal_page.dart';
 import '../widgets/layout/app_bar.dart';
 import '../services/api_service.dart';
 import 'usuarios_page.dart';
+
+// 🔧 Sistema de logging condicional
+void logDebug(String message) {
+  if (kDebugMode) {
+    print(message);
+  }
+}
+
+void logError(String message) {
+  if (kDebugMode) {
+    print("❌ $message");
+  }
+}
+
+void logInfo(String message) {
+  if (kDebugMode) {
+    print("ℹ️ $message");
+  }
+}
 
 class HomePage extends StatefulWidget {
   @override
@@ -64,10 +84,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         userSucursal = prefs.getString('user_sucursal') ?? "Sucursal";
         _isLoading = false;
       });
-      print("🏠 Sucursal activa cargada: $userSucursal");
+      logInfo("🏠 Sucursal activa cargada: $userSucursal");
       _forzarRecargaPantallas();
     } catch (e) {
-      print("❌ Error cargando datos de usuario: $e");
+      logError("❌ Error cargando datos de usuario: $e");
       setState(() => _isLoading = false);
     }
   }
@@ -79,7 +99,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         _sucursalesDisponibles = sucursales;
       });
     } catch (e) {
-      print("❌ Error al cargar sucursales disponibles: $e");
+      logError("❌ Error al cargar sucursales disponibles: $e");
     }
   }
 
@@ -215,7 +235,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     );
                   }
                 } catch (e) {
-                  print('Error al cerrar sesión: $e');
+                  logError('Error al cerrar sesión: $e');
                   // Si hay error, intentar cerrar sesión manualmente
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.clear();

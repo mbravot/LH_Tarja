@@ -1,6 +1,26 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+
+// 🔧 Sistema de logging condicional
+void logDebug(String message) {
+  if (kDebugMode) {
+    print(message);
+  }
+}
+
+void logError(String message) {
+  if (kDebugMode) {
+    print("❌ $message");
+  }
+}
+
+void logInfo(String message) {
+  if (kDebugMode) {
+    print("ℹ️ $message");
+  }
+}
 
 class AuthService {
   final String baseUrl = 'https://apilhtarja.lahornilla.cl/api';
@@ -8,15 +28,15 @@ class AuthService {
 
   Future<void> login(String usuario, String clave) async {
     try {
-      print("🔄 Intentando login con URL: $baseUrl/auth/login");
-      print("📤 Datos de login - Usuario: $usuario");
+      logDebug("🔄 Intentando login con URL: $baseUrl/auth/login");
+      logInfo("📤 Datos de login - Usuario: $usuario");
 
       final Map<String, String> body = {
         "usuario": usuario,
         "clave": clave,
       };
 
-      print("📦 Body de la petición: ${jsonEncode(body)}");
+      logDebug("📦 Body de la petición: ${jsonEncode(body)}");
 
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
@@ -27,8 +47,8 @@ class AuthService {
         body: jsonEncode(body),
       );
 
-      print("📡 Código de respuesta: ${response.statusCode}");
-      print("📝 Respuesta del servidor: ${response.body}");
+      logDebug("📡 Código de respuesta: ${response.statusCode}");
+      logDebug("📝 Respuesta del servidor: ${response.body}");
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -52,11 +72,11 @@ class AuthService {
         await prefs.setString('id_rol', idRol.toString());
         await prefs.setString('id_perfil', idPerfil.toString());
 
-        print(
+        logInfo(
             "✅ Login exitoso - Usuario: $nombreUsuario, Sucursal: $idSucursal ($nombreSucursal)");
       } else {
-        print("❌ Error en login - Código: ${response.statusCode}");
-        print("❌ Detalle del error: ${response.body}");
+        logError("❌ Error en login - Código: ${response.statusCode}");
+        logError("❌ Detalle del error: ${response.body}");
         
         // Extraer el mensaje de error del JSON
         final errorData = jsonDecode(response.body);
@@ -64,7 +84,7 @@ class AuthService {
         throw Exception(errorMessage);
       }
     } catch (e) {
-      print("🚨 Error de conexión: $e");
+      logError("🚨 Error de conexión: $e");
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
@@ -76,11 +96,11 @@ class AuthService {
       String? currentToken = prefs.getString('access_token');
 
       if (currentToken == null) {
-        print("❌ No hay token actual para refresh");
+        logError("❌ No hay token actual para refresh");
         return false;
       }
 
-      print("🔄 Intentando refresh token...");
+      logDebug("🔄 Intentando refresh token...");
 
       final response = await http.post(
         Uri.parse("$baseUrl/auth/refresh"),
@@ -90,8 +110,8 @@ class AuthService {
         },
       );
 
-      print("📡 Código de respuesta refresh: ${response.statusCode}");
-      print("📝 Respuesta del servidor refresh: ${response.body}");
+      logDebug("📡 Código de respuesta refresh: ${response.statusCode}");
+      logDebug("📝 Respuesta del servidor refresh: ${response.body}");
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -117,15 +137,15 @@ class AuthService {
           await prefs.setString('id_perfil', data['id_perfil'].toString());
         }
 
-        print("✅ Token refresh exitoso");
+        logInfo("✅ Token refresh exitoso");
         return true;
       } else {
-        print("❌ Error en refresh token - Código: ${response.statusCode}");
-        print("❌ Detalle del error refresh: ${response.body}");
+        logError("❌ Error en refresh token - Código: ${response.statusCode}");
+        logError("❌ Detalle del error refresh: ${response.body}");
         return false;
       }
     } catch (e) {
-      print("🚨 Error de conexión en refresh: $e");
+      logError("🚨 Error de conexión en refresh: $e");
       return false;
     }
   }

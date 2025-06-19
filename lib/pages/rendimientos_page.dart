@@ -7,6 +7,19 @@ import 'editar_rendimientos_individuales_page.dart';
 import 'editar_rendimientos_grupales_page.dart';
 import 'crear_rendimiento_grupal_page.dart';
 
+// Sistema de logging condicional
+void logInfo(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("ℹ️ $message");
+  }
+}
+
+void logError(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("❌ $message");
+  }
+}
+
 class RendimientosPage extends StatefulWidget {
   final Map<String, dynamic> actividad;
 
@@ -73,7 +86,7 @@ class _RendimientosPageState extends State<RendimientosPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.reload(); // Forzar recarga
       final idSucursal = prefs.getString('id_sucursal');
-      print('Sucursal activa usada para cargar colaboradores/rendimientos: $idSucursal');
+      logInfo('Sucursal activa usada para cargar colaboradores/rendimientos: $idSucursal');
       if (idSucursal == null) throw Exception('No se encontró la sucursal activa');
       final listaColaboradores = await ApiService().getColaboradores();
       final listaPorcentajes = await ApiService().getPorcentajesContratista();
@@ -109,12 +122,12 @@ class _RendimientosPageState extends State<RendimientosPage> {
       final idActividad = widget.actividad['id'].toString();
       final idContratista = widget.actividad['id_contratista']?.toString();
       
-      print("🔍 ====== CARGANDO RENDIMIENTOS ======");
-      print("🔍 Actividad ID: $idActividad");
-      print("🔍 Tipo rendimiento: $tipo");
-      print("🔍 Tipo trabajador: $idTipotrabajador");
-      print("🔍 Contratista ID: $idContratista");
-      print("🔍 Actividad completa: ${widget.actividad}");
+      logInfo("🔍 ====== CARGANDO RENDIMIENTOS ======");
+      logInfo("🔍 Actividad ID: $idActividad");
+      logInfo("🔍 Tipo rendimiento: $tipo");
+      logInfo("🔍 Tipo trabajador: $idTipotrabajador");
+      logInfo("🔍 Contratista ID: $idContratista");
+      logInfo("🔍 Actividad completa: ${widget.actividad}");
       
       // Limpiar rendimientos anteriores
       setState(() {
@@ -124,11 +137,11 @@ class _RendimientosPageState extends State<RendimientosPage> {
 
       if (tipo == 1) { // Individual
         if (idTipotrabajador == 1) { // Propio
-          print("🔍 Cargando rendimientos individuales PROPIOS");
+          logInfo("🔍 Cargando rendimientos individuales PROPIOS");
           final rendimientosPropios = await _apiService.getRendimientosIndividualesPropios(
             idActividad: idActividad
           );
-          print("📥 Rendimientos propios recibidos: ${rendimientosPropios.length}");
+          logInfo("📥 Rendimientos propios recibidos: ${rendimientosPropios.length}");
           
           setState(() {
             _rendimientos = rendimientosPropios.map((r) {
@@ -142,7 +155,7 @@ class _RendimientosPageState extends State<RendimientosPage> {
           });
         } else if (idTipotrabajador == 2) { // Contratista
           if (idContratista == null || idContratista.isEmpty) {
-            print("❌ Error: Actividad de contratista sin ID de contratista");
+            logInfo("❌ Error: Actividad de contratista sin ID de contratista");
             setState(() {
               _error = 'Error: Actividad de contratista sin ID de contratista';
               _isLoading = false;
@@ -150,18 +163,18 @@ class _RendimientosPageState extends State<RendimientosPage> {
             return;
           }
           
-          print("🔍 Cargando rendimientos individuales de CONTRATISTA");
-          print("🔍 ID Actividad: $idActividad");
-          print("🔍 ID Contratista: $idContratista");
+          logInfo("🔍 Cargando rendimientos individuales de CONTRATISTA");
+          logInfo("🔍 ID Actividad: $idActividad");
+          logInfo("🔍 ID Contratista: $idContratista");
           
           final rendimientosContratistas = await _apiService.getRendimientosIndividualesContratistas(
             idActividad: idActividad,
             idContratista: idContratista
           );
           
-          print("📥 Rendimientos contratistas recibidos: ${rendimientosContratistas.length}");
+          logInfo("📥 Rendimientos contratistas recibidos: ${rendimientosContratistas.length}");
           rendimientosContratistas.forEach((r) {
-            print("📥 Rendimiento: ID Actividad=${r['id_actividad']}, ID Contratista=${r['id_contratista']}");
+            logInfo("📥 Rendimiento: ID Actividad=${r['id_actividad']}, ID Contratista=${r['id_contratista']}");
           });
           
           setState(() {
@@ -176,11 +189,11 @@ class _RendimientosPageState extends State<RendimientosPage> {
           });
         }
       } else if (tipo == 2) { // Grupal
-        print("🔍 Cargando rendimientos GRUPALES");
+        logInfo("🔍 Cargando rendimientos GRUPALES");
         final data = await _apiService.getRendimientos(idActividad: idActividad);
         if (data['rendimientos'] != null && data['rendimientos'] is List) {
           final List<dynamic> rawRendimientos = data['rendimientos'];
-          print("📥 Rendimientos grupales recibidos: ${rawRendimientos.length}");
+          logInfo("📥 Rendimientos grupales recibidos: ${rawRendimientos.length}");
           
           setState(() {
             _rendimientos = rawRendimientos.map((rendimiento) {
@@ -194,12 +207,12 @@ class _RendimientosPageState extends State<RendimientosPage> {
         }
       }
       
-      print("✅ Carga de rendimientos completada");
-      print("✅ Total rendimientos: ${_rendimientos.length}");
-      print("✅ ====== FIN CARGA RENDIMIENTOS ======");
+      logInfo("✅ Carga de rendimientos completada");
+      logInfo("✅ Total rendimientos: ${_rendimientos.length}");
+      logInfo("✅ ====== FIN CARGA RENDIMIENTOS ======");
       
     } catch (e) {
-      print("❌ Error al cargar rendimientos: $e");
+      logError("❌ Error al cargar rendimientos: $e");
       setState(() {
         _error = 'Error al cargar los rendimientos: $e';
         _isLoading = false;

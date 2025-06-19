@@ -57,7 +57,7 @@ class _CecoAdministrativoFormState extends State<CecoAdministrativoForm> {
 
         final response = await ApiService().crearCecoAdministrativo(cecoData);
 
-        if (response['success'] == true) {
+        if (response['success'] == true || response['success'] == "true" || response['success'] == 1) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('CECO Administrativo creado exitosamente', style: TextStyle(color: Colors.white)), backgroundColor: Colors.green),

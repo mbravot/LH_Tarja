@@ -3,6 +3,19 @@ import '../services/api_service.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import '../theme/app_theme.dart' show primaryColor;
 
+// Sistema de logging condicional
+void logInfo(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("ℹ️ $message");
+  }
+}
+
+void logError(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("❌ $message");
+  }
+}
+
 class EditarUsuarioPage extends StatefulWidget {
   final Map<String, dynamic> usuario;
 
@@ -55,7 +68,7 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
         setState(() => sucursales = lista);
       }
     } catch (e) {
-      _mostrarError('Error al cargar sucursales: ${e.toString()}');
+      logError('Error al cargar sucursales: ${e.toString()}');
     }
   }
 
@@ -66,7 +79,7 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
         setState(() => colaboradores = List<Map<String, dynamic>>.from(lista));
       }
     } catch (e) {
-      _mostrarError('Error al cargar colaboradores: ${e.toString()}');
+      logError('Error al cargar colaboradores: ${e.toString()}');
     }
   }
 
@@ -80,7 +93,7 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
       }
     } catch (e) {
       // Si hay error, simplemente no cargar las sucursales permitidas
-      print('Error al cargar sucursales permitidas: ${e.toString()}');
+      logInfo('Error al cargar sucursales permitidas: ${e.toString()}');
     }
   }
 
@@ -91,7 +104,7 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
         setState(() => aplicaciones = lista);
       }
     } catch (e) {
-      _mostrarError('Error al cargar aplicaciones: ${e.toString()}');
+      logError('Error al cargar aplicaciones: ${e.toString()}');
     }
   }
 
@@ -105,7 +118,7 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
       }
     } catch (e) {
       // Si hay error, simplemente no cargar las aplicaciones permitidas
-      print('Error al cargar aplicaciones permitidas: ${e.toString()}');
+      logInfo('Error al cargar aplicaciones permitidas: ${e.toString()}');
     }
   }
 
@@ -167,7 +180,7 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
             );
           }
         } catch (e) {
-          print('Error al actualizar sucursales permitidas: $e');
+          logInfo('Error al actualizar sucursales permitidas: $e');
           // No mostrar error al usuario, ya que el usuario se guardó correctamente
         }
 
@@ -185,7 +198,7 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
             );
           }
         } catch (e) {
-          print('Error al actualizar aplicaciones permitidas: $e');
+          logInfo('Error al actualizar aplicaciones permitidas: $e');
           // No mostrar error al usuario, ya que el usuario se guardó correctamente
         }
 

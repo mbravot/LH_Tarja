@@ -8,6 +8,19 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'editar_actividad_page.dart';
 import 'rendimientos_page.dart';
 
+// Sistema de logging condicional
+void logInfo(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("ℹ️ $message");
+  }
+}
+
+void logError(String message) {
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("❌ $message");
+  }
+}
+
 class ActividadesPage extends StatefulWidget {
   const ActividadesPage({
     Key? key,
@@ -57,7 +70,7 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
       final fecha = DateTime.parse(fechaOriginal);
       return DateFormat("EEEE d 'de' MMMM, y", 'es_ES').format(fecha);
     } catch (e) {
-      print("❌ Error al formatear fecha: $e ($fechaOriginal)");
+      logError("❌ Error al formatear fecha: $e ($fechaOriginal)");
       return fechaOriginal;
     }
   }
