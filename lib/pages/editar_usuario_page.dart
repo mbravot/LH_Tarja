@@ -20,14 +20,14 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
 
   List<Map<String, dynamic>> sucursales = [];
   List<Map<String, dynamic>> colaboradores = [];
-  
+
   String? selectedSucursal;
   String? selectedColaborador;
   String? selectedEstado;
   List<int> sucursalesPermitidasSeleccionadas = [];
   List<Map<String, dynamic>> aplicaciones = [];
   List<int> aplicacionesPermitidasSeleccionadas = [];
-  
+
   bool _guardando = false;
   bool _ocultarClave = true;
   bool _mostrarSelectorColaborador = false;
@@ -178,7 +178,7 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
               widget.usuario['id'].toString(),
               aplicacionesPermitidasSeleccionadas,
             );
-          } else {
+      } else {
             // Si no hay aplicaciones seleccionadas, eliminar todas las asignaciones
             await ApiService().eliminarAplicacionesPermitidas(
               widget.usuario['id'].toString(),
@@ -213,141 +213,141 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
         iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.white,
-              Colors.green.withOpacity(0.1),
-            ],
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.white,
+                Colors.green.withOpacity(0.1),
+              ],
+            ),
           ),
-        ),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Padding(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Padding(
                     padding: EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                              Text(
                           "Información del Usuario",
-                          style: TextStyle(
+                                style: TextStyle(
                             fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                  color: primaryColor,
+                                ),
                           ),
-                        ),
-                        SizedBox(height: 20),
+                          SizedBox(height: 20),
                         // Campo de usuario
-                        TextFormField(
+                          TextFormField(
                           controller: _usuarioController,
-                          decoration: InputDecoration(
+                            decoration: InputDecoration(
                             labelText: "Nombre de Usuario",
                             prefixIcon: Icon(Icons.person, color: primaryColor),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
                             ),
-                          ),
-                          validator: (value) {
+                            ),
+                            validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Por favor ingrese un nombre de usuario';
-                            }
-                            return null;
-                          },
-                        ),
-                        SizedBox(height: 16),
+                              }
+                              return null;
+                            },
+                          ),
+                          SizedBox(height: 16),
                         // Campo de correo
-                        TextFormField(
-                          controller: _correoController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: InputDecoration(
+                          TextFormField(
+                            controller: _correoController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
                             labelText: "Correo Electrónico",
                             prefixIcon: Icon(Icons.email, color: primaryColor),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
                             ),
-                          ),
-                          validator: (value) {
+                            ),
+                            validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Por favor ingrese un correo electrónico';
-                            }
+                              }
                             if (!value.contains('@')) {
                               return 'Por favor ingrese un correo electrónico válido';
-                            }
-                            return null;
-                          },
-                        ),
-                        SizedBox(height: 16),
+                              }
+                              return null;
+                            },
+                          ),
+                          SizedBox(height: 16),
                         // Campo de contraseña (opcional)
-                        TextFormField(
-                          controller: _claveController,
-                          obscureText: _ocultarClave,
-                          decoration: InputDecoration(
+                          TextFormField(
+                            controller: _claveController,
+                            obscureText: _ocultarClave,
+                            decoration: InputDecoration(
                             labelText: "Nueva Contraseña (opcional)",
                             prefixIcon: Icon(Icons.lock, color: primaryColor),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _ocultarClave ? Icons.visibility : Icons.visibility_off,
-                                color: primaryColor,
-                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _ocultarClave ? Icons.visibility : Icons.visibility_off,
+                                  color: primaryColor,
+                                ),
                               onPressed: () {
                                 setState(() => _ocultarClave = !_ocultarClave);
                               },
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                         ),
                         SizedBox(height: 16),
                         // Selector de sucursal
-                        DropdownSearch<String>(
-                          popupProps: PopupProps.menu(
-                            fit: FlexFit.loose,
-                            menuProps: MenuProps(
-                              backgroundColor: Colors.white,
-                              elevation: 2,
+                          DropdownSearch<String>(
+                            popupProps: PopupProps.menu(
+                              fit: FlexFit.loose,
+                              menuProps: MenuProps(
+                                backgroundColor: Colors.white,
+                                elevation: 2,
+                              ),
+                              showSelectedItems: true,
                             ),
-                            showSelectedItems: true,
-                          ),
                           items: sucursales.map((s) => s['nombre'].toString()).toList(),
-                          dropdownDecoratorProps: DropDownDecoratorProps(
-                            dropdownSearchDecoration: InputDecoration(
-                              labelText: "Sucursal",
-                              prefixIcon: Icon(Icons.business, color: primaryColor),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                            dropdownDecoratorProps: DropDownDecoratorProps(
+                              dropdownSearchDecoration: InputDecoration(
+                                labelText: "Sucursal",
+                                prefixIcon: Icon(Icons.business, color: primaryColor),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                              ),
                               ),
                             ),
-                          ),
-                          onChanged: (String? value) {
-                            if (value != null) {
+                            onChanged: (String? value) {
+                              if (value != null) {
                               final sucursal = sucursales.firstWhere(
-                                (s) => s['nombre'] == value,
-                                orElse: () => {'id': null},
-                              );
-                              setState(() => selectedSucursal = sucursal['id']?.toString());
-                            }
-                          },
-                          selectedItem: selectedSucursal != null
+                                  (s) => s['nombre'] == value,
+                                  orElse: () => {'id': null},
+                                );
+                                setState(() => selectedSucursal = sucursal['id']?.toString());
+                              }
+                            },
+                            selectedItem: selectedSucursal != null
                               ? sucursales
-                                  .firstWhere(
-                                    (s) => s['id'].toString() == selectedSucursal,
-                                    orElse: () => {'nombre': ''},
-                                  )['nombre']
-                              : null,
-                          validator: (value) =>
+                                    .firstWhere(
+                                      (s) => s['id'].toString() == selectedSucursal,
+                                      orElse: () => {'nombre': ''},
+                                    )['nombre']
+                                : null,
+                            validator: (value) =>
                               value == null ? 'Por favor seleccione una sucursal' : null,
                         ),
                         SizedBox(height: 16),
@@ -427,8 +427,8 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
                       ],
                     ),
                   ),
-                ),
-                SizedBox(height: 20),
+                          ),
+                          SizedBox(height: 20),
                 
                 // Sección de Sucursales Permitidas
                 Card(
@@ -683,69 +683,69 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
                               ),
                             ),
                           ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
                 
                 SizedBox(height: 20),
                 // Botón de guardar
-                Container(
+                  Container(
                   height: 50,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        primaryColor,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          primaryColor,
                         primaryColor.withOpacity(0.8),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
+                        ),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: primaryColor.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: Offset(0, 4),
+                    child: ElevatedButton(
+                      onPressed: _guardando ? null : _guardarCambios,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _guardando ? null : _guardarCambios,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: _guardando
-                        ? SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
+                      child: _guardando
+                          ? SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
                               Icon(Icons.save, color: Colors.white),
-                              SizedBox(width: 8),
-                              Text(
-                                'Guardar Cambios',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+                                SizedBox(width: 8),
+                                Text(
+                                  'Guardar Cambios',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
-                              ),
-                            ],
-                          ),
+                                ),
+                              ],
+                            ),
+                    ),
                   ),
-                ),
-              ],
+                ],
             ),
           ),
         ),

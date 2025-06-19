@@ -170,7 +170,7 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
 
       try {
         final prefs = await SharedPreferences.getInstance();
-        final token = prefs.getString('token');
+        final token = prefs.getString('access_token');
         final idSucursal = prefs.getString('id_sucursal');
 
         if (token == null || idSucursal == null) {

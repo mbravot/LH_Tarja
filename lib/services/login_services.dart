@@ -42,7 +42,7 @@ class AuthService {
         final idPerfil = data['id_perfil'];
 
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', token);
+        await prefs.setString('access_token', token);
         if (refreshToken != null) {
           await prefs.setString('refresh_token', refreshToken);
         }
@@ -73,7 +73,7 @@ class AuthService {
   Future<bool> refreshToken() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      String? currentToken = prefs.getString('token');
+      String? currentToken = prefs.getString('access_token');
 
       if (currentToken == null) {
         print("❌ No hay token actual para refresh");
@@ -97,7 +97,7 @@ class AuthService {
         final data = jsonDecode(response.body);
         
         // Actualizar el token y otros datos si vienen en la respuesta
-        await prefs.setString('token', data['access_token']);
+        await prefs.setString('access_token', data['access_token']);
         if (data['refresh_token'] != null) {
           await prefs.setString('refresh_token', data['refresh_token']);
         }

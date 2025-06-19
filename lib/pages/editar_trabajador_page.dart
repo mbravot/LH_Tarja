@@ -76,19 +76,24 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
       final String nomAp = "$nombre $apellidoPaterno $apellidoMaterno";
 
       Map<String, dynamic> data = {
-        "rut": int.tryParse(rutController.text.trim()) ?? 0,
-        "nombre": nombre,
-        "apellido_paterno": apellidoPaterno,
-        "apellido_materno": apellidoMaterno,
-        "nom_ap": nomAp,
+        "nombre": nombreController.text.trim(),
+        "apellido_paterno": apellidoPController.text.trim(),
+        "apellido_materno": apellidoMController.text.trim(),
+        "nom_ap": "${nombreController.text.trim()} ${apellidoPController.text.trim()} ${apellidoMController.text.trim()}",
         "id_contratista": selectedContratista,
         "id_porcentaje": int.parse(selectedPorcentaje!),
         "id_estado": int.parse(selectedEstado!),
-        "codigo_verificador": dvController.text.trim(),
       };
 
-      bool success =
-          await ApiService().editarTrabajador(widget.trabajador['id'], data);
+      // Solo agregamos RUT y DV si no están vacíos
+      if (rutController.text.trim().isNotEmpty) {
+        data["rut"] = int.parse(rutController.text.trim());
+        data["codigo_verificador"] = dvController.text.trim();
+      }
+
+      print("📤 Datos a enviar: $data"); // Para debugging
+
+      bool success = await ApiService().editarTrabajador(widget.trabajador['id'].toString(), data);
 
       if (success) {
         Navigator.pop(context, true);
@@ -128,6 +133,30 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
       dv = dvNum.toString();
     }
     dvController.text = dv;
+  }
+
+  bool _validarFormulario() {
+    if (nombreController.text.trim().isEmpty) {
+      _mostrarError("El nombre es obligatorio");
+      return false;
+    }
+    if (apellidoPController.text.trim().isEmpty) {
+      _mostrarError("El apellido paterno es obligatorio");
+      return false;
+    }
+    if (selectedContratista == null) {
+      _mostrarError("Debe seleccionar un contratista");
+      return false;
+    }
+    if (selectedPorcentaje == null) {
+      _mostrarError("Debe seleccionar un porcentaje");
+      return false;
+    }
+    if (selectedEstado == null) {
+      _mostrarError("Debe seleccionar un estado");
+      return false;
+    }
+    return true;
   }
 
   @override
@@ -194,28 +223,17 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
                             flex: 3,
                             child: TextFormField(
                               controller: rutController,
+                              keyboardType: TextInputType.number,
                               decoration: InputDecoration(
-                                labelText: 'RUT',
-                                prefixIcon: Icon(Icons.badge_outlined, color: primaryColor),
+                                labelText: 'RUT (opcional)',
+                                hintText: 'RUT (opcional)',
+                                prefixIcon: const Icon(Icons.badge_outlined),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: primaryColor),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey.withOpacity(0.05),
+                                errorStyle: const TextStyle(height: 0),
                               ),
                               validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Ingrese el RUT';
-                                }
                                 return null;
                               },
                             ),
@@ -225,21 +243,15 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
                             flex: 1,
                             child: TextFormField(
                               controller: dvController,
-                              readOnly: true,
                               decoration: InputDecoration(
-                                labelText: 'DV',
-                                prefixIcon: Icon(Icons.verified_user_outlined, color: primaryColor),
+                                labelText: 'DV (opcional)',
+                                hintText: 'DV (opcional)',
+                                prefixIcon: const Icon(Icons.verified_user_outlined),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(color: primaryColor, width: 2),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey.withOpacity(0.05),
+                                errorStyle: const TextStyle(height: 0),
                               ),
-                              maxLength: 1,
                               validator: (value) {
                                 return null;
                               },

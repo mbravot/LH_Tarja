@@ -1,29 +1,32 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_services.dart';
+import '../pages/login_page.dart';
 
 class ApiService {
-  //final String baseUrl = 'http://192.168.1.60:5000/api'; // Asegúrate de que esta URL sea la correcta
-  final String baseUrl = 'https://apilhtarja.lahornilla.cl/api';
-
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
+  final String baseUrl = 'https://apilhtarja.lahornilla.cl/api';
 
+  /// 🔹 Método para manejar token expirado
   Future<void> manejarTokenExpirado() async {
     try {
+      print("🔄 Token expirado, limpiando datos y redirigiendo al login...");
+      
       // Limpiar todas las preferencias almacenadas
       final prefs = await SharedPreferences.getInstance();
-      await prefs.clear(); // Esto incluye token, refresh_token, y todos los demás datos
+      await prefs.clear();
 
-      // Mostrar mensaje de error si hay contexto disponible
+      // Mostrar mensaje de confirmación si hay contexto disponible
       final context = navigatorKey.currentContext;
       if (context != null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.'),
-            backgroundColor: Colors.red,
+            content: Text('Sesión expirada. Por favor, inicia sesión nuevamente.'),
+            backgroundColor: Colors.orange,
             duration: Duration(seconds: 3),
           ),
         );
@@ -31,13 +34,19 @@ class ApiService {
 
       // Navegar al login y limpiar el stack de navegación
       if (navigatorKey.currentState != null) {
-        navigatorKey.currentState!.pushNamedAndRemoveUntil('/login', (route) => false);
+        navigatorKey.currentState!.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => LoginPage()),
+          (route) => false,
+        );
       }
     } catch (e) {
       print('Error al manejar token expirado: $e');
       // Si hay algún error, intentar navegar al login de todas formas
       if (navigatorKey.currentState != null) {
-        navigatorKey.currentState!.pushNamedAndRemoveUntil('/login', (route) => false);
+        navigatorKey.currentState!.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => LoginPage()),
+          (route) => false,
+        );
       }
     }
   }
@@ -45,7 +54,7 @@ class ApiService {
   // Método para obtener el token almacenado en SharedPreferences
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token'); // Obtener el token almacenado
+    return prefs.getString('access_token'); // Obtener el token almacenado correctamente
   }
 
   // Método para obtener el refresh token almacenado en SharedPreferences
@@ -56,14 +65,24 @@ class ApiService {
 
   // ✅ Obtener headers con token
   Future<Map<String, String>> _getHeaders() async {
-    final token = await getToken();
-    if (token == null) {
-      throw Exception('No se encontró un token. Inicia sesión nuevamente.');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      
+      if (token == null) {
+        print("❌ No hay token de acceso");
+        throw Exception('No hay token de acceso disponible');
+      }
+
+      return {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+    } catch (e) {
+      print("❌ Error al obtener headers: $e");
+      throw Exception('Error al obtener headers: $e');
     }
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
   }
 
   Future<http.Response> _manejarRespuesta(http.Response response) async {
@@ -84,6 +103,23 @@ class ApiService {
     try {
       final response = await requestFunction();
       
+      print("🔍 Response status: ${response.statusCode}");
+      print("🔍 Response headers: ${response.headers}");
+      print("🔍 Response body: ${response.body}");
+      
+      // Si la respuesta es una redirección (3xx)
+      if (response.statusCode >= 300 && response.statusCode < 400) {
+        final redirectUrl = response.headers['location'];
+        if (redirectUrl != null) {
+          print("🔄 Siguiendo redirección a: $redirectUrl");
+          final redirectResponse = await http.get(
+            Uri.parse(redirectUrl),
+            headers: await _getHeaders(),
+          );
+          return await _manejarRespuesta(redirectResponse);
+        }
+      }
+      
       // Si la respuesta es 401, intentar refresh del token
       if (response.statusCode == 401) {
         print("🔄 Detectado error 401, intentando refresh del token...");
@@ -100,9 +136,17 @@ class ApiService {
           throw Exception('Sesión expirada. Por favor, inicia sesión nuevamente.');
         }
       }
+
+      // Verificar si la respuesta es HTML en lugar de JSON
+      if (response.headers['content-type']?.toLowerCase().contains('text/html') == true) {
+        print("❌ Error: Respuesta HTML recibida cuando se esperaba JSON");
+        throw Exception('Error de servidor: Se recibió HTML cuando se esperaba JSON');
+      }
       
       return await _manejarRespuesta(response);
     } catch (e) {
+      print("❌ Error en _makeRequest: $e");
+      
       // Si es un error de red o conexión, no manejar como token expirado
       if (e.toString().contains('Sesión expirada')) {
         rethrow;
@@ -156,13 +200,19 @@ class ApiService {
 
       // Navegar al login y limpiar el stack de navegación
       if (navigatorKey.currentState != null) {
-        navigatorKey.currentState!.pushNamedAndRemoveUntil('/login', (route) => false);
+        navigatorKey.currentState!.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => LoginPage()),
+          (route) => false,
+        );
       }
     } catch (e) {
       print('Error al cerrar sesión: $e');
       // Si hay algún error, intentar navegar al login de todas formas
       if (navigatorKey.currentState != null) {
-        navigatorKey.currentState!.pushNamedAndRemoveUntil('/login', (route) => false);
+        navigatorKey.currentState!.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => LoginPage()),
+          (route) => false,
+        );
       }
     }
   }
@@ -592,7 +642,7 @@ class ApiService {
   /// 🔹 Obtener la lista de contratistas
   Future<List<Map<String, dynamic>>> getContratistasPorSucursal() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
 
     final response = await http.get(
@@ -614,47 +664,57 @@ class ApiService {
 
   /// 🔹 Crear un nuevo contratista
   Future<Map<String, dynamic>> createContratista(Map<String, dynamic> contratistaData) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-    if (token == null) throw Exception('No se encontró el token');
+    print("📤 Intentando crear contratista con datos: $contratistaData");
+    
+    try {
+      // Asegurarnos que la URL termina con /
+      final url = '$baseUrl/contratistas/';
+      print("🔍 URL de la petición: $url");
+      
+      final response = await _makeRequest(() async {
+        return await http.post(
+          Uri.parse(url),
+          headers: {
+            ...(await _getHeaders()),
+            'Accept': 'application/json',
+          },
+          body: jsonEncode(contratistaData),
+        );
+      });
 
-    final response = await http.post(
-      Uri.parse('$baseUrl/contratistas'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(contratistaData),
-    );
+      print("📥 Respuesta crear contratista - Status: ${response.statusCode}");
+      print("📥 Respuesta crear contratista - Headers: ${response.headers}");
+      print("📥 Respuesta crear contratista - Body: ${response.body}");
 
-    if (response.statusCode == 201) {
-      return jsonDecode(response.body);
-    } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['error'] ?? 'Error al crear el contratista');
+      if (response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        print("✅ Contratista creado exitosamente: $responseData");
+        return responseData;
+      } else {
+        print("❌ Error al crear contratista: ${response.statusCode} - ${response.body}");
+        throw Exception('Error al crear el contratista: ${response.body}');
+      }
+    } catch (e) {
+      print("❌ Excepción al crear contratista: $e");
+      throw Exception('Error al crear el contratista: $e');
     }
   }
 
   /// Actualiza un contratista existente
   Future<Map<String, dynamic>> updateContratista(String id, Map<String, dynamic> contratistaData) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-    if (token == null) throw Exception('No se encontró el token');
-
-    final response = await http.put(
-      Uri.parse('$baseUrl/contratistas/$id'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(contratistaData),
-    );
+    final response = await _makeRequest(() async {
+      return await http.put(
+        Uri.parse('$baseUrl/contratistas/$id'),
+        headers: await _getHeaders(),
+        body: jsonEncode(contratistaData),
+      );
+    });
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['error'] ?? 'Error al actualizar el contratista');
+      print("❌ Error al actualizar contratista: ${response.statusCode} - ${response.body}");
+      throw Exception('Error al actualizar el contratista: ${response.body}');
     }
   }
 
@@ -688,7 +748,7 @@ class ApiService {
   Future<List<Map<String, dynamic>>> getSucursales() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString('access_token');
 
       if (token == null) {
         throw Exception('No se encontró el token');
@@ -803,7 +863,7 @@ class ApiService {
 
   Future<bool> editarUsuario(String id, Map<String, dynamic> data) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
 
     final response = await http.put(
       Uri.parse('$baseUrl/usuarios/$id'),
@@ -868,7 +928,7 @@ class ApiService {
   Future<Map<String, dynamic>> crearCecoAdministrativo(Map<String, dynamic> cecoData) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString('access_token');
 
     if (token == null) {
         throw Exception('No se encontró el token');
@@ -898,7 +958,7 @@ class ApiService {
   Future<Map<String, dynamic>> crearCecoProductivo(Map<String, dynamic> cecoData) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString('access_token');
 
       if (token == null) {
         throw Exception('No se encontró el token');
@@ -928,7 +988,7 @@ class ApiService {
   Future<Map<String, dynamic>> crearCecoMaquinaria(Map<String, dynamic> cecoData) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString('access_token');
 
       if (token == null) {
         throw Exception('No se encontró el token');
@@ -958,7 +1018,7 @@ class ApiService {
   Future<Map<String, dynamic>> crearCecoInversion(Map<String, dynamic> cecoData) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString('access_token');
 
       if (token == null) {
         throw Exception('No se encontró el token');
@@ -988,7 +1048,7 @@ class ApiService {
   Future<Map<String, dynamic>> crearCecoRiego(Map<String, dynamic> cecoData) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString('access_token');
 
       if (token == null) {
         throw Exception('No se encontró el token');
@@ -1018,7 +1078,7 @@ class ApiService {
   Future<Map<String, dynamic>> crearActividad(Map<String, dynamic> actividadData) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString('access_token');
 
       if (token == null) {
         throw Exception('No se encontró el token');
@@ -1138,7 +1198,7 @@ class ApiService {
   Future<List<Map<String, dynamic>>> getTiposInversion() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString('access_token');
 
       if (token == null) {
         throw Exception('No se encontró el token');
@@ -1168,7 +1228,7 @@ class ApiService {
   Future<List<Map<String, dynamic>>> getInversionesPorTipo(int idTipoInversion) async {
     try {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
 
       if (token == null) {
         throw Exception('No se encontró el token');
@@ -1197,7 +1257,7 @@ class ApiService {
   /// Obtiene los CECOs de inversión filtrados por el tipo seleccionado y la actividad
   Future<List<Map<String, dynamic>>> getCecosInversionPorTipoYActividad(int idTipoInversion, String idActividad) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
     final response = await http.get(
       Uri.parse('$baseUrl/opciones/cecos/inversion/$idTipoInversion/$idActividad'),
@@ -1218,7 +1278,7 @@ class ApiService {
   /// Obtiene todos los tipos de maquinaria
   Future<List<Map<String, dynamic>>> getTiposMaquinaria(String idActividad) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
     final response = await http.get(
       Uri.parse('$baseUrl/opciones/tiposmaquinaria/actividad/$idActividad'),
@@ -1239,7 +1299,7 @@ class ApiService {
   /// Obtiene las maquinarias por tipo
   Future<List<Map<String, dynamic>>> getMaquinariasPorTipo(String idActividad, int idTipoMaquinaria) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
     final response = await http.get(
       Uri.parse('$baseUrl/opciones/maquinarias/actividad/$idActividad/$idTipoMaquinaria'),
@@ -1260,7 +1320,7 @@ class ApiService {
   /// Obtiene los CECOs de maquinaria filtrados por tipo, maquinaria y actividad
   Future<List<Map<String, dynamic>>> getCecosMaquinariaPorTipoMaquinariaYActividad(String idActividad, int idTipoMaquinaria, int idMaquinaria) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
     final response = await http.get(
       Uri.parse('$baseUrl/opciones/cecosmaquinaria/actividad/$idActividad/$idTipoMaquinaria/$idMaquinaria'),
@@ -1281,7 +1341,7 @@ class ApiService {
   /// Obtiene las casetas por sucursal de la actividad
   Future<List<Map<String, dynamic>>> getCasetasPorActividad(String idActividad) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
     final response = await http.get(
       Uri.parse('$baseUrl/opciones/casetas/actividad/$idActividad'),
@@ -1302,7 +1362,7 @@ class ApiService {
   /// Obtiene los equipos de riego por caseta
   Future<List<Map<String, dynamic>>> getEquiposRiegoPorCaseta(String idCaseta) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
     final response = await http.get(
       Uri.parse('$baseUrl/opciones/equiposriego/caseta/$idCaseta'),
@@ -1323,7 +1383,7 @@ class ApiService {
   /// Obtiene los sectores de riego por equipo de riego
   Future<List<Map<String, dynamic>>> getSectoresRiegoPorEquipo(String idEquipoRiego) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
     final response = await http.get(
       Uri.parse('$baseUrl/opciones/sectoresriego/equipo/$idEquipoRiego'),
@@ -1344,7 +1404,7 @@ class ApiService {
   /// Obtiene los CECOs de riego por sucursal de la actividad
   Future<List<Map<String, dynamic>>> getCecosRiegoPorActividad(String idActividad) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
     final response = await http.get(
       Uri.parse('$baseUrl/opciones/cecos/riego/actividad/$idActividad'),
@@ -1365,7 +1425,7 @@ class ApiService {
   /// Obtiene las especies por sucursal de la actividad
   Future<List<Map<String, dynamic>>> getEspeciesPorActividad(String idActividad) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
     final response = await http.get(
       Uri.parse('$baseUrl/opciones/especies/actividad/$idActividad'),
@@ -1386,7 +1446,7 @@ class ApiService {
   /// Obtiene las variedades por especie y sucursal de la actividad
   Future<List<Map<String, dynamic>>> getVariedadesPorActividadYEspecie(String idActividad, String idEspecie) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
     final response = await http.get(
       Uri.parse('$baseUrl/opciones/variedades/actividad/$idActividad/$idEspecie'),
@@ -1407,7 +1467,7 @@ class ApiService {
   /// Obtiene los cuarteles por actividad, especie y variedad
   Future<List<Map<String, dynamic>>> getCuartelesPorActividadYVariedad(String idActividad, String idEspecie, String idVariedad) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
     final response = await http.get(
       Uri.parse('$baseUrl/opciones/cuarteles/actividad/$idActividad/$idEspecie/$idVariedad'),
@@ -1428,7 +1488,7 @@ class ApiService {
   /// Obtiene los CECOs productivos por sucursal de la actividad
   Future<List<Map<String, dynamic>>> getCecosProductivosPorActividad(String idActividad) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
     final response = await http.get(
       Uri.parse('$baseUrl/opciones/cecos/productivos/actividad/$idActividad'),
@@ -1642,29 +1702,91 @@ class ApiService {
       final url = '$baseUrl/rendimientos/individual/propio${idActividad != null ? '?id_actividad=$idActividad' : ''}';
       print("🔍 Llamando a rendimientos individuales propios: $url");
       
-      final response = await http.get(
-        Uri.parse(url),
-        headers: await _getHeaders(),
-      );
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse(url),
+          headers: await _getHeaders(),
+        );
+      });
 
       print("📥 Respuesta rendimientos individuales propios: ${response.statusCode} - ${response.body}");
-    await _manejarRespuesta(response);
 
-    if (response.statusCode == 200) {
+      if (response.statusCode == 200) {
         final data = response.body.isEmpty ? [] : jsonDecode(response.body);
-        // Remover la dependencia de bonos
-        return data.map((item) {
-          final map = Map<String, dynamic>.from(item);
-          map.remove('id_bono');
-          return map;
-        }).toList();
-    } else {
+        return data;
+      } else {
         print("❌ Error al obtener rendimientos individuales propios: ${response.statusCode} - ${response.body}");
         throw Exception('Error al obtener rendimientos individuales propios: ${response.statusCode}');
       }
     } catch (e) {
       print("❌ Error en getRendimientosIndividualesPropios: $e");
       throw Exception('Error al obtener rendimientos individuales propios: $e');
+    }
+  }
+
+  // Rendimientos Individuales Contratistas
+  Future<List<dynamic>> getRendimientosIndividualesContratistas({String? idActividad, String? idContratista}) async {
+    try {
+      if (idActividad == null || idActividad.isEmpty) {
+        print("❌ Error: ID de actividad es requerido");
+        throw Exception('ID de actividad es requerido');
+      }
+      
+      if (idContratista == null || idContratista.isEmpty) {
+        print("❌ Error: ID de contratista es requerido");
+        throw Exception('ID de contratista es requerido');
+      }
+
+      String url = '$baseUrl/rendimientos/individual/contratista';
+      List<String> params = [];
+      
+      params.add('id_actividad=$idActividad');
+      params.add('id_contratista=$idContratista');
+      
+      url += '?' + params.join('&');
+      
+      print("🔍 ====== OBTENIENDO RENDIMIENTOS CONTRATISTAS ======");
+      print("🔍 URL: $url");
+      print("🔍 ID Actividad: $idActividad");
+      print("🔍 ID Contratista: $idContratista");
+      
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse(url),
+          headers: await _getHeaders(),
+        );
+      });
+
+      print("📥 Status Code: ${response.statusCode}");
+      print("📥 Headers: ${response.headers}");
+      print("📥 Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = response.body.isEmpty ? [] : jsonDecode(response.body);
+        
+        // Solo validar que los rendimientos correspondan a la actividad
+        final rendimientosFiltrados = (data as List).where((r) {
+          final coincideActividad = r['id_actividad'].toString() == idActividad;
+          
+          if (!coincideActividad) {
+            print("⚠️ Rendimiento con ID actividad incorrecto: ${r['id_actividad']} != $idActividad");
+          }
+          
+          return coincideActividad;
+        }).toList();
+        
+        print("✅ Rendimientos totales recibidos: ${data.length}");
+        print("✅ Rendimientos filtrados: ${rendimientosFiltrados.length}");
+        print("✅ ====== FIN OBTENCIÓN RENDIMIENTOS CONTRATISTAS ======");
+        
+        return rendimientosFiltrados;
+      } else {
+        print("❌ Error al obtener rendimientos individuales contratistas: ${response.statusCode} - ${response.body}");
+        throw Exception('Error al obtener rendimientos individuales contratistas: ${response.statusCode}');
+      }
+    } catch (e) {
+      print("❌ Error en getRendimientosIndividualesContratistas: $e");
+      throw Exception('Error al obtener rendimientos individuales contratistas: $e');
     }
   }
 
@@ -1718,53 +1840,30 @@ class ApiService {
     return response.statusCode == 200;
   }
 
-  // Rendimientos Individuales Contratistas
-  Future<List<dynamic>> getRendimientosIndividualesContratistas() async {
-    try {
-      final url = '$baseUrl/rendimientos/individual/contratista';
-      print("🔍 Llamando a rendimientos individuales contratistas: $url");
-
-    final response = await http.get(
-        Uri.parse(url),
-        headers: await _getHeaders(),
-      );
-
-      print("📥 Respuesta rendimientos individuales contratistas: ${response.statusCode} - ${response.body}");
-      await _manejarRespuesta(response);
-
-      if (response.statusCode == 200) {
-        final data = response.body.isEmpty ? [] : jsonDecode(response.body);
-        // Remover la dependencia de bonos
-        return data.map((item) {
-          final map = Map<String, dynamic>.from(item);
-          map.remove('id_bono');
-          return map;
-        }).toList();
-      } else {
-        print("❌ Error al obtener rendimientos individuales contratistas: ${response.statusCode} - ${response.body}");
-        throw Exception('Error al obtener rendimientos individuales contratistas: ${response.statusCode}');
-      }
-    } catch (e) {
-      print("❌ Error en getRendimientosIndividualesContratistas: $e");
-      throw Exception('Error al obtener rendimientos individuales contratistas: $e');
-    }
-  }
-
   // Crear rendimiento individual contratista
   Future<bool> crearRendimientoIndividualContratista(Map<String, dynamic> rendimiento) async {
-    final response = await http.post(
-      Uri.parse("$baseUrl/rendimientos/individual/contratista"),
-      headers: await _getHeaders(),
-      body: jsonEncode(rendimiento),
-    );
+    try {
+      print('📤 Creando rendimiento contratista: $rendimiento');
+      
+      final response = await _makeRequest(() async {
+        return await http.post(
+          Uri.parse("$baseUrl/rendimientos/individual/contratista"),
+          headers: await _getHeaders(),
+          body: jsonEncode(rendimiento),
+        );
+      });
 
-    await _manejarRespuesta(response);
+      print('📥 Respuesta: ${response.statusCode} - ${response.body}');
 
-    if (response.statusCode == 201) {
-      return true;
-    } else {
-      print("❌ Error en la API: ${response.body}");
-      return false;
+      if (response.statusCode == 201) {
+        return true;
+      } else {
+        print("❌ Error en la API: ${response.body}");
+        throw Exception('Error al crear rendimiento: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print("❌ Error al crear rendimiento contratista: $e");
+      throw Exception('Error al crear rendimiento: $e');
     }
   }
 
@@ -1848,7 +1947,7 @@ class ApiService {
   /// Obtiene los CECOs productivos por actividad, especie, variedad y cuartel
   Future<List<Map<String, dynamic>>> getCecosProductivosPorActividadEspecieVariedadYCuartel(String idActividad, String idEspecie, String idVariedad, String idCuartel) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
     final response = await http.get(
       Uri.parse('$baseUrl/opciones/cecosproductivo/actividad/$idActividad/$idEspecie/$idVariedad/$idCuartel'),
@@ -1873,7 +1972,7 @@ class ApiService {
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
 
     final response = await http.get(
@@ -1895,7 +1994,7 @@ class ApiService {
   /// Obtiene trabajadores de la sucursal del usuario logueado
   Future<List<Map<String, dynamic>>> getTrabajadoresPorSucursal() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null) throw Exception('No se encontró el token');
 
     String? idSucursal = await getSucursalActiva();
@@ -1922,47 +2021,73 @@ class ApiService {
 
   /// Crea un nuevo trabajador
   Future<bool> crearTrabajador(Map<String, dynamic> data) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-    if (token == null) throw Exception('No se encontró el token');
+    print("📤 Intentando crear trabajador con datos: $data");
+    
+    try {
+      final url = '$baseUrl/trabajadores/';
+      print("🔍 URL de la petición: $url");
+      
+      final response = await _makeRequest(() async {
+        return await http.post(
+          Uri.parse(url),
+          headers: {
+            ...(await _getHeaders()),
+            'Accept': 'application/json',
+          },
+          body: jsonEncode(data),
+        );
+      });
 
-    final response = await http.post(
-      Uri.parse('$baseUrl/trabajadores'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(data),
-    );
+      print("📥 Respuesta crear trabajador - Status: ${response.statusCode}");
+      print("📥 Respuesta crear trabajador - Headers: ${response.headers}");
+      print("📥 Respuesta crear trabajador - Body: ${response.body}");
 
-    if (response.statusCode == 201) {
-      return true;
-    } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['error'] ?? 'Error al crear el trabajador');
+      if (response.statusCode == 201) {
+        print("✅ Trabajador creado exitosamente");
+        return true;
+      } else {
+        print("❌ Error al crear trabajador: ${response.statusCode} - ${response.body}");
+        throw Exception('Error al crear el trabajador: ${response.body}');
+      }
+    } catch (e) {
+      print("❌ Excepción al crear trabajador: $e");
+      throw Exception('Error al crear el trabajador: $e');
     }
   }
 
   /// Edita un trabajador existente
   Future<bool> editarTrabajador(String id, Map<String, dynamic> data) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-    if (token == null) throw Exception('No se encontró el token');
+    print("📤 Intentando editar trabajador ${id} con datos: $data");
+    
+    try {
+      final url = '$baseUrl/trabajadores/$id';
+      print("🔍 URL de la petición: $url");
+      
+      final response = await _makeRequest(() async {
+        return await http.put(
+          Uri.parse(url),
+          headers: {
+            ...(await _getHeaders()),
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(data),
+        );
+      });
 
-    final response = await http.put(
-      Uri.parse('$baseUrl/trabajadores/$id'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(data),
-    );
+      print("📥 Respuesta editar trabajador - Status: ${response.statusCode}");
+      print("📥 Respuesta editar trabajador - Headers: ${response.headers}");
+      print("📥 Respuesta editar trabajador - Body: ${response.body}");
 
-    if (response.statusCode == 200) {
-      return true;
-    } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['error'] ?? 'Error al actualizar el trabajador');
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        print("❌ Error al actualizar trabajador: ${response.statusCode} - ${response.body}");
+        throw Exception('Error al actualizar el trabajador: ${response.body}');
+      }
+    } catch (e) {
+      print("❌ Excepción al actualizar trabajador: $e");
+      throw Exception('Error al actualizar el trabajador: $e');
     }
   }
 
@@ -1986,39 +2111,35 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> crearColaborador(Map<String, dynamic> data) async {
-    final token = await getToken();
-    if (token == null) throw Exception('No se encontró un token. Inicia sesión nuevamente.');
-    final response = await http.post(
-      Uri.parse('$baseUrl/colaboradores/'),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token"
-      },
-      body: jsonEncode(data),
-    );
-    await _manejarRespuesta(response);
+    final response = await _makeRequest(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/colaboradores/'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
+      );
+    });
+
     if (response.statusCode == 201) {
       return jsonDecode(response.body);
     } else {
+      print("❌ Error al crear colaborador: ${response.statusCode} - ${response.body}");
       throw Exception('Error al crear colaborador: ${response.body}');
     }
   }
 
   Future<Map<String, dynamic>> editarColaborador(String id, Map<String, dynamic> data) async {
-    final token = await getToken();
-    if (token == null) throw Exception('No se encontró un token. Inicia sesión nuevamente.');
-    final response = await http.put(
-      Uri.parse('$baseUrl/colaboradores/$id'),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token"
-      },
-      body: jsonEncode(data),
-    );
-    await _manejarRespuesta(response);
+    final response = await _makeRequest(() async {
+      return await http.put(
+        Uri.parse('$baseUrl/colaboradores/$id'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
+      );
+    });
+
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
+      print("❌ Error al editar colaborador: ${response.statusCode} - ${response.body}");
       throw Exception('Error al editar colaborador: ${response.body}');
     }
   }
@@ -2043,57 +2164,51 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> crearPermiso(Map<String, dynamic> data) async {
-    final token = await getToken();
-    if (token == null) throw Exception('No se encontró un token. Inicia sesión nuevamente.');
-    final response = await http.post(
-      Uri.parse('$baseUrl/permisos/'),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token"
-      },
-      body: jsonEncode(data),
-    );
-    await _manejarRespuesta(response);
+    final response = await _makeRequest(() async {
+      return await http.post(
+        Uri.parse('$baseUrl/permisos/'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
+      );
+    });
+
     if (response.statusCode == 201) {
       return jsonDecode(response.body);
     } else {
+      print("❌ Error al crear permiso: ${response.statusCode} - ${response.body}");
       throw Exception('Error al crear permiso: ${response.body}');
     }
   }
 
   Future<Map<String, dynamic>> editarPermiso(int id, Map<String, dynamic> data) async {
-    final token = await getToken();
-    if (token == null) throw Exception('No se encontró un token. Inicia sesión nuevamente.');
-    final response = await http.put(
-      Uri.parse('$baseUrl/permisos/$id'),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token"
-      },
-      body: jsonEncode(data),
-    );
-    await _manejarRespuesta(response);
+    final response = await _makeRequest(() async {
+      return await http.put(
+        Uri.parse('$baseUrl/permisos/$id'),
+        headers: await _getHeaders(),
+        body: jsonEncode(data),
+      );
+    });
+
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
+      print("❌ Error al editar permiso: ${response.statusCode} - ${response.body}");
       throw Exception('Error al editar permiso: ${response.body}');
     }
   }
 
   Future<bool> eliminarPermiso(String id) async {
-    final token = await getToken();
-    if (token == null) throw Exception('No se encontró un token. Inicia sesión nuevamente.');
-    final response = await http.delete(
-      Uri.parse('$baseUrl/permisos/$id'),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token"
-      },
-    );
-    await _manejarRespuesta(response);
+    final response = await _makeRequest(() async {
+      return await http.delete(
+        Uri.parse('$baseUrl/permisos/$id'),
+        headers: await _getHeaders(),
+      );
+    });
+
     if (response.statusCode == 200) {
       return true;
     } else {
+      print("❌ Error al eliminar permiso: ${response.statusCode} - ${response.body}");
       throw Exception('Error al eliminar permiso: ${response.body}');
     }
   }
@@ -2153,7 +2268,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> _get(String endpoint) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     
     if (token == null) {
       throw Exception('No hay token de autenticación');
@@ -2176,7 +2291,7 @@ class ApiService {
 
   Future<void> _put(String endpoint, Map<String, dynamic> data) async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     
     if (token == null) {
       throw Exception('No hay token de autenticación');
@@ -2232,6 +2347,13 @@ class ApiService {
   /// 🔹 Método para verificar si el token está próximo a expirar y hacer refresh proactivo
   Future<bool> verificarYRefreshToken() async {
     try {
+      // Primero verificar si hay token
+      final token = await getToken();
+      if (token == null) {
+        print("❌ No hay token disponible");
+        return false;
+      }
+
       // Usar un endpoint simple para verificar si el token es válido
       final response = await _makeRequest(() async {
         return await http.get(
@@ -2243,17 +2365,34 @@ class ApiService {
       // Si la petición fue exitosa, el token es válido
       return response.statusCode == 200;
     } catch (e) {
-      // Si hay error, intentar refresh
-      print("🔄 Token puede estar expirado, intentando refresh proactivo...");
-      bool refreshed = await AuthService().refreshToken();
+      print("🔄 Error al verificar token: $e");
       
-      if (refreshed) {
-        print("✅ Refresh proactivo exitoso");
-        return true;
-      } else {
-        print("❌ Refresh proactivo falló");
-        return false;
+      // Solo intentar refresh si el error es de autenticación
+      if (e.toString().contains('401') || 
+          e.toString().contains('token') || 
+          e.toString().contains('Token')) {
+        
+        print("🔄 Token puede estar expirado, intentando refresh proactivo...");
+        try {
+          bool refreshed = await AuthService().refreshToken();
+          
+          if (refreshed) {
+            print("✅ Refresh proactivo exitoso");
+            return true;
+          } else {
+            print("❌ Refresh proactivo falló");
+            return false;
+          }
+        } catch (refreshError) {
+          print("❌ Error en refresh: $refreshError");
+          return false;
+        }
       }
+      
+      // Si no es un error de autenticación, asumir que el token es válido
+      // (puede ser un error de red o servidor)
+      print("⚠️ Error no relacionado con autenticación, asumiendo token válido");
+      return true;
     }
   }
 
@@ -2450,4 +2589,51 @@ class ApiService {
       throw Exception('Error al eliminar las aplicaciones permitidas del usuario');
     }
   }
+
+  Future<void> refreshToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final refreshToken = prefs.getString('refresh_token');
+      
+      if (refreshToken == null) {
+        print("❌ No hay refresh token almacenado");
+        throw Exception('No hay refresh token disponible');
+      }
+
+      print("🔄 Intentando refrescar token...");
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/refresh'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $refreshToken',
+        },
+      );
+
+      print("📡 Código de respuesta refresh: ${response.statusCode}");
+      print("📝 Respuesta del servidor refresh: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        await prefs.setString('access_token', data['access_token']);
+        await prefs.setString('refresh_token', data['refresh_token']);
+        print("✅ Token refrescado exitosamente");
+      } else {
+        print("❌ Error en refresh token - Código: ${response.statusCode}");
+        print("❌ Detalle del error refresh: ${response.body}");
+        
+        // Si el refresh token expiró, limpiar tokens y redirigir al login
+        await prefs.remove('access_token');
+        await prefs.remove('refresh_token');
+        navigatorKey.currentState?.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => LoginPage()),
+          (route) => false,
+        );
+        throw Exception('Sesión expirada. Por favor, inicia sesión nuevamente.');
+      }
+    } catch (e) {
+      print("❌ Error en refreshToken: $e");
+      throw Exception('Error al refrescar el token: $e');
+    }
+  }
+
 }

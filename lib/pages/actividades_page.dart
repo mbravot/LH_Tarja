@@ -64,7 +64,7 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
 
   Future<void> _verificarSesion() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = prefs.getString('access_token');
     if (token == null && mounted) {
       Navigator.pushReplacement(
         context,

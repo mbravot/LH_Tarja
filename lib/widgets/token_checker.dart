@@ -23,7 +23,11 @@ class _TokenCheckerState extends State<TokenChecker> {
   @override
   void initState() {
     super.initState();
-    _startTokenChecking();
+    // Esperar 10 segundos antes de empezar a verificar el token
+    // para evitar problemas inmediatos después del login
+    Timer(Duration(seconds: 10), () {
+      _startTokenChecking();
+    });
   }
 
   @override

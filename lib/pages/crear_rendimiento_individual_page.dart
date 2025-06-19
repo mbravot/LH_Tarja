@@ -17,6 +17,7 @@ class CrearRendimientoIndividualPage extends StatefulWidget {
 class _CrearRendimientoIndividualPageState extends State<CrearRendimientoIndividualPage> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  String _error = '';
 
   // Controladores y variables de campos
   String? selectedTrabajador;
@@ -41,42 +42,78 @@ class _CrearRendimientoIndividualPageState extends State<CrearRendimientoIndivid
   }
 
   Future<void> _cargarDatosIniciales() async {
+    setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.reload(); // Forzar recarga de SharedPreferences
       final idSucursal = prefs.getString('id_sucursal');
-      print('Sucursal activa usada para cargar colaboradores/trabajadores: $idSucursal');
+      print('🔍 Sucursal activa: $idSucursal');
+      print('🔍 Tipo trabajador: ${widget.idTipotrabajador}');
+      print('🔍 ID Contratista: ${widget.idContratista}');
+      print('🔍 ID Actividad: ${widget.idActividad}');
+      
       if (idSucursal == null) throw Exception('No se encontró la sucursal activa');
-      // 1. Obtener IDs con rendimiento ya ingresado
+
       if (widget.idTipotrabajador == 2) {
-        // Contratista: cargar trabajadores y porcentajes
-        if (widget.idContratista == null || widget.idContratista!.isEmpty) throw Exception('No se encontró el contratista');
+        // Validar contratista
+        if (widget.idContratista == null || widget.idContratista!.isEmpty) {
+          throw Exception('No se encontró el ID del contratista');
+        }
+
+        // Cargar trabajadores y porcentajes
+        print('🔍 Cargando trabajadores para contratista: ${widget.idContratista}');
         final listaTrabajadores = await ApiService().getTrabajadores(idSucursal, widget.idContratista!);
+        print('✅ Trabajadores cargados: ${listaTrabajadores.length}');
+
+        print('🔍 Cargando porcentajes');
         final listaPorcentajes = await ApiService().getPorcentajesContratista();
-        final rendimientos = await ApiService().getRendimientosIndividualesContratistas();
+        print('✅ Porcentajes cargados: ${listaPorcentajes.length}');
+
+        print('🔍 Cargando rendimientos existentes');
+        final rendimientos = await ApiService().getRendimientosIndividualesContratistas(
+          idActividad: widget.idActividad,
+          idContratista: widget.idContratista!
+        );
+        print('✅ Rendimientos cargados: ${rendimientos.length}');
+
         idsConRendimiento = rendimientos
           .where((r) => r['id_actividad'].toString() == widget.idActividad)
           .map<String>((r) => r['id_trabajador'].toString())
           .toSet();
+
+        print('✅ IDs con rendimiento: $idsConRendimiento');
+
         setState(() {
           trabajadores = List<Map<String, dynamic>>.from(listaTrabajadores);
           porcentajes = List<Map<String, dynamic>>.from(listaPorcentajes);
+          _error = '';
         });
       } else if (widget.idTipotrabajador == 1) {
-        // Propio: cargar colaboradores
+        print('🔍 Cargando colaboradores');
         final listaColaboradores = await ApiService().getColaboradores();
-        final rendimientos = await ApiService().getRendimientosIndividualesPropios(idActividad: widget.idActividad);
+        print('✅ Colaboradores cargados: ${listaColaboradores.length}');
+
+        final rendimientos = await ApiService().getRendimientosIndividualesPropios(
+          idActividad: widget.idActividad
+        );
+        print('✅ Rendimientos propios cargados: ${rendimientos.length}');
+
         idsConRendimiento = rendimientos
           .map<String>((r) => r['id_colaborador'].toString())
           .toSet();
+
+        print('✅ IDs con rendimiento: $idsConRendimiento');
+
         setState(() {
           colaboradores = List<Map<String, dynamic>>.from(listaColaboradores);
+          _error = '';
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cargar datos: $e')),
-      );
+      print('❌ Error al cargar datos iniciales: $e');
+      setState(() => _error = e.toString());
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -90,13 +127,11 @@ class _CrearRendimientoIndividualPageState extends State<CrearRendimientoIndivid
         final trabajador = await ApiService().getTrabajadorById(trabajadorId);
         setState(() {
           if (trabajador != null && trabajador['id_porcentaje'] != null) {
-            selectedPorcentaje = trabajador['id_porcentaje'] is int
-                ? trabajador['id_porcentaje']
-                : int.tryParse(trabajador['id_porcentaje'].toString());
+            selectedPorcentaje = trabajador['id_porcentaje'];
           }
         });
       } catch (e) {
-        // Si falla, deja el porcentaje sin seleccionar
+        print('❌ Error al cargar porcentaje del trabajador: $e');
       }
     }
   }
@@ -106,32 +141,44 @@ class _CrearRendimientoIndividualPageState extends State<CrearRendimientoIndivid
       setState(() => _isLoading = true);
       try {
         final Map<String, dynamic> rendimiento = {
-          'id_actividad': widget.idActividad.toString(),
+          'id_actividad': widget.idActividad,
           'rendimiento': double.tryParse(rendimientoController.text) ?? 0,
-          'horas_trabajadas': null,
-          'horas_extras': null,
           'id_trabajador': null,
           'id_colaborador': null,
           'id_porcentaje_individual': null,
         };
+
         bool response;
         if (widget.idTipotrabajador == 2) {
-          rendimiento['id_trabajador'] = selectedTrabajador?.toString();
-          rendimiento['id_porcentaje_individual'] = selectedPorcentaje?.toString();
+          if (selectedTrabajador == null) {
+            throw Exception('Debe seleccionar un trabajador');
+          }
+          if (selectedPorcentaje == null) {
+            throw Exception('Debe seleccionar un porcentaje');
+          }
+
+          rendimiento['id_trabajador'] = selectedTrabajador;
+          rendimiento['id_porcentaje_individual'] = selectedPorcentaje;
+          print('📤 Enviando rendimiento contratista: $rendimiento');
           response = await ApiService().crearRendimientoIndividualContratista(rendimiento);
-        } else if (widget.idTipotrabajador == 1) {
-          rendimiento['id_colaborador'] = selectedColaborador?.toString();
-          response = await ApiService().crearRendimientoIndividualPropio(rendimiento);
         } else {
-          throw Exception('Tipo de trabajador no soportado');
+          if (selectedColaborador == null) {
+            throw Exception('Debe seleccionar un colaborador');
+          }
+
+          rendimiento['id_colaborador'] = selectedColaborador;
+          print('📤 Enviando rendimiento propio: $rendimiento');
+          response = await ApiService().crearRendimientoIndividualPropio(rendimiento);
         }
+
         if (response) {
           if (!mounted) return;
           Navigator.pop(context, true);
         } else {
-          throw Exception('Error al crear rendimiento');
+          throw Exception('Error al crear el rendimiento');
         }
       } catch (e) {
+        print('❌ Error al crear rendimiento: $e');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
@@ -147,21 +194,12 @@ class _CrearRendimientoIndividualPageState extends State<CrearRendimientoIndivid
     required List<Map<String, dynamic>> items,
     required String? selectedValue,
     required Function(String?) onChanged,
-    IconData? icon,
-    Color? iconColor,
+    required IconData icon,
+    required Color iconColor,
   }) {
     return DropdownSearch<String>(
-      items: items.map((e) => e['id'].toString()).toList(),
-      selectedItem: selectedValue,
-      dropdownDecoratorProps: DropDownDecoratorProps(
-        dropdownSearchDecoration: InputDecoration(
-          labelText: label,
-          prefixIcon: icon != null ? Icon(icon, color: iconColor) : null,
-          border: OutlineInputBorder(),
-        ),
-      ),
-      onChanged: onChanged,
       popupProps: PopupProps.menu(
+        showSelectedItems: true,
         showSearchBox: true,
         itemBuilder: (context, item, isSelected) {
           final isDisabled = idsConRendimiento.contains(item);
@@ -198,6 +236,16 @@ class _CrearRendimientoIndividualPageState extends State<CrearRendimientoIndivid
           }
         },
       ),
+      items: items.map((e) => e['id'].toString()).toList(),
+      selectedItem: selectedValue,
+      dropdownDecoratorProps: DropDownDecoratorProps(
+        dropdownSearchDecoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, color: iconColor),
+          border: OutlineInputBorder(),
+        ),
+      ),
+      onChanged: onChanged,
       itemAsString: (itemId) {
         if (label.contains('Porcentaje')) {
           final porcentaje = items.firstWhereOrNull((e) => e['id'].toString() == itemId);
@@ -228,6 +276,7 @@ class _CrearRendimientoIndividualPageState extends State<CrearRendimientoIndivid
   Widget build(BuildContext context) {
     const primaryColor = Colors.green;
     const secondaryColor = Colors.white;
+    
     return Scaffold(
       appBar: AppBar(
         title: Text('Nuevo Rendimiento Individual', style: TextStyle(color: secondaryColor)),
@@ -236,81 +285,100 @@ class _CrearRendimientoIndividualPageState extends State<CrearRendimientoIndivid
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildSection(
-                      'Datos de Rendimiento',
-                      Icons.assignment,
-                      [
-                        buildSearchableDropdown(
-                          label: widget.idTipotrabajador == 1 ? 'Colaborador (Propio)' : 'Trabajador (Contratista)',
-                          items: widget.idTipotrabajador == 1 ? colaboradores : trabajadores,
-                          selectedValue: widget.idTipotrabajador == 1 ? selectedColaborador : selectedTrabajador,
-                          onChanged: (val) => setState(() {
-                            if (widget.idTipotrabajador == 1) selectedColaborador = val;
-                            else selectedTrabajador = val;
-                          }),
-                          icon: widget.idTipotrabajador == 1 ? Icons.group : Icons.engineering,
-                          iconColor: Colors.green,
-                        ),
-                        SizedBox(height: 16),
-                        TextFormField(
-                          controller: rendimientoController,
-                          keyboardType: TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(
-                            labelText: 'Rendimiento',
-                            prefixIcon: Icon(Icons.speed, color: Colors.green),
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) => value == null || value.isEmpty ? 'Campo requerido' : null,
-                        ),
-                        SizedBox(height: 16),
-                        if (widget.idTipotrabajador == 2)
-                          DropdownButtonFormField<int>(
-                            value: selectedPorcentaje,
-                            items: porcentajes.map((p) {
-                              final valor = (p['porcentaje'] * 100).toStringAsFixed(0);
-                              return DropdownMenuItem<int>(
-                                value: p['id'],
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.percent, color: Colors.green, size: 18),
-                                    SizedBox(width: 6),
-                                    Text(valor),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (int? val) => setState(() => selectedPorcentaje = val),
-                            decoration: InputDecoration(
-                              labelText: 'Porcentaje',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.percent, color: Colors.green),
+          : _error.isNotEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, size: 48, color: Colors.red),
+                      SizedBox(height: 16),
+                      Text(
+                        _error,
+                        style: TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _cargarDatosIniciales,
+                        child: Text('Reintentar'),
+                      ),
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: EdgeInsets.all(16),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildSection(
+                          'Datos de Rendimiento',
+                          Icons.assignment,
+                          [
+                            buildSearchableDropdown(
+                              label: widget.idTipotrabajador == 1 ? 'Colaborador (Propio)' : 'Trabajador (Contratista)',
+                              items: widget.idTipotrabajador == 1 ? colaboradores : trabajadores,
+                              selectedValue: widget.idTipotrabajador == 1 ? selectedColaborador : selectedTrabajador,
+                              onChanged: widget.idTipotrabajador == 1 
+                                ? (val) => setState(() => selectedColaborador = val)
+                                : _onTrabajadorChanged,
+                              icon: widget.idTipotrabajador == 1 ? Icons.group : Icons.engineering,
+                              iconColor: Colors.green,
                             ),
-                            validator: (value) => value == null ? 'Campo requerido' : null,
+                            SizedBox(height: 16),
+                            if (widget.idTipotrabajador == 2 && porcentajes.isNotEmpty) ...[
+                              buildSearchableDropdown(
+                                label: 'Porcentaje individual',
+                                items: porcentajes,
+                                selectedValue: selectedPorcentaje?.toString(),
+                                onChanged: (val) => setState(() => selectedPorcentaje = int.tryParse(val ?? '')),
+                                icon: Icons.percent,
+                                iconColor: Colors.green,
+                              ),
+                              SizedBox(height: 16),
+                            ],
+                            TextFormField(
+                              controller: rendimientoController,
+                              keyboardType: TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                labelText: 'Rendimiento',
+                                prefixIcon: Icon(Icons.speed, color: Colors.green),
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'El rendimiento es requerido';
+                                }
+                                final numero = double.tryParse(value);
+                                if (numero == null) {
+                                  return 'Ingrese un número válido';
+                                }
+                                if (numero <= 0) {
+                                  return 'El rendimiento debe ser mayor a 0';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: _isLoading ? null : _submitForm,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: secondaryColor,
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            textStyle: TextStyle(fontSize: 18),
                           ),
+                          child: _isLoading
+                              ? CircularProgressIndicator(color: secondaryColor)
+                              : Text('Guardar'),
+                        ),
                       ],
                     ),
-                    SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: _isLoading ? null : _submitForm,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: secondaryColor,
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        textStyle: TextStyle(fontSize: 18),
-                      ),
-                      child: Text('Guardar'),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
     );
   }
 

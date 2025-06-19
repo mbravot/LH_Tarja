@@ -13,6 +13,7 @@ import 'cambiar_clave_page.dart';
 import 'cambiar_sucursal_page.dart';
 import '../widgets/layout/app_bar.dart';
 import '../services/api_service.dart';
+import 'usuarios_page.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -207,9 +208,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   
                   // Navegar al login y limpiar el stack de navegación
                   if (mounted) {
-                    Navigator.pushNamedAndRemoveUntil(
+                    Navigator.pushAndRemoveUntil(
                       context, 
-                      '/login', 
+                      MaterialPageRoute(builder: (context) => LoginPage()),
                       (route) => false
                     );
                   }
@@ -219,9 +220,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.clear();
                   if (mounted) {
-                    Navigator.pushNamedAndRemoveUntil(
+                    Navigator.pushAndRemoveUntil(
                       context, 
-                      '/login', 
+                      MaterialPageRoute(builder: (context) => LoginPage()),
                       (route) => false
                     );
                   }
@@ -367,7 +368,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         if (esAdmin) _buildDrawerItem(
                           icon: Icons.people,
                           title: "Usuarios",
-                          onTap: () => Navigator.pushNamed(context, '/usuarios'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => UsuariosPage()),
+                            );
+                          },
                           color: Theme.of(context).colorScheme.primary,
                         ),
                         _buildDrawerItem(
