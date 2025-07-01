@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'package:dropdown_search/dropdown_search.dart';
@@ -226,6 +227,10 @@ class _NuevoTrabajadorPageState extends State<NuevoTrabajadorPage> {
                                 child: TextFormField(
                                   controller: _rutController,
                                   keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(8),
+                                  ],
                                   decoration: InputDecoration(
                                     labelText: 'RUT',
                                     prefixIcon: Icon(Icons.badge_outlined, color: primaryColor),
@@ -240,8 +245,13 @@ class _NuevoTrabajadorPageState extends State<NuevoTrabajadorPage> {
                                     fillColor: Colors.grey.withOpacity(0.05),
                                   ),
                                   validator: (value) {
-                                    if (value != null && value.isNotEmpty && int.tryParse(value) == null) {
-                                      return 'El RUT debe ser un número';
+                                    if (value != null && value.isNotEmpty) {
+                                      if (int.tryParse(value) == null) {
+                                        return 'El RUT debe ser un número';
+                                      }
+                                      if (value.length > 8) {
+                                        return 'El RUT debe tener máximo 8 dígitos';
+                                      }
                                     }
                                     return null;
                                   },

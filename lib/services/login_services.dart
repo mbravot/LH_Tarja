@@ -93,10 +93,10 @@ class AuthService {
   Future<bool> refreshToken() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      String? currentToken = prefs.getString('access_token');
+      String? refreshToken = prefs.getString('refresh_token');
 
-      if (currentToken == null) {
-        logError("❌ No hay token actual para refresh");
+      if (refreshToken == null) {
+        logError("❌ No hay refresh token para refresh");
         return false;
       }
 
@@ -106,7 +106,7 @@ class AuthService {
         Uri.parse("$baseUrl/auth/refresh"),
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer $currentToken",
+          "Authorization": "Bearer $refreshToken",
         },
       );
 

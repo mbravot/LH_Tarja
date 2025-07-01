@@ -40,6 +40,7 @@ class _EditarRendimientosIndividualesPageState extends State<EditarRendimientosI
   int? idTipotrabajador;
   String? idContratista;
   String? idActividad;
+  Set<String> idsConRendimiento = {};
 
   @override
   void initState() {
@@ -76,6 +77,24 @@ class _EditarRendimientosIndividualesPageState extends State<EditarRendimientosI
         final listaPorcentajes = await ApiService().getPorcentajesContratista();
         logInfo('>>> Trabajadores cargados: [32m${listaTrabajadores.length}[0m');
         logInfo('>>> Porcentajes cargados: [32m${listaPorcentajes.length}[0m');
+
+        // Cargar rendimientos existentes para filtrar
+        logInfo('>>> Cargando rendimientos existentes para contratistas');
+        final rendimientos = await ApiService().getRendimientosIndividualesContratistas(
+          idActividad: idActividad!,
+          idContratista: idContratista!
+        );
+        logInfo('>>> Rendimientos cargados: ${rendimientos.length}');
+
+        // Crear set de IDs que ya tienen rendimiento (excluyendo el actual)
+        idsConRendimiento = rendimientos
+          .where((r) => r['id_actividad'].toString() == idActividad && 
+                       r['id'].toString() != widget.rendimiento['id'].toString())
+          .map<String>((r) => r['id_trabajador'].toString())
+          .toSet();
+
+        logInfo('>>> IDs con rendimiento (excluyendo actual): $idsConRendimiento');
+
         setState(() {
           trabajadores = List<Map<String, dynamic>>.from(listaTrabajadores);
           porcentajes = List<Map<String, dynamic>>.from(listaPorcentajes);
@@ -83,6 +102,22 @@ class _EditarRendimientosIndividualesPageState extends State<EditarRendimientosI
       } else if (idTipotrabajador == 1) {
         final listaColaboradores = await ApiService().getColaboradores();
         logInfo('>>> Colaboradores cargados: [32m${listaColaboradores.length}[0m');
+
+        // Cargar rendimientos existentes para filtrar
+        logInfo('>>> Cargando rendimientos existentes para propios');
+        final rendimientos = await ApiService().getRendimientosIndividualesPropios(
+          idActividad: idActividad!
+        );
+        logInfo('>>> Rendimientos propios cargados: ${rendimientos.length}');
+
+        // Crear set de IDs que ya tienen rendimiento (excluyendo el actual)
+        idsConRendimiento = rendimientos
+          .where((r) => r['id'].toString() != widget.rendimiento['id'].toString())
+          .map<String>((r) => r['id_colaborador'].toString())
+          .toSet();
+
+        logInfo('>>> IDs con rendimiento (excluyendo actual): $idsConRendimiento');
+
         setState(() {
           colaboradores = List<Map<String, dynamic>>.from(listaColaboradores);
         });
@@ -166,6 +201,7 @@ class _EditarRendimientosIndividualesPageState extends State<EditarRendimientosI
       popupProps: PopupProps.menu(
         showSearchBox: true,
         itemBuilder: (context, item, isSelected) {
+          final isDisabled = idsConRendimiento.contains(item);
           if (label.contains('Porcentaje')) {
             final porcentaje = items.firstWhereOrNull((e) => e['id'].toString() == item);
             final valor = porcentaje != null ? ((porcentaje['porcentaje'] * 100).toStringAsFixed(0) + '%') : item;
@@ -176,13 +212,23 @@ class _EditarRendimientosIndividualesPageState extends State<EditarRendimientosI
             final nombreCompleto = colaborador != null
                 ? "${colaborador['nombre']} ${colaborador['apellido_paterno'] ?? ''} ${colaborador['apellido_materno'] ?? ''}".trim()
                 : item;
-            return ListTile(title: Text(nombreCompleto));
+            return ListTile(
+              title: Text(nombreCompleto),
+              enabled: !isDisabled,
+              trailing: isDisabled ? Icon(Icons.check_circle, color: Colors.green) : null,
+              subtitle: isDisabled ? Text('Ya ingresado', style: TextStyle(color: Colors.green, fontSize: 12)) : null,
+            );
           } else if (label.contains('Trabajador')) {
             final trabajador = items.firstWhereOrNull((e) => e['id'].toString() == item);
             final nombreCompleto = trabajador != null
                 ? "${trabajador['nombre']} ${trabajador['apellido_paterno'] ?? ''} ${trabajador['apellido_materno'] ?? ''}".trim()
                 : item;
-            return ListTile(title: Text(nombreCompleto));
+            return ListTile(
+              title: Text(nombreCompleto),
+              enabled: !isDisabled,
+              trailing: isDisabled ? Icon(Icons.check_circle, color: Colors.green) : null,
+              subtitle: isDisabled ? Text('Ya ingresado', style: TextStyle(color: Colors.green, fontSize: 12)) : null,
+            );
           } else {
             final nombre = items.firstWhereOrNull((e) => e['id'].toString() == item)?['nombre'] ?? item;
             return ListTile(title: Text(nombre));

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import 'package:intl/intl.dart';
 //import 'package:dropdown_search/dropdown_search.dart';
@@ -205,7 +206,7 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
           'id_labor': selectedLabor,
           'id_unidad': selectedUnidad,
           'id_tipoceco': selectedCeco,
-          'tarifa': tarifaController.text,
+          'tarifa': (selectedUnidad == "35" || selectedUnidad == "36") ? "1" : tarifaController.text,
           'hora_inicio': horaInicio != null ? "${horaInicio!.hour.toString().padLeft(2, '0')}:${horaInicio!.minute.toString().padLeft(2, '0')}:00" : null,
           'hora_fin': horaFin != null ? "${horaFin!.hour.toString().padLeft(2, '0')}:${horaFin!.minute.toString().padLeft(2, '0')}:00" : null,
           'id_estadoactividad': 1, // Estado creada
@@ -380,11 +381,24 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
                   
                   buildSearchableDropdown(
                     label: "Unidad",
-                    items: unidades,
+                    items: selectedTipoTrabajador == "2" 
+                        ? unidades.where((unidad) => 
+                            unidad['id'].toString() != "35" && 
+                            unidad['id'].toString() != "36").toList()
+                        : unidades,
                     selectedValue: selectedUnidad,
                     onChanged: (val) {
                       setState(() {
                         selectedUnidad = val;
+                        // Si se selecciona unidad 35 o 36, establecer tarifa en 1
+                        if (val == "35" || val == "36") {
+                          tarifaController.text = "1";
+                        } else {
+                          // Si se cambia de unidad 35/36 a otra, limpiar tarifa
+                          if (selectedUnidad == "35" || selectedUnidad == "36") {
+                            tarifaController.clear();
+                          }
+                        }
                       });
                     },
                     icon: Icons.straighten,
@@ -404,7 +418,11 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
                   ),
                   SizedBox(height: 16),
                   
-                  _buildTarifaField(),
+                  // Solo mostrar campo tarifa si la unidad no es 35 o 36
+                  if (selectedUnidad != "35" && selectedUnidad != "36") ...[
+                    _buildTarifaField(),
+                    SizedBox(height: 16),
+                  ],
                 ],
               ),
               SizedBox(height: 16),
@@ -580,6 +598,10 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
                 selectedTipoTrabajador = "1";
                 selectedContratista = null;
                 selectedTipoRendimiento = "1";
+                // Limpiar unidad si estaba seleccionada una que no estaba disponible para contratistas
+                if (selectedUnidad == "35" || selectedUnidad == "36") {
+                  selectedUnidad = null;
+                }
               });
               _cargarContratistas();
             },
@@ -595,6 +617,10 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
                 selectedTipoTrabajador = "2";
                 selectedContratista = null;
                 selectedTipoRendimiento = null;
+                // Limpiar unidad si está seleccionada una que no estará disponible para contratistas
+                if (selectedUnidad == "35" || selectedUnidad == "36") {
+                  selectedUnidad = null;
+                }
               });
               _cargarContratistas();
             },
@@ -663,6 +689,9 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
     return TextFormField(
       controller: tarifaController,
       keyboardType: TextInputType.number,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+      ],
       decoration: InputDecoration(
         labelText: "Tarifa",
         prefixIcon: Icon(Icons.attach_money, color: Colors.green),
@@ -682,8 +711,13 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
         filled: true,
         fillColor: Colors.grey[50],
       ),
-      validator: (value) =>
-          value == null || value.isEmpty ? "Ingrese una tarifa" : null,
+      validator: (value) {
+        // No validar tarifa si la unidad es 35 o 36
+        if (selectedUnidad == "35" || selectedUnidad == "36") {
+          return null;
+        }
+        return value == null || value.isEmpty ? "Ingrese una tarifa" : null;
+      },
     );
   }
 

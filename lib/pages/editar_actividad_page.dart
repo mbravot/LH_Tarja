@@ -67,9 +67,6 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
       selectedDate = DateTime.now();
     }
 
-    tarifaController = TextEditingController(
-        text: widget.actividad['tarifa']?.toString() ?? '');
-
     selectedEspecie = widget.actividad['id_especie']?.toString();
     selectedVariedad = widget.actividad['id_variedad']?.toString();
     selectedCeco = widget.actividad['id_tipoceco']?.toString();
@@ -78,6 +75,11 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
     selectedTipoTrabajador = widget.actividad['id_tipotrabajador']?.toString();
     selectedTipoRendimiento = widget.actividad['id_tiporendimiento']?.toString();
     selectedContratista = widget.actividad['id_contratista']?.toString();
+
+    // Establecer tarifa automáticamente si la unidad es 35 o 36
+    final unidadId = widget.actividad['id_unidad']?.toString();
+    final tarifaInicial = (unidadId == "35" || unidadId == "36") ? "1" : (widget.actividad['tarifa']?.toString() ?? '');
+    tarifaController = TextEditingController(text: tarifaInicial);
 
     if (widget.actividad['hora_inicio'] != null) {
       List<String> partes = widget.actividad['hora_inicio'].split(":");
@@ -178,7 +180,7 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
         "hora_inicio": horaInicio != null ? "${horaInicio!.hour}:${horaInicio!.minute}:00" : null,
         "hora_fin": horaFin != null ? "${horaFin!.hour}:${horaFin!.minute}:00" : null,
         "id_estadoactividad": widget.actividad['id_estadoactividad'],
-        "tarifa": tarifaController.text,
+        "tarifa": (selectedUnidad == "35" || selectedUnidad == "36") ? "1" : tarifaController.text,
         "id_tipoceco": selectedCeco,
       };
 
@@ -342,22 +344,36 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
                       
                       buildSearchableDropdown(
                         label: "Unidad",
-                        items: unidades.where((u) {
-                          final idUnidad = u['id'].toString();
-                          if (selectedTipoTrabajador == "2") {
-                            return idUnidad != "35" && idUnidad != "36";
-                          } else if (selectedTipoTrabajador == "1") {
-                            return idUnidad != "4" && idUnidad != "5";
-                          }
-                          return true;
-                        }).toList(),
+                        items: selectedTipoTrabajador == "2" 
+                            ? unidades.where((unidad) => 
+                                unidad['id'].toString() != "35" && 
+                                unidad['id'].toString() != "36").toList()
+                            : unidades,
                         selectedValue: unidades.firstWhereOrNull((e) => e['id'].toString() == selectedUnidad),
-                        onChanged: (val) => setState(() => selectedUnidad = val?['id']?.toString()),
+                        onChanged: (val) {
+                          final newUnidad = val?['id']?.toString();
+                          setState(() {
+                            selectedUnidad = newUnidad;
+                            // Si se selecciona unidad 35 o 36, establecer tarifa en 1
+                            if (newUnidad == "35" || newUnidad == "36") {
+                              tarifaController.text = "1";
+                            } else {
+                              // Si se cambia de unidad 35/36 a otra, limpiar tarifa
+                              if (selectedUnidad == "35" || selectedUnidad == "36") {
+                                tarifaController.clear();
+                              }
+                            }
+                          });
+                        },
                         icon: Icons.straighten,
                       ),
                       SizedBox(height: 16),
                       
-                      _buildTarifaField(),
+                      // Solo mostrar campo tarifa si la unidad no es 35 o 36
+                      if (selectedUnidad != "35" && selectedUnidad != "36") ...[
+                        _buildTarifaField(),
+                        SizedBox(height: 16),
+                      ],
                     ],
                   ),
                   SizedBox(height: 16),
@@ -528,6 +544,10 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
                 selectedTipoTrabajador = "1";
                 selectedContratista = null;
                 selectedTipoRendimiento = "1";
+                // Limpiar unidad si estaba seleccionada una que no estaba disponible para contratistas
+                if (selectedUnidad == "35" || selectedUnidad == "36") {
+                  selectedUnidad = null;
+                }
               });
               _cargarContratistas();
             },
@@ -543,6 +563,10 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
                 selectedTipoTrabajador = "2";
                 selectedContratista = null;
                 selectedTipoRendimiento = null;
+                // Limpiar unidad si está seleccionada una que no estará disponible para contratistas
+                if (selectedUnidad == "35" || selectedUnidad == "36") {
+                  selectedUnidad = null;
+                }
               });
               _cargarContratistas();
             },
@@ -630,8 +654,13 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
         filled: true,
         fillColor: Colors.grey[50],
       ),
-      validator: (value) =>
-          value == null || value.isEmpty ? "Ingrese una tarifa" : null,
+      validator: (value) {
+        // No validar tarifa si la unidad es 35 o 36
+        if (selectedUnidad == "35" || selectedUnidad == "36") {
+          return null;
+        }
+        return value == null || value.isEmpty ? "Ingrese una tarifa" : null;
+      },
     );
   }
 

@@ -366,16 +366,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           final esAdmin = prefs.getString('id_perfil') == '3';
 
           return Container(
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.background,
-            ),
+            color: Colors.white,
             child: Column(
               children: [
                 _buildDrawerHeader(),
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
+                      color: Colors.white,
                       borderRadius: BorderRadius.only(
                         topLeft: Radius.circular(30),
                         topRight: Radius.circular(30),
@@ -395,7 +393,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               MaterialPageRoute(builder: (context) => UsuariosPage()),
                             );
                           },
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.green,
                         ),
                         _buildDrawerItem(
                           icon: Icons.business,
@@ -407,7 +405,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               MaterialPageRoute(builder: (context) => ContratistasPage()),
                             );
                           },
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.green,
                         ),
                         _buildDrawerItem(
                           icon: Icons.group,
@@ -419,7 +417,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               MaterialPageRoute(builder: (context) => TrabajadoresPage()),
                             );
                           },
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.green,
                         ),
                         _buildDrawerItem(
                           icon: Icons.groups,
@@ -431,7 +429,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               MaterialPageRoute(builder: (context) => ColaboradoresPage()),
                             );
                           },
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.green,
                         ),
                         _buildDrawerItem(
                           icon: Icons.assignment_turned_in,
@@ -443,7 +441,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               MaterialPageRoute(builder: (context) => PermisosPage()),
                             );
                           },
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.green,
                         ),
                         _buildDrawerItem(
                           icon: Icons.access_time,
@@ -455,9 +453,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               MaterialPageRoute(builder: (context) => HorasTrabajadasPage()),
                             );
                           },
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.green,
                         ),
-                        Divider(height: 30),
+                        Divider(height: 30, color: Colors.green.withOpacity(0.2)),
                         _buildDrawerItem(
                           icon: Icons.change_circle,
                           title: "Cambiar Sucursal Activa",
@@ -509,30 +507,38 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Widget _buildDrawerHeader() {
     return Container(
+      width: double.infinity,
       padding: EdgeInsets.fromLTRB(16, 60, 16, 30),
+      decoration: BoxDecoration(
+        color: Colors.green,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(30),
+          bottomRight: Radius.circular(30),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
+              color: Colors.white,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.person, color: Theme.of(context).colorScheme.primary, size: 40),
+            child: Icon(Icons.person, color: Colors.green, size: 40),
           ),
           SizedBox(height: 16),
           Text(
             "Bienvenido,",
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+              color: Colors.white.withOpacity(0.8),
               fontSize: 16,
             ),
           ),
           Text(
             userName,
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onBackground,
+              color: Colors.white,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -541,17 +547,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           Container(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              color: Colors.white.withOpacity(0.15),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.location_on, color: Theme.of(context).colorScheme.primary, size: 16),
+                Icon(Icons.location_on, color: Colors.white, size: 16),
                 SizedBox(width: 4),
                 Text(
                   userSucursal,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onBackground, fontSize: 14),
+                  style: TextStyle(color: Colors.white, fontSize: 14),
                 ),
               ],
             ),
@@ -576,7 +582,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         leading: Container(
           padding: EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withOpacity(0.12),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: color),
@@ -586,6 +592,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           style: TextStyle(
             fontWeight: FontWeight.w500,
             fontSize: 16,
+            color: Colors.black87,
           ),
         ),
         onTap: onTap,

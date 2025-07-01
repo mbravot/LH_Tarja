@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:app_lh_tarja/utils/colors.dart';
@@ -239,6 +240,10 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
                             child: TextFormField(
                               controller: rutController,
                               keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(8),
+                              ],
                               decoration: InputDecoration(
                                 labelText: 'RUT (opcional)',
                                 hintText: 'RUT (opcional)',
@@ -249,6 +254,14 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
                                 errorStyle: const TextStyle(height: 0),
                               ),
                               validator: (value) {
+                                if (value != null && value.isNotEmpty) {
+                                  if (int.tryParse(value) == null) {
+                                    return 'El RUT debe ser un número';
+                                  }
+                                  if (value.length > 8) {
+                                    return 'El RUT debe tener máximo 8 dígitos';
+                                  }
+                                }
                                 return null;
                               },
                             ),

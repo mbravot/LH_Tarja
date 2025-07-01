@@ -17,7 +17,18 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     final themeProvider = Provider.of<ThemeProvider>(context);
     
     return AppBar(
-      title: Text(title),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+        ],
+      ),
       actions: [
         if (actions != null) ...actions!,
         IconButton(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
@@ -199,12 +200,19 @@ class _NuevoContratistaPageState extends State<NuevoContratistaPage> {
                                   fillColor: Colors.grey[50],
                                 ),
                                 keyboardType: TextInputType.number,
+                                maxLength: 8,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {
                                     return 'Por favor ingrese el RUT';
                                   }
                                   if (int.tryParse(value) == null) {
                                     return 'El RUT debe ser un número';
+                                  }
+                                  if (value.length > 8) {
+                                    return 'El RUT debe tener máximo 8 dígitos';
                                   }
                                   return null;
                                 },
