@@ -85,13 +85,14 @@ class _CecoRiegoFormState extends State<CecoRiegoForm> {
       _selectedCaseta = value?['id']?.toString();
       _selectedEquipoRiego = null;
       _selectedSectorRiego = null;
+      _selectedCeco = null;
       equiposRiego = [];
       sectoresRiego = [];
     });
     if (value != null) {
       try {
         setState(() => _isLoading = true);
-        final equipos = await ApiService().getEquiposRiegoPorCaseta(value['id'].toString());
+        final equipos = await ApiService().getEquiposRiegoPorActividadYCaseta(widget.idActividad, value['id'].toString());
         equipos.sort((a, b) => a['nombre']?.toString().compareTo(b['nombre']?.toString() ?? '') ?? 0);
         setState(() {
           equiposRiego = equipos;
@@ -111,13 +112,14 @@ class _CecoRiegoFormState extends State<CecoRiegoForm> {
     setState(() {
       _selectedEquipoRiego = value?['id']?.toString();
       _selectedSectorRiego = null;
+      _selectedCeco = null;
       sectoresRiego = [];
     });
     if (value != null) {
       try {
         setState(() => _isLoading = true);
-        logInfo('Llamando a getSectoresRiegoPorEquipo con id_equiporiego: ${value['id']}');
-        final sectorList = await ApiService().getSectoresRiegoPorEquipo(value['id']);
+        logInfo('Llamando a getSectoresRiegoPorActividadYEquipo con id_actividad: ${widget.idActividad}, id_equipo: ${value['id']}');
+        final sectorList = await ApiService().getSectoresRiegoPorActividadYEquipo(widget.idActividad, value['id']);
         logInfo('Sectores recibidos: $sectorList');
         sectorList.sort((a, b) => a['nombre'].toString().compareTo(b['nombre'].toString()));
         setState(() {
@@ -125,6 +127,8 @@ class _CecoRiegoFormState extends State<CecoRiegoForm> {
           // Si solo hay un sector, autocompletar
           if (sectorList.length == 1) {
             _selectedSectorRiego = sectorList[0]['id'].toString();
+            // Auto-cargar el CECO si solo hay un sector
+            _onSectorRiegoChanged(sectorList[0]);
           }
         });
       } catch (e) {
@@ -138,8 +142,56 @@ class _CecoRiegoFormState extends State<CecoRiegoForm> {
     }
   }
 
+  Future<void> _onSectorRiegoChanged(Map<String, dynamic>? value) async {
+    setState(() {
+      _selectedSectorRiego = value?['id']?.toString();
+      _selectedCeco = null;
+      cecos = [];
+    });
+    if (value != null && _selectedCaseta != null && _selectedEquipoRiego != null) {
+      try {
+        setState(() => _isLoading = true);
+        final ceco = await ApiService().getCecoRiegoPorActividadYCasetaYEquipoYSector(
+          widget.idActividad, 
+          _selectedCaseta!, 
+          _selectedEquipoRiego!, 
+          value['id']
+        );
+        if (ceco != null) {
+          setState(() {
+            cecos = [ceco];
+            _selectedCeco = ceco['id'].toString();
+          });
+        } else {
+          setState(() {
+            cecos = [];
+            _selectedCeco = null;
+          });
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cargar CECO: $e')),
+        );
+      } finally {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
+      // Validación adicional para asegurar que se haya encontrado un CECO
+      if (_selectedCeco == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se encontró un CECO asociado a la selección actual'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
       _formKey.currentState!.save();
       setState(() => _isLoading = true);
 
@@ -256,11 +308,7 @@ class _CecoRiegoFormState extends State<CecoRiegoForm> {
                     DropdownSearch<Map<String, dynamic>>(
                       items: sectoresRiego,
                       itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
-                      onChanged: (Map<String, dynamic>? value) {
-                        setState(() {
-                          _selectedSectorRiego = value?['id']?.toString();
-                        });
-                      },
+                      onChanged: _onSectorRiegoChanged,
                       selectedItem: sectoresRiego.firstWhere(
                         (item) => item['id'].toString() == _selectedSectorRiego,
                         orElse: () => {},

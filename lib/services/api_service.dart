@@ -1459,6 +1459,72 @@ class ApiService {
     }
   }
 
+  /// Obtiene los equipos de riego por actividad y caseta
+  Future<List<Map<String, dynamic>>> getEquiposRiegoPorActividadYCaseta(String idActividad, String idCaseta) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null) throw Exception('No se encontró el token');
+    final response = await http.get(
+      Uri.parse('$baseUrl/opciones/equiposriego/actividad/$idActividad/$idCaseta'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Error al obtener los equipos de riego por actividad y caseta');
+    }
+  }
+
+  /// Obtiene los sectores de riego por actividad y equipo
+  Future<List<Map<String, dynamic>>> getSectoresRiegoPorActividadYEquipo(String idActividad, String idEquipo) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null) throw Exception('No se encontró el token');
+    final response = await http.get(
+      Uri.parse('$baseUrl/opciones/sectoresriego/actividad/$idActividad/$idEquipo'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Error al obtener los sectores de riego por actividad y equipo');
+    }
+  }
+
+  /// Obtiene el CECO de riego por actividad, caseta, equipo y sector
+  Future<Map<String, dynamic>?> getCecoRiegoPorActividadYCasetaYEquipoYSector(String idActividad, String idCaseta, String idEquipo, String idSector) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null) throw Exception('No se encontró el token');
+    final response = await http.get(
+      Uri.parse('$baseUrl/opciones/cecosriego/actividad/$idActividad/$idCaseta/$idEquipo/$idSector'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data;
+    } else if (response.statusCode == 404) {
+      // Si no se encuentra el CECO, retornar null
+      return null;
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Error al obtener el CECO de riego');
+    }
+  }
+
   /// Obtiene las especies por sucursal de la actividad
   Future<List<Map<String, dynamic>>> getEspeciesPorActividad(String idActividad) async {
     final prefs = await SharedPreferences.getInstance();
