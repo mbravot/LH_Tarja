@@ -23,8 +23,8 @@ void logInfo(String message) {
 }
 
 class AuthService {
-  final String baseUrl = 'https://apilhtarja.lahornilla.cl/api';
-  //final String baseUrl = 'http://192.168.1.60:5000/api';
+  //final String baseUrl = 'https://apilhtarja.lahornilla.cl/api';
+  final String baseUrl = 'http://192.168.1.60:5000/api';
 
   Future<void> login(String usuario, String clave) async {
     try {

@@ -1,20 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'actividades_page.dart';
-import 'rendimientos_page.dart';
-import 'contratistas_page.dart';
-import 'trabajadores_page.dart';
-import 'colaboradores_page.dart';
-import 'permisos_page.dart';
-import 'indicadores_page.dart';
-import 'horas_trabajadas_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart';
 import 'cambiar_clave_page.dart';
 import 'cambiar_sucursal_page.dart';
 import '../widgets/layout/app_bar.dart';
 import '../services/api_service.dart';
-import 'usuarios_page.dart';
 
 // 🔧 Sistema de logging condicional
 void logDebug(String message) {
@@ -292,19 +283,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     GestureDetector(
                       onTap: () => _seleccionarSucursal(context),
                       child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.location_on, color: Colors.white70, size: 14),
-                        SizedBox(width: 4),
-                        Text(
-                          userSucursal,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.location_on, color: Colors.white70, size: 14),
+                          SizedBox(width: 4),
+                          Text(
+                            userSucursal,
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 12,
                             ),
-                        ),
+                          ),
                           Icon(Icons.arrow_drop_down, color: Colors.white70, size: 18),
-                      ],
+                        ],
                       ),
                     ),
                   ],
@@ -322,18 +313,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
             ],
           ),
+          body: _selectedIndex == 0 
+            ? _buildActividadesTab()
+            : _buildIndicadoresTab(),
           drawer: _buildDrawer(),
-          body: Column(
-            children: [
-              Expanded(
-                child: _selectedIndex == 0
-                    ? ActividadesPage(
-                        key: _actividadesKey,
-                      )
-                    : IndicadoresPage(),
-              ),
-            ],
-          ),
           bottomNavigationBar: _buildBottomNavigationBar(),
         ),
         if (_isLoading)
@@ -383,78 +366,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       padding: EdgeInsets.zero,
                       children: [
                         SizedBox(height: 20),
-                        if (esAdmin) _buildDrawerItem(
-                          icon: Icons.people,
-                          title: "Usuarios",
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => UsuariosPage()),
-                            );
-                          },
-                          color: Colors.green,
-                        ),
-                        _buildDrawerItem(
-                          icon: Icons.business,
-                          title: "Contratistas",
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => ContratistasPage()),
-                            );
-                          },
-                          color: Colors.green,
-                        ),
-                        _buildDrawerItem(
-                          icon: Icons.group,
-                          title: "Trabajadores",
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => TrabajadoresPage()),
-                            );
-                          },
-                          color: Colors.green,
-                        ),
-                        _buildDrawerItem(
-                          icon: Icons.groups,
-                          title: "Colaboradores",
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => ColaboradoresPage()),
-                            );
-                          },
-                          color: Colors.green,
-                        ),
-                        _buildDrawerItem(
-                          icon: Icons.assignment_turned_in,
-                          title: "Permisos",
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => PermisosPage()),
-                            );
-                          },
-                          color: Colors.green,
-                        ),
-                        _buildDrawerItem(
-                          icon: Icons.access_time,
-                          title: "Horas Trabajadas",
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => HorasTrabajadasPage()),
-                            );
-                          },
-                          color: Colors.green,
-                        ),
+                        
                         Divider(height: 30, color: Colors.green.withOpacity(0.2)),
                         _buildDrawerItem(
                           icon: Icons.change_circle,
@@ -598,6 +510,78 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         onTap: onTap,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(15),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActividadesTab() {
+    return Container(
+      key: _actividadesKey,
+      padding: EdgeInsets.all(16),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.assignment,
+              size: 80,
+              color: Colors.green.withOpacity(0.5),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Pestaña de Actividades',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[600],
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Aquí se mostrarán las actividades',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIndicadoresTab() {
+    return Container(
+      key: _rendimientosKey,
+      padding: EdgeInsets.all(16),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.analytics,
+              size: 80,
+              color: Colors.green.withOpacity(0.5),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Pestaña de Indicadores',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[600],
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Aquí se mostrarán los indicadores',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
         ),
       ),
     );
