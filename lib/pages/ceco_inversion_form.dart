@@ -172,7 +172,6 @@ class _CecoInversionFormState extends State<CecoInversionForm> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        // Mostrar diálogo de confirmación
         bool? shouldPop = await showDialog<bool>(
           context: context,
           builder: (BuildContext context) {
@@ -199,136 +198,127 @@ class _CecoInversionFormState extends State<CecoInversionForm> {
         return shouldPop ?? false;
       },
       child: Scaffold(
-      appBar: AppBar(
-        title: const Text('CECO Inversión'),
-        backgroundColor: primaryColor,
-        automaticallyImplyLeading: false, // Eliminar botón de atrás
-        leading: IconButton(
-          icon: Icon(Icons.info_outline, color: Colors.white),
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (BuildContext context) {
-                return AlertDialog(
-                  title: Text('Información'),
-                  content: Text('Debe completar el CECO para finalizar la creación de la actividad. No puede volver atrás.'),
-                  actions: [
-                    TextButton(
-                      child: Text('Entendido'),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Dropdown de Tipo de Inversión
-                    DropdownSearch<Map<String, dynamic>>(
-                      items: tiposInversion,
-                      itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
-                      onChanged: _onTipoInversionChanged,
-                      selectedItem: tiposInversion.firstWhere(
-                        (item) => item['id'].toString() == _selectedTipoInversion,
-                        orElse: () => {},
+        appBar: AppBar(
+          title: const Text('CECO Inversión'),
+          backgroundColor: primaryColor,
+          automaticallyImplyLeading: false,
+          leading: IconButton(
+            icon: Icon(Icons.info_outline, color: Colors.white),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: Text('Información'),
+                    content: Text('Debe completar el CECO para finalizar la creación de la actividad. No puede volver atrás.'),
+                    actions: [
+                      TextButton(
+                        child: Text('Entendido'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
                       ),
-                      validator: (value) {
-                        if (value == null) {
-                          return 'Por favor seleccione un tipo de inversión';
-                        }
-                        return null;
-                      },
-                      dropdownDecoratorProps: const DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          labelText: 'Tipo de Inversión',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Dropdown de Inversión
-                    DropdownSearch<Map<String, dynamic>>(
-                      items: inversiones,
-                      itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
-                      onChanged: _onInversionChanged,
-                      selectedItem: inversiones.firstWhere(
-                        (item) => item['id'].toString() == _selectedInversion,
-                        orElse: () => {},
-                      ),
-                      validator: (value) {
-                        if (value == null) {
-                          return 'Por favor seleccione una inversión';
-                        }
-                        return null;
-                      },
-                      dropdownDecoratorProps: const DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          labelText: 'Inversión',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Dropdown de CECO
-                    DropdownSearch<Map<String, dynamic>>(
-                      items: cecos,
-                      itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
-                      onChanged: (Map<String, dynamic>? value) {
-                        setState(() {
-                          _selectedCeco = value?['id']?.toString();
-                        });
-                      },
-                      selectedItem: cecos.firstWhere(
-                        (item) => item['id'].toString() == _selectedCeco,
-                        orElse: () => {},
-                      ),
-                      validator: (value) {
-                        if (value == null) {
-                          return 'Por favor seleccione un CECO';
-                        }
-                        return null;
-                      },
-                      dropdownDecoratorProps: const DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          labelText: 'CECO',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    // Botón de Submit
-                    ElevatedButton.icon(
-                      onPressed: _submitForm,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        textStyle: const TextStyle(color: Colors.white),
-                      ),
-                      icon: const Icon(Icons.save, color: Colors.white),
-                      label: const Text('Guardar CECO Inversión', style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                    ],
+                  );
+                },
+              );
+            },
           ),
         ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DropdownSearch<Map<String, dynamic>>(
+                        items: tiposInversion,
+                        itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
+                        onChanged: _onTipoInversionChanged,
+                        selectedItem: tiposInversion.firstWhere(
+                          (item) => item['id'].toString() == _selectedTipoInversion,
+                          orElse: () => {},
+                        ),
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Por favor seleccione un tipo de inversión';
+                          }
+                          return null;
+                        },
+                        dropdownDecoratorProps: const DropDownDecoratorProps(
+                          dropdownSearchDecoration: InputDecoration(
+                            labelText: 'Tipo de Inversión',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownSearch<Map<String, dynamic>>(
+                        items: inversiones,
+                        itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
+                        onChanged: _onInversionChanged,
+                        selectedItem: inversiones.firstWhere(
+                          (item) => item['id'].toString() == _selectedInversion,
+                          orElse: () => {},
+                        ),
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Por favor seleccione una inversión';
+                          }
+                          return null;
+                        },
+                        dropdownDecoratorProps: const DropDownDecoratorProps(
+                          dropdownSearchDecoration: InputDecoration(
+                            labelText: 'Inversión',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownSearch<Map<String, dynamic>>(
+                        items: cecos,
+                        itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
+                        onChanged: (Map<String, dynamic>? value) {
+                          setState(() {
+                            _selectedCeco = value?['id']?.toString();
+                          });
+                        },
+                        selectedItem: cecos.firstWhere(
+                          (item) => item['id'].toString() == _selectedCeco,
+                          orElse: () => {},
+                        ),
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Por favor seleccione un CECO';
+                          }
+                          return null;
+                        },
+                        dropdownDecoratorProps: const DropDownDecoratorProps(
+                          dropdownSearchDecoration: InputDecoration(
+                            labelText: 'CECO',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        onPressed: _submitForm,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          textStyle: const TextStyle(color: Colors.white),
+                        ),
+                        icon: const Icon(Icons.save, color: Colors.white),
+                        label: const Text('Guardar CECO Inversión', style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
       ),
     );
   }

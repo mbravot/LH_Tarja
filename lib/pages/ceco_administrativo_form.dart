@@ -122,86 +122,85 @@ class _CecoAdministrativoFormState extends State<CecoAdministrativoForm> {
         return shouldPop ?? false;
       },
       child: Scaffold(
-      appBar: AppBar(
-        title: const Text('CECO Administrativo'),
-        backgroundColor: primaryColor,
-        automaticallyImplyLeading: false, // Eliminar botón de atrás
-        leading: IconButton(
-          icon: Icon(Icons.info_outline, color: Colors.white),
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (BuildContext context) {
-                return AlertDialog(
-                  title: Text('Información'),
-                  content: Text('Debe completar el CECO para finalizar la creación de la actividad. No puede volver atrás.'),
-                  actions: [
-                    TextButton(
-                      child: Text('Entendido'),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ],
-                );
-              },
-            );
-          },
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Dropdown de CECO
-                    DropdownSearch<Map<String, dynamic>>(
-                      items: cecos,
-                      itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
-                      onChanged: (Map<String, dynamic>? value) {
-                        setState(() {
-                          _selectedCeco = value?['id'].toString();
-                        });
-                      },
-                      selectedItem: cecos.firstWhere(
-                        (item) => item['id'].toString() == _selectedCeco,
-                        orElse: () => {},
+        appBar: AppBar(
+          title: const Text('CECO Administrativo'),
+          backgroundColor: primaryColor,
+          automaticallyImplyLeading: false, // Eliminar botón de atrás
+          leading: IconButton(
+            icon: Icon(Icons.info_outline, color: Colors.white),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: Text('Información'),
+                    content: Text('Debe completar el CECO para finalizar la creación de la actividad. No puede volver atrás.'),
+                    actions: [
+                      TextButton(
+                        child: Text('Entendido'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
                       ),
-                      validator: (value) {
-                        if (value == null) {
-                          return 'Por favor seleccione un CECO';
-                        }
-                        return null;
-                      },
-                      dropdownDecoratorProps: const DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          labelText: 'CECO',
-                          border: OutlineInputBorder(),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Dropdown de CECO
+                      DropdownSearch<Map<String, dynamic>>(
+                        items: cecos,
+                        itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
+                        onChanged: (Map<String, dynamic>? value) {
+                          setState(() {
+                            _selectedCeco = value?['id'].toString();
+                          });
+                        },
+                        selectedItem: cecos.firstWhere(
+                          (item) => item['id'].toString() == _selectedCeco,
+                          orElse: () => {},
+                        ),
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Por favor seleccione un CECO';
+                          }
+                          return null;
+                        },
+                        dropdownDecoratorProps: const DropDownDecoratorProps(
+                          dropdownSearchDecoration: InputDecoration(
+                            labelText: 'CECO',
+                            border: OutlineInputBorder(),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    // Botón de Submit
-                    ElevatedButton.icon(
-                      onPressed: _submitForm,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        textStyle: const TextStyle(color: Colors.white),
+                      const SizedBox(height: 20),
+                      // Botón de Submit
+                      ElevatedButton.icon(
+                        onPressed: _submitForm,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          textStyle: const TextStyle(color: Colors.white),
+                        ),
+                        icon: const Icon(Icons.save, color: Colors.white),
+                        label: const Text('Guardar CECO Administrativo', style: TextStyle(color: Colors.white)),
                       ),
-                      icon: const Icon(Icons.save, color: Colors.white),
-                      label: const Text('Guardar CECO Administrativo', style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-        ),
       ),
     );
   }
