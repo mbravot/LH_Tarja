@@ -194,136 +194,188 @@ class _CecoProductivoFormState extends State<CecoProductivoForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('CECO Productivo'),
-        backgroundColor: primaryColor,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Dropdown de Especie
-                    DropdownSearch<Map<String, dynamic>>(
-                      items: especies,
-                      itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
-                      onChanged: _onEspecieChanged,
-                      selectedItem: especies.firstWhere(
-                        (item) => item['id'].toString() == _selectedEspecie,
-                        orElse: () => {},
+    return WillPopScope(
+      onWillPop: () async {
+        // Mostrar diálogo de confirmación
+        bool? shouldPop = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('¿Está seguro?'),
+              content: Text('Si sale ahora, la actividad quedará sin CECO asignado. ¿Desea continuar?'),
+              actions: [
+                TextButton(
+                  child: Text('Cancelar'),
+                  onPressed: () {
+                    Navigator.of(context).pop(false);
+                  },
+                ),
+                TextButton(
+                  child: Text('Salir'),
+                  onPressed: () {
+                    Navigator.of(context).pop(true);
+                  },
+                ),
+              ],
+            );
+          },
+        );
+        return shouldPop ?? false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('CECO Productivo'),
+          backgroundColor: primaryColor,
+          automaticallyImplyLeading: false, // Eliminar botón de atrás
+          leading: IconButton(
+            icon: Icon(Icons.info_outline, color: Colors.white),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: Text('Información'),
+                    content: Text('Debe completar el CECO para finalizar la creación de la actividad. No puede volver atrás.'),
+                    actions: [
+                      TextButton(
+                        child: Text('Entendido'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
                       ),
-                      validator: (value) {
-                        if (value == null) {
-                          return 'Por favor seleccione una especie';
-                        }
-                        return null;
-                      },
-                      dropdownDecoratorProps: const DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          labelText: 'Especie',
-                          border: OutlineInputBorder(),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Dropdown de Especie
+                      DropdownSearch<Map<String, dynamic>>(
+                        items: especies,
+                        itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
+                        onChanged: _onEspecieChanged,
+                        selectedItem: especies.firstWhere(
+                          (item) => item['id'].toString() == _selectedEspecie,
+                          orElse: () => {},
+                        ),
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Por favor seleccione una especie';
+                          }
+                          return null;
+                        },
+                        dropdownDecoratorProps: const DropDownDecoratorProps(
+                          dropdownSearchDecoration: InputDecoration(
+                            labelText: 'Especie',
+                            border: OutlineInputBorder(),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Dropdown de Variedad
-                    DropdownSearch<Map<String, dynamic>>(
-                      items: variedades,
-                      itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
-                      onChanged: _onVariedadChanged,
-                      selectedItem: variedades.firstWhere(
-                        (item) => item['id'].toString() == _selectedVariedad,
-                        orElse: () => {},
-                      ),
-                      validator: (value) {
-                        if (value == null) {
-                          return 'Por favor seleccione una variedad';
-                        }
-                        return null;
-                      },
-                      dropdownDecoratorProps: const DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          labelText: 'Variedad',
-                          border: OutlineInputBorder(),
+                      const SizedBox(height: 16),
+                      
+                      // Dropdown de Variedad
+                      DropdownSearch<Map<String, dynamic>>(
+                        items: variedades,
+                        itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
+                        onChanged: _onVariedadChanged,
+                        selectedItem: variedades.firstWhere(
+                          (item) => item['id'].toString() == _selectedVariedad,
+                          orElse: () => {},
+                        ),
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Por favor seleccione una variedad';
+                          }
+                          return null;
+                        },
+                        dropdownDecoratorProps: const DropDownDecoratorProps(
+                          dropdownSearchDecoration: InputDecoration(
+                            labelText: 'Variedad',
+                            border: OutlineInputBorder(),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Dropdown de Cuartel
-                    DropdownSearch<Map<String, dynamic>>(
-                      items: cuarteles,
-                      itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
-                      onChanged: _onCuartelChanged,
-                      selectedItem: cuarteles.firstWhere(
-                        (item) => item['id'].toString() == _selectedCuartel,
-                        orElse: () => {},
-                      ),
-                      validator: (value) {
-                        if (value == null) {
-                          return 'Por favor seleccione un cuartel';
-                        }
-                        return null;
-                      },
-                      dropdownDecoratorProps: const DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          labelText: 'Cuartel',
-                          border: OutlineInputBorder(),
+                      const SizedBox(height: 16),
+                      
+                      // Dropdown de Cuartel
+                      DropdownSearch<Map<String, dynamic>>(
+                        items: cuarteles,
+                        itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
+                        onChanged: _onCuartelChanged,
+                        selectedItem: cuarteles.firstWhere(
+                          (item) => item['id'].toString() == _selectedCuartel,
+                          orElse: () => {},
+                        ),
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Por favor seleccione un cuartel';
+                          }
+                          return null;
+                        },
+                        dropdownDecoratorProps: const DropDownDecoratorProps(
+                          dropdownSearchDecoration: InputDecoration(
+                            labelText: 'Cuartel',
+                            border: OutlineInputBorder(),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Dropdown de CECO
-                    DropdownSearch<Map<String, dynamic>>(
-                      items: cecos,
-                      itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
-                      onChanged: (Map<String, dynamic>? value) {
-                        setState(() {
-                          _selectedCeco = value?['id']?.toString();
-                        });
-                      },
-                      selectedItem: cecos.firstWhere(
-                        (item) => item['id'].toString() == _selectedCeco,
-                        orElse: () => {},
-                      ),
-                      validator: (value) {
-                        if (value == null) {
-                          return 'Por favor seleccione un CECO';
-                        }
-                        return null;
-                      },
-                      dropdownDecoratorProps: const DropDownDecoratorProps(
-                        dropdownSearchDecoration: InputDecoration(
-                          labelText: 'CECO',
-                          border: OutlineInputBorder(),
+                      const SizedBox(height: 16),
+                      
+                      // Dropdown de CECO
+                      DropdownSearch<Map<String, dynamic>>(
+                        items: cecos,
+                        itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
+                        onChanged: (Map<String, dynamic>? value) {
+                          setState(() {
+                            _selectedCeco = value?['id']?.toString();
+                          });
+                        },
+                        selectedItem: cecos.firstWhere(
+                          (item) => item['id'].toString() == _selectedCeco,
+                          orElse: () => {},
+                        ),
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Por favor seleccione un CECO';
+                          }
+                          return null;
+                        },
+                        dropdownDecoratorProps: const DropDownDecoratorProps(
+                          dropdownSearchDecoration: InputDecoration(
+                            labelText: 'CECO',
+                            border: OutlineInputBorder(),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    // Botón de Submit
-                    ElevatedButton.icon(
-                      onPressed: _submitForm,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        textStyle: const TextStyle(color: Colors.white),
+                      const SizedBox(height: 20),
+                      
+                      // Botón de Submit
+                      ElevatedButton.icon(
+                        onPressed: _submitForm,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          textStyle: const TextStyle(color: Colors.white),
+                        ),
+                        icon: const Icon(Icons.save, color: Colors.white),
+                        label: const Text('Guardar CECO Productivo', style: TextStyle(color: Colors.white)),
                       ),
-                      icon: const Icon(Icons.save, color: Colors.white),
-                      label: const Text('Guardar CECO Productivo', style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 } 

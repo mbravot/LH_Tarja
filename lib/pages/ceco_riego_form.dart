@@ -242,10 +242,61 @@ class _CecoRiegoFormState extends State<CecoRiegoForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: () async {
+        // Mostrar diálogo de confirmación
+        bool? shouldPop = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('¿Está seguro?'),
+              content: Text('Si sale ahora, la actividad quedará sin CECO asignado. ¿Desea continuar?'),
+              actions: [
+                TextButton(
+                  child: Text('Cancelar'),
+                  onPressed: () {
+                    Navigator.of(context).pop(false);
+                  },
+                ),
+                TextButton(
+                  child: Text('Salir'),
+                  onPressed: () {
+                    Navigator.of(context).pop(true);
+                  },
+                ),
+              ],
+            );
+          },
+        );
+        return shouldPop ?? false;
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('CECO Riego'),
         backgroundColor: primaryColor,
+        automaticallyImplyLeading: false, // Eliminar botón de atrás
+        leading: IconButton(
+          icon: Icon(Icons.info_outline, color: Colors.white),
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                  title: Text('Información'),
+                  content: Text('Debe completar el CECO para finalizar la creación de la actividad. No puede volver atrás.'),
+                  actions: [
+                    TextButton(
+                      child: Text('Entendido'),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -372,6 +423,8 @@ class _CecoRiegoFormState extends State<CecoRiegoForm> {
                 ),
               ),
             ),
+        ),
+      ),
     );
   }
 } 

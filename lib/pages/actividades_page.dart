@@ -92,6 +92,36 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
       final actividades = await ApiService().getActividades();
       if (!mounted) return;
 
+      // 🔍 DEBUG: Ver qué datos llegan del backend
+      print("🔍 ====== DATOS DE ACTIVIDADES DEL BACKEND ======");
+      if (actividades.isNotEmpty) {
+        print("🔍 Primera actividad completa:");
+        print(actividades[0]);
+        print("🔍 Campos disponibles: ${actividades[0].keys.toList()}");
+        
+        // Verificar si hay datos de CECO
+        if (actividades[0].containsKey('cecos_productivos')) {
+          print("✅ cecos_productivos encontrado: ${actividades[0]['cecos_productivos']}");
+        }
+        if (actividades[0].containsKey('cecos_riego')) {
+          print("✅ cecos_riego encontrado: ${actividades[0]['cecos_riego']}");
+        }
+        if (actividades[0].containsKey('cecos_maquinaria')) {
+          print("✅ cecos_maquinaria encontrado: ${actividades[0]['cecos_maquinaria']}");
+        }
+        if (actividades[0].containsKey('cecos_inversion')) {
+          print("✅ cecos_inversion encontrado: ${actividades[0]['cecos_inversion']}");
+        }
+        if (actividades[0].containsKey('cecos_administrativos')) {
+          print("✅ cecos_administrativos encontrado: ${actividades[0]['cecos_administrativos']}");
+        }
+        
+        // Probar la función obtenerNombreCeco
+        String nombreCeco = obtenerNombreCeco(actividades[0]);
+        print("🔍 Nombre CECO obtenido: '$nombreCeco'");
+      }
+      print("🔍 ====== FIN DATOS DE ACTIVIDADES ======");
+
       List<dynamic> actividadesProcesadas = actividades.map((actividad) {
         try {
           DateTime fechaOriginal = DateTime.parse(actividad['fecha']);
