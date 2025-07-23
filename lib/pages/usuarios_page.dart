@@ -137,7 +137,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    usuario['usuario'] ?? 'Sin nombre',
+                    usuario['nombre'] ?? usuario['usuario'] ?? 'Sin nombre',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,

@@ -55,7 +55,7 @@ class AuthService {
 
         final token = data['access_token'];
         final refreshToken = data['refresh_token'];
-        final nombreUsuario = data['usuario'];
+        final nombreUsuario = data['nombre'] ?? data['usuario']; // Usar nombre si está disponible, sino usuario
         final idSucursal = data['id_sucursal'];
         final nombreSucursal = data['sucursal_nombre'];
         final idRol = data['id_rol'];
@@ -121,7 +121,9 @@ class AuthService {
         if (data['refresh_token'] != null) {
           await prefs.setString('refresh_token', data['refresh_token']);
         }
-        if (data['usuario'] != null) {
+        if (data['nombre'] != null) {
+          await prefs.setString('user_name', data['nombre']);
+        } else if (data['usuario'] != null) {
           await prefs.setString('user_name', data['usuario']);
         }
         if (data['id_sucursal'] != null) {
