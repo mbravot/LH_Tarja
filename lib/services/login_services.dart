@@ -58,7 +58,14 @@ class AuthService {
         
         // Construir el nombre del usuario (solo nombre, sin apellidos)
         final nombre = data['nombre'] ?? '';
-        final nombreCompleto = nombre.trim();
+        final usuario = data['usuario'] ?? '';
+        final nombreCompleto = nombre.trim().isNotEmpty ? nombre.trim() : usuario;
+        
+        // Debug: mostrar qué datos está devolviendo el backend
+        logDebug("🔍 Datos del backend:");
+        logDebug("  - nombre: '$nombre'");
+        logDebug("  - nombreCompleto: '$nombreCompleto'");
+        logDebug("  - Todos los datos: $data");
         
         final idSucursal = data['id_sucursal'];
         final nombreSucursal = data['sucursal_nombre'];
@@ -125,9 +132,10 @@ class AuthService {
         if (data['refresh_token'] != null) {
           await prefs.setString('refresh_token', data['refresh_token']);
         }
-        if (data['nombre'] != null) {
+        if (data['nombre'] != null || data['usuario'] != null) {
           final nombre = data['nombre'] ?? '';
-          final nombreCompleto = nombre.trim();
+          final usuario = data['usuario'] ?? '';
+          final nombreCompleto = nombre.trim().isNotEmpty ? nombre.trim() : usuario;
           await prefs.setString('user_name', nombreCompleto);
         }
         if (data['id_sucursal'] != null) {
