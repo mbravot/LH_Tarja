@@ -30,7 +30,7 @@ class ApiService {
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
   //final String baseUrl = 'https://apilhtarja.lahornilla.cl/api';
-  final String baseUrl = 'http://192.168.1.60:5000/api';
+  final String baseUrl = 'http://192.168.1.37:5000/api';
 
   /// 🔹 Método para manejar token expirado
   Future<void> manejarTokenExpirado() async {
