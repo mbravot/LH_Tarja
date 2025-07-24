@@ -24,7 +24,7 @@ void logInfo(String message) {
 
 class AuthService {
   //final String baseUrl = 'https://apilhtarja.lahornilla.cl/api';
-  final String baseUrl = 'http://192.168.1.60:5000/api';
+  final String baseUrl = 'http://192.168.1.37:5000/api';
 
   Future<void> login(String usuario, String clave) async {
     try {
@@ -55,7 +55,13 @@ class AuthService {
 
         final token = data['access_token'];
         final refreshToken = data['refresh_token'];
-        final nombreUsuario = data['usuario'];
+        
+        // Construir el nombre completo del usuario
+        final nombre = data['nombre'] ?? '';
+        final apellidoPaterno = data['apellido_paterno'] ?? '';
+        final apellidoMaterno = data['apellido_materno'] ?? '';
+        final nombreCompleto = '$nombre $apellidoPaterno $apellidoMaterno'.trim();
+        
         final idSucursal = data['id_sucursal'];
         final nombreSucursal = data['sucursal_nombre'];
         final idRol = data['id_rol'];
@@ -66,7 +72,7 @@ class AuthService {
         if (refreshToken != null) {
           await prefs.setString('refresh_token', refreshToken);
         }
-        await prefs.setString('user_name', nombreUsuario);
+        await prefs.setString('user_name', nombreCompleto);
         await prefs.setString('id_sucursal', idSucursal.toString());
         await prefs.setString('user_sucursal', nombreSucursal);
         await prefs.setString('id_rol', idRol.toString());
@@ -121,8 +127,12 @@ class AuthService {
         if (data['refresh_token'] != null) {
           await prefs.setString('refresh_token', data['refresh_token']);
         }
-        if (data['usuario'] != null) {
-          await prefs.setString('user_name', data['usuario']);
+        if (data['nombre'] != null || data['apellido_paterno'] != null) {
+          final nombre = data['nombre'] ?? '';
+          final apellidoPaterno = data['apellido_paterno'] ?? '';
+          final apellidoMaterno = data['apellido_materno'] ?? '';
+          final nombreCompleto = '$nombre $apellidoPaterno $apellidoMaterno'.trim();
+          await prefs.setString('user_name', nombreCompleto);
         }
         if (data['id_sucursal'] != null) {
           await prefs.setString('id_sucursal', data['id_sucursal'].toString());
