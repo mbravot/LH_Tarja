@@ -56,11 +56,9 @@ class AuthService {
         final token = data['access_token'];
         final refreshToken = data['refresh_token'];
         
-        // Construir el nombre completo del usuario
+        // Construir el nombre del usuario (solo nombre, sin apellidos)
         final nombre = data['nombre'] ?? '';
-        final apellidoPaterno = data['apellido_paterno'] ?? '';
-        final apellidoMaterno = data['apellido_materno'] ?? '';
-        final nombreCompleto = '$nombre $apellidoPaterno $apellidoMaterno'.trim();
+        final nombreCompleto = nombre.trim();
         
         final idSucursal = data['id_sucursal'];
         final nombreSucursal = data['sucursal_nombre'];
@@ -79,7 +77,7 @@ class AuthService {
         await prefs.setString('id_perfil', idPerfil.toString());
 
         logInfo(
-            "✅ Login exitoso - Usuario: $nombreUsuario, Sucursal: $idSucursal ($nombreSucursal)");
+            "✅ Login exitoso - Usuario: $nombreCompleto, Sucursal: $idSucursal ($nombreSucursal)");
       } else {
         logError("❌ Error en login - Código: ${response.statusCode}");
         logError("❌ Detalle del error: ${response.body}");
@@ -127,11 +125,9 @@ class AuthService {
         if (data['refresh_token'] != null) {
           await prefs.setString('refresh_token', data['refresh_token']);
         }
-        if (data['nombre'] != null || data['apellido_paterno'] != null) {
+        if (data['nombre'] != null) {
           final nombre = data['nombre'] ?? '';
-          final apellidoPaterno = data['apellido_paterno'] ?? '';
-          final apellidoMaterno = data['apellido_materno'] ?? '';
-          final nombreCompleto = '$nombre $apellidoPaterno $apellidoMaterno'.trim();
+          final nombreCompleto = nombre.trim();
           await prefs.setString('user_name', nombreCompleto);
         }
         if (data['id_sucursal'] != null) {
