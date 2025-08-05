@@ -8,9 +8,10 @@ import 'package:app_lh_tarja/pages/home_page.dart';
 
 // Sistema de logging condicional
 void logInfo(String message) {
-  if (const bool.fromEnvironment('dart.vm.product') == false) {
-    print("ℹ️ $message");
-  }
+  // Comentado para mejorar rendimiento
+  // if (const bool.fromEnvironment('dart.vm.product') == false) {
+  //   print("ℹ️ $message");
+  // }
 }
 
 void logError(String message) {
@@ -57,23 +58,23 @@ class _TrabajadoresPageState extends State<TrabajadoresPage> {
         porcentajes = listaPorcentajes;
       });
       // DEPURACIÓN MEJORADA
-      logInfo('================ CONTRATISTAS CARGADOS ================');
-      if (contratistas.isEmpty) {
-        logInfo('¡La lista de contratistas está VACÍA!');
-      } else {
-        for (var c in contratistas) {
-          logInfo('Contratista: ${c.toString()}');
-        }
-      }
-      logInfo('================ PORCENTAJES CARGADOS ================');
-      if (porcentajes.isEmpty) {
-        logInfo('¡La lista de porcentajes está VACÍA!');
-      } else {
-        for (var p in porcentajes) {
-          logInfo('Porcentaje: ${p.toString()}');
-        }
-      }
-      logInfo('=======================================================');
+      // logInfo('================ CONTRATISTAS CARGADOS ================');
+      // if (contratistas.isEmpty) {
+      //   logInfo('¡La lista de contratistas está VACÍA!');
+      // } else {
+      //   for (var c in contratistas) {
+      //     logInfo('Contratista: ${c.toString()}');
+      //   }
+      // }
+      // logInfo('================ PORCENTAJES CARGADOS ================');
+      // if (porcentajes.isEmpty) {
+      //   logInfo('¡La lista de porcentajes está VACÍA!');
+      // } else {
+      //   for (var p in porcentajes) {
+      //     logInfo('Porcentaje: ${p.toString()}');
+      //   }
+      // }
+      // logInfo('=======================================================');
     } catch (e) {
       // Si falla, deja las listas vacías
       setState(() {
@@ -585,7 +586,7 @@ Widget build(BuildContext context) {
       orElse: () => {},
     );
     // DEPURACIÓN
-    logInfo('Buscando contratista para id: $idContratista, encontrado: ${c['nombre']}');
+            // logInfo('Buscando contratista para id: $idContratista, encontrado: ${c['nombre']}');
     return c.isNotEmpty ? (c['nombre'] ?? 'Sin Contratista') : 'Sin Contratista';
   }
 
@@ -596,7 +597,7 @@ Widget build(BuildContext context) {
       orElse: () => {},
     );
     // DEPURACIÓN
-    logInfo('Buscando porcentaje para id: $idPorcentaje, encontrado: ${p['porcentaje']}');
+            // logInfo('Buscando porcentaje para id: $idPorcentaje, encontrado: ${p['porcentaje']}');
     if (p.isNotEmpty && p['porcentaje'] != null) {
       final valor = p['porcentaje'];
       if (valor is num) {

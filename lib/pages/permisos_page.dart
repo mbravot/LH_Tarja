@@ -71,12 +71,14 @@ class _PermisosPageState extends State<PermisosPage> {
         final tipo = (perm['tipo_permiso'] ?? '').toString().toLowerCase();
         final estado = (perm['estado_permiso'] ?? '').toString().toLowerCase();
         final fecha = (perm['fecha'] ?? '').toString().toLowerCase();
+        final actividad = (perm['nombre_actividad'] ?? '').toString().toLowerCase();
         return colaborador.contains(query) ||
                ap.contains(query) ||
                am.contains(query) ||
                tipo.contains(query) ||
                estado.contains(query) ||
-               fecha.contains(query);
+               fecha.contains(query) ||
+               actividad.contains(query);
       }).toList();
     });
   }
@@ -460,6 +462,23 @@ class _PermisoCard extends StatelessWidget {
                           style: const TextStyle(
                             color: Colors.black54,
                             fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(Icons.assignment, color: theme.colorScheme.secondary, size: 18),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            permiso['nombre_actividad'] ?? 'Sin actividad asignada',
+                            style: const TextStyle(
+                              color: Colors.black54,
+                              fontSize: 14,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],

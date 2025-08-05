@@ -15,6 +15,7 @@ import 'cambiar_sucursal_page.dart';
 import '../widgets/layout/app_bar.dart';
 import '../services/api_service.dart';
 import 'usuarios_page.dart';
+import 'info_page.dart';
 
 // 🔧 Sistema de logging condicional
 void logDebug(String message) {
@@ -30,9 +31,10 @@ void logError(String message) {
 }
 
 void logInfo(String message) {
-  if (kDebugMode) {
-    print("ℹ️ $message");
-  }
+  // Comentado para mejorar rendimiento
+  // if (kDebugMode) {
+  //   print("ℹ️ $message");
+  // }
 }
 
 class HomePage extends StatefulWidget {
@@ -84,7 +86,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         userSucursal = prefs.getString('user_sucursal') ?? "Sucursal";
         _isLoading = false;
       });
-      logInfo("🏠 Sucursal activa cargada: $userSucursal");
+      // logInfo("🏠 Sucursal activa cargada: $userSucursal");
       _forzarRecargaPantallas();
     } catch (e) {
       logError("❌ Error cargando datos de usuario: $e");
@@ -483,6 +485,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             );
                           },
                           color: Colors.amber,
+                        ),
+                        _buildDrawerItem(
+                          icon: Icons.info,
+                          title: "Acerca de",
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => InfoPage()),
+                            );
+                          },
+                          color: Colors.purple,
                         ),
                         _buildDrawerItem(
                           icon: Icons.logout,

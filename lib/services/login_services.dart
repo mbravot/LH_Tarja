@@ -5,9 +5,8 @@ import 'package:flutter/foundation.dart';
 
 // 🔧 Sistema de logging condicional
 void logDebug(String message) {
-  if (kDebugMode) {
-    print(message);
-  }
+  // Comentado para mejorar rendimiento
+  // print("🔍 $message");
 }
 
 void logError(String message) {
@@ -17,9 +16,8 @@ void logError(String message) {
 }
 
 void logInfo(String message) {
-  if (kDebugMode) {
-    print("ℹ️ $message");
-  }
+  // Comentado para mejorar rendimiento
+  // print("ℹ️ $message");
 }
 
 class AuthService {
@@ -66,8 +64,8 @@ class AuthService {
         await prefs.setString('id_rol', idRol.toString());
         await prefs.setString('id_perfil', idPerfil.toString());
 
-        logInfo(
-            "✅ Login exitoso - Usuario: $nombreUsuario, Sucursal: $idSucursal ($nombreSucursal)");
+                // logInfo(
+        //   "✅ Login exitoso - Usuario: $nombreUsuario, Sucursal: $idSucursal ($nombreSucursal)");
       } else {
         logError("❌ Error en login - Código: ${response.statusCode}");
         logError("❌ Detalle del error: ${response.body}");
@@ -132,7 +130,7 @@ class AuthService {
           await prefs.setString('id_perfil', data['id_perfil'].toString());
         }
 
-        logInfo("✅ Token refresh exitoso");
+        // logInfo("✅ Token refresh exitoso");
         return true;
       } else {
         logError("❌ Error en refresh token - Código: ${response.statusCode}");

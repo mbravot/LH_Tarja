@@ -20,9 +20,10 @@ void logError(String message) {
 }
 
 void logInfo(String message) {
-  if (kDebugMode) {
-    print("ℹ️ $message");
-  }
+  // Comentado para mejorar rendimiento
+  // if (kDebugMode) {
+  //   print("ℹ️ $message");
+  // }
 }
 
 class EditarActividadPage extends StatefulWidget {
@@ -198,17 +199,17 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
       if (idSucursal == null ||
           idSucursal.isEmpty ||
           selectedTipoTrabajador == null) {
-        logInfo(
-            "⚠ No se puede cargar contratistas sin id_sucursalactiva o id_tipo_trab.");
+        // logInfo(
+        //     "⚠ No se puede cargar contratistas sin id_sucursalactiva o id_tipo_trab.");
         return;
       }
 
-      logInfo(
-          "🔍 Cargando contratistas para id_sucursalactiva: $idSucursal y id_tipo_trab: $selectedTipoTrabajador");
+      // logInfo(
+      //     "🔍 Cargando contratistas para id_sucursalactiva: $idSucursal y id_tipo_trab: $selectedTipoTrabajador");
 
       contratistas = await ApiService()
           .getContratistas(idSucursal);
-      logInfo("✅ Contratistas filtrados cargados: $contratistas");
+      // logInfo("✅ Contratistas filtrados cargados: $contratistas");
 
       setState(() {});
     } catch (e) {

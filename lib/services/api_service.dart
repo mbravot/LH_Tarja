@@ -9,9 +9,8 @@ import '../pages/login_page.dart';
 
 // 🔧 Sistema de logging condicional
 void logDebug(String message) {
-  if (kDebugMode) {
-    print(message);
-  }
+  // Comentado para mejorar rendimiento
+  // print("🔍 $message");
 }
 
 void logError(String message) {
@@ -21,9 +20,8 @@ void logError(String message) {
 }
 
 void logInfo(String message) {
-  if (kDebugMode) {
-    print("ℹ️ $message");
-  }
+  // Comentado para mejorar rendimiento
+  // print("ℹ️ $message");
 }
 
 class ApiService {
@@ -276,6 +274,91 @@ class ApiService {
     }
   }
 
+  // Método para verificar si una actividad tiene rendimientos
+  Future<bool> actividadTieneRendimientos(String idActividad) async {
+    try {
+      // Verificar rendimientos individuales propios
+      final urlPropio = '$baseUrl/rendimientos/individual/propio?id_actividad=$idActividad';
+      final responsePropio = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse(urlPropio),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (responsePropio.statusCode == 200) {
+        final rendimientosPropios = responsePropio.body.isEmpty ? [] : jsonDecode(responsePropio.body);
+        
+        // Verificar que los rendimientos correspondan a la actividad específica
+        if (rendimientosPropios is List) {
+          final rendimientosFiltrados = rendimientosPropios.where((r) {
+            if (r is Map && r.containsKey('id_actividad')) {
+              return r['id_actividad'].toString() == idActividad;
+            }
+            return false;
+          }).toList();
+          
+          if (rendimientosFiltrados.isNotEmpty) {
+            return true;
+          }
+        }
+      }
+
+      // Verificar rendimientos individuales de contratistas
+      final urlContratista = '$baseUrl/rendimientos/individual/contratista?id_actividad=$idActividad';
+      final responseContratista = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse(urlContratista),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (responseContratista.statusCode == 200) {
+        final rendimientosContratistas = responseContratista.body.isEmpty ? [] : jsonDecode(responseContratista.body);
+        
+        // Verificar que los rendimientos correspondan a la actividad específica
+        if (rendimientosContratistas is List) {
+          final rendimientosFiltrados = rendimientosContratistas.where((r) {
+            if (r is Map && r.containsKey('id_actividad')) {
+              return r['id_actividad'].toString() == idActividad;
+            }
+            return false;
+          }).toList();
+          
+          if (rendimientosFiltrados.isNotEmpty) {
+            return true;
+          }
+        }
+      }
+
+      // Verificar rendimientos grupales
+      final urlGrupal = '$baseUrl/rendimientos/$idActividad';
+      final responseGrupal = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse(urlGrupal),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (responseGrupal.statusCode == 200) {
+        final dataGrupal = responseGrupal.body.isEmpty ? {} : jsonDecode(responseGrupal.body);
+        
+        if (dataGrupal is Map && dataGrupal.containsKey('rendimientos')) {
+          final rendimientosGrupales = dataGrupal['rendimientos'];
+          
+          if (rendimientosGrupales is List && rendimientosGrupales.isNotEmpty) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    } catch (e) {
+      // logError("❌ Error al verificar rendimientos para actividad $idActividad: $e");
+      return false;
+    }
+  }
+
   // Método para crear una nueva actividad con autenticación
   Future<bool> createActividad(Map<String, dynamic> actividad) async {
     final response = await _makeRequest(() async {
@@ -304,7 +387,7 @@ class ApiService {
       );
     });
 
-    logDebug("🔍 Respuesta de editar actividad: ${response.statusCode} - ${response.body}");
+            // logDebug("🔍 Respuesta de editar actividad: ${response.statusCode} - ${response.body}");
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
@@ -322,7 +405,7 @@ class ApiService {
 
       // Obtener rendimientos grupales
       final urlGrupal = '$baseUrl/rendimientos/$idActividad';
-      logDebug("🔍 Llamando a rendimientos grupales: $urlGrupal");
+              // logDebug("🔍 Llamando a rendimientos grupales: $urlGrupal");
 
       final responseGrupal = await _makeRequest(() async {
         return await http.get(
@@ -331,7 +414,7 @@ class ApiService {
         );
       });
 
-      logDebug("📥 Respuesta rendimientos grupales: ${responseGrupal.statusCode} - ${responseGrupal.body}");
+              // logDebug("📥 Respuesta rendimientos grupales: ${responseGrupal.statusCode} - ${responseGrupal.body}");
 
       if (responseGrupal.statusCode == 200) {
         final data = json.decode(responseGrupal.body);
@@ -412,11 +495,11 @@ class ApiService {
       );
     });
 
-    logDebug("🔍 Respuesta API Sucursal Activa: ${response.statusCode} - ${response.body}");
+            // logDebug("🔍 Respuesta API Sucursal Activa: ${response.statusCode} - ${response.body}");
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(response.body);
-      logInfo("✅ Sucursal activa obtenida: ${data["sucursal_activa"]}");
+              // logInfo("✅ Sucursal activa obtenida: ${data["sucursal_activa"]}");
       return data["sucursal_activa"].toString();
     } else {
       logError("❌ Error al obtener sucursal activa: ${response.body}");
@@ -526,7 +609,7 @@ class ApiService {
 
     await _manejarRespuesta(response);
 
-    logDebug("🔍 Respuesta API CECOs: ${response.body}");
+            // logDebug("🔍 Respuesta API CECOs: ${response.body}");
 
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(jsonDecode(response.body));
@@ -682,40 +765,28 @@ class ApiService {
   }
 
   /// 🔹 Crear un nuevo contratista
-  Future<Map<String, dynamic>> createContratista(Map<String, dynamic> contratistaData) async {
-    logDebug("📤 Intentando crear contratista con datos: $contratistaData");
-    
+  Future<bool> crearContratista(Map<String, dynamic> contratistaData) async {
     try {
-      // Asegurarnos que la URL termina con /
       final url = '$baseUrl/contratistas/';
-      logDebug("🔍 URL de la petición: $url");
-      
       final response = await _makeRequest(() async {
         return await http.post(
           Uri.parse(url),
-          headers: {
-            ...(await _getHeaders()),
-            'Accept': 'application/json',
-          },
+          headers: await _getHeaders(),
           body: jsonEncode(contratistaData),
         );
       });
 
-      logDebug("📥 Respuesta crear contratista - Status: ${response.statusCode}");
-      logDebug("📥 Respuesta crear contratista - Headers: ${response.headers}");
-      logDebug("📥 Respuesta crear contratista - Body: ${response.body}");
-
       if (response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
-        logInfo("✅ Contratista creado exitosamente: $responseData");
-        return responseData;
+        // logInfo("✅ Contratista creado exitosamente: $responseData");
+        return true;
       } else {
         logError("❌ Error al crear contratista: ${response.statusCode} - ${response.body}");
-        throw Exception('Error al crear el contratista: ${response.body}');
+        return false;
       }
     } catch (e) {
-      logError("❌ Excepción al crear contratista: $e");
-      throw Exception('Error al crear el contratista: $e');
+      logError("❌ Error en crearContratista: $e");
+      return false;
     }
   }
 
@@ -902,7 +973,7 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      logInfo("✅ Usuario editado correctamente");
+              // logInfo("✅ Usuario editado correctamente");
       return true;
     } else {
       logError("❌ Error al editar usuario: ${response.body}");
@@ -1801,7 +1872,6 @@ class ApiService {
   Future<List<dynamic>> getRendimientosIndividualesPropios({String? idActividad}) async {
     try {
       final url = '$baseUrl/rendimientos/individual/propio${idActividad != null ? '?id_actividad=$idActividad' : ''}';
-      logDebug("🔍 Llamando a rendimientos individuales propios: $url");
       
       final response = await _makeRequest(() async {
         return await http.get(
@@ -1809,8 +1879,6 @@ class ApiService {
           headers: await _getHeaders(),
         );
       });
-
-      logDebug("📥 Respuesta rendimientos individuales propios: ${response.statusCode} - ${response.body}");
 
       if (response.statusCode == 200) {
         final data = response.body.isEmpty ? [] : jsonDecode(response.body);
@@ -1846,21 +1914,12 @@ class ApiService {
       
       url += '?' + params.join('&');
       
-      logDebug("🔍 ====== OBTENIENDO RENDIMIENTOS CONTRATISTAS ======");
-      logDebug("🔍 URL: $url");
-      logDebug("🔍 ID Actividad: $idActividad");
-      logDebug("🔍 ID Contratista: $idContratista");
-      
       final response = await _makeRequest(() async {
         return await http.get(
           Uri.parse(url),
           headers: await _getHeaders(),
         );
       });
-
-      logDebug("📥 Status Code: ${response.statusCode}");
-      logDebug("📥 Headers: ${response.headers}");
-      logDebug("📥 Body: ${response.body}");
 
       if (response.statusCode == 200) {
         final data = response.body.isEmpty ? [] : jsonDecode(response.body);
@@ -1875,10 +1934,6 @@ class ApiService {
           
           return coincideActividad;
         }).toList();
-        
-        logInfo("✅ Rendimientos totales recibidos: ${data.length}");
-        logInfo("✅ Rendimientos filtrados: ${rendimientosFiltrados.length}");
-        logDebug("✅ ====== FIN OBTENCIÓN RENDIMIENTOS CONTRATISTAS ======");
         
         return rendimientosFiltrados;
       } else {
@@ -1944,27 +1999,23 @@ class ApiService {
   // Crear rendimiento individual contratista
   Future<bool> crearRendimientoIndividualContratista(Map<String, dynamic> rendimiento) async {
     try {
-      logDebug('📤 Creando rendimiento contratista: $rendimiento');
-      
       final response = await _makeRequest(() async {
         return await http.post(
-          Uri.parse("$baseUrl/rendimientos/individual/contratista"),
+          Uri.parse('$baseUrl/rendimientos/individual/contratista'),
           headers: await _getHeaders(),
           body: jsonEncode(rendimiento),
         );
       });
 
-      logDebug('📥 Respuesta: ${response.statusCode} - ${response.body}');
-
       if (response.statusCode == 201) {
         return true;
       } else {
-        logError("❌ Error en la API: ${response.body}");
-        throw Exception('Error al crear rendimiento: ${response.statusCode} - ${response.body}');
+        logError("❌ Error al crear rendimiento contratista: ${response.statusCode} - ${response.body}");
+        return false;
       }
     } catch (e) {
-      logError("❌ Error al crear rendimiento contratista: $e");
-      throw Exception('Error al crear rendimiento: $e');
+      logError("❌ Error al crear rendimiento: $e");
+      return false;
     }
   }
 
@@ -2006,7 +2057,7 @@ class ApiService {
       Uri.parse('$baseUrl/opciones/tiposinversion/actividad/$idActividad'),
       headers: await _getHeaders(),
     );
-    logDebug('Respuesta tipos de inversión: \\${response.body}');
+            // logDebug('Respuesta tipos de inversión: \\${response.body}');
     await _manejarRespuesta(response);
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(jsonDecode(response.body));
@@ -2021,7 +2072,7 @@ class ApiService {
       Uri.parse('$baseUrl/opciones/inversiones/actividad/$idActividad/$idTipoInversion'),
       headers: await _getHeaders(),
     );
-    logDebug('Respuesta inversiones: \\${response.body}');
+            // logDebug('Respuesta inversiones: \\${response.body}');
     await _manejarRespuesta(response);
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(jsonDecode(response.body));
@@ -2036,7 +2087,7 @@ class ApiService {
       Uri.parse('$baseUrl/opciones/cecosinversion/actividad/$idActividad/$idTipoInversion/$idInversion'),
       headers: await _getHeaders(),
     );
-    logDebug('Respuesta cecos: \\${response.body}');
+            // logDebug('Respuesta cecos: \\${response.body}');
     await _manejarRespuesta(response);
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(jsonDecode(response.body));
@@ -2122,73 +2173,51 @@ class ApiService {
 
   /// Crea un nuevo trabajador
   Future<bool> crearTrabajador(Map<String, dynamic> data) async {
-    logDebug("📤 Intentando crear trabajador con datos: $data");
-    
     try {
       final url = '$baseUrl/trabajadores/';
-      logDebug("🔍 URL de la petición: $url");
-      
       final response = await _makeRequest(() async {
         return await http.post(
           Uri.parse(url),
-          headers: {
-            ...(await _getHeaders()),
-            'Accept': 'application/json',
-          },
+          headers: await _getHeaders(),
           body: jsonEncode(data),
         );
       });
 
-      logDebug("📥 Respuesta crear trabajador - Status: ${response.statusCode}");
-      logDebug("📥 Respuesta crear trabajador - Headers: ${response.headers}");
-      logDebug("📥 Respuesta crear trabajador - Body: ${response.body}");
-
       if (response.statusCode == 201) {
-        logInfo("✅ Trabajador creado exitosamente");
+        // logInfo("✅ Trabajador creado exitosamente");
         return true;
       } else {
         logError("❌ Error al crear trabajador: ${response.statusCode} - ${response.body}");
-        throw Exception('Error al crear el trabajador: ${response.body}');
+        return false;
       }
     } catch (e) {
-      logError("❌ Excepción al crear trabajador: $e");
-      throw Exception('Error al crear el trabajador: $e');
+      logError("❌ Error en crearTrabajador: $e");
+      return false;
     }
   }
 
   /// Edita un trabajador existente
   Future<bool> editarTrabajador(String id, Map<String, dynamic> data) async {
-    logDebug("📤 Intentando editar trabajador ${id} con datos: $data");
-    
     try {
       final url = '$baseUrl/trabajadores/$id';
-      logDebug("🔍 URL de la petición: $url");
-      
       final response = await _makeRequest(() async {
         return await http.put(
           Uri.parse(url),
-          headers: {
-            ...(await _getHeaders()),
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
+          headers: await _getHeaders(),
           body: jsonEncode(data),
         );
       });
 
-      logDebug("📥 Respuesta editar trabajador - Status: ${response.statusCode}");
-      logDebug("📥 Respuesta editar trabajador - Headers: ${response.headers}");
-      logDebug("📥 Respuesta editar trabajador - Body: ${response.body}");
-
       if (response.statusCode == 200) {
+        // logInfo("✅ Trabajador editado exitosamente");
         return true;
       } else {
-        logError("❌ Error al actualizar trabajador: ${response.statusCode} - ${response.body}");
-        throw Exception('Error al actualizar el trabajador: ${response.body}');
+        logError("❌ Error al editar trabajador: ${response.statusCode} - ${response.body}");
+        return false;
       }
     } catch (e) {
-      logError("❌ Excepción al actualizar trabajador: $e");
-      throw Exception('Error al actualizar el trabajador: $e');
+      logError("❌ Error en editarTrabajador: $e");
+      return false;
     }
   }
 
@@ -2350,6 +2379,30 @@ class ApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getActividadesPermisos([String? fecha]) async {
+    final token = await getToken();
+    if (token == null) throw Exception('No se encontró un token. Inicia sesión nuevamente.');
+    
+    String url = '$baseUrl/permisos/actividades';
+    if (fecha != null) {
+      url += '?fecha=$fecha';
+    }
+    
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token"
+      },
+    );
+    await _manejarRespuesta(response);
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+    } else {
+      throw Exception('Error al obtener las actividades para permisos');
+    }
+  }
+
   Future<void> actualizarPermiso(String id, Map<String, dynamic> permiso) async {
     final token = await getToken();
     if (token == null) throw Exception('No se encontró un token. Inicia sesión nuevamente.');
@@ -2473,12 +2526,12 @@ class ApiService {
           e.toString().contains('token') || 
           e.toString().contains('Token')) {
         
-        logDebug("🔄 Token puede estar expirado, intentando refresh proactivo...");
+        // logDebug("🔄 Token puede estar expirado, intentando refresh proactivo...");
         try {
           bool refreshed = await AuthService().refreshToken();
           
           if (refreshed) {
-            logDebug("✅ Refresh proactivo exitoso");
+            // logDebug("✅ Refresh proactivo exitoso");
             return true;
           } else {
             logError("❌ Refresh proactivo falló");
@@ -2492,7 +2545,7 @@ class ApiService {
       
       // Si no es un error de autenticación, asumir que el token es válido
       // (puede ser un error de red o servidor)
-      logInfo("⚠️ Error no relacionado con autenticación, asumiendo token válido");
+                // logInfo("⚠️ Error no relacionado con autenticación, asumiendo token válido");
       return true;
     }
   }
@@ -2701,7 +2754,7 @@ class ApiService {
         throw Exception('No hay refresh token disponible');
       }
 
-      logDebug("🔄 Intentando refrescar token...");
+              // logDebug("🔄 Intentando refrescar token...");
       final response = await http.post(
         Uri.parse('$baseUrl/auth/refresh'),
         headers: {
@@ -2710,14 +2763,14 @@ class ApiService {
         },
       );
 
-      logDebug("📡 Código de respuesta refresh: ${response.statusCode}");
-      logDebug("📝 Respuesta del servidor refresh: ${response.body}");
+              // logDebug("📡 Código de respuesta refresh: ${response.statusCode}");
+        // logDebug("📝 Respuesta del servidor refresh: ${response.body}");
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         await prefs.setString('access_token', data['access_token']);
         await prefs.setString('refresh_token', data['refresh_token']);
-        logInfo("✅ Token refrescado exitosamente");
+        // logInfo("✅ Token refrescado exitosamente");
       } else {
         logError("❌ Error en refresh token - Código: ${response.statusCode}");
         logError("❌ Detalle del error refresh: ${response.body}");
@@ -2759,7 +2812,7 @@ class ApiService {
         };
       } else if (response.statusCode == 404) {
         // Endpoint no existe, devolver null silenciosamente
-        logInfo("ℹ️ Endpoint de unidad por defecto no disponible para labor $idLabor");
+        // logInfo("ℹ️ Endpoint de unidad por defecto no disponible para labor $idLabor");
         return null;
       } else {
         logError("❌ Error al obtener unidad por defecto: ${response.statusCode}");
@@ -2768,11 +2821,201 @@ class ApiService {
     } catch (e) {
       // Si es un error de conexión, asumir que el endpoint no existe
       if (e.toString().contains('Failed to fetch') || e.toString().contains('ClientException')) {
-        logInfo("ℹ️ Endpoint de unidad por defecto no disponible para labor $idLabor");
+        // logInfo("ℹ️ Endpoint de unidad por defecto no disponible para labor $idLabor");
         return null;
       }
       logError("❌ Error en getUnidadDefaultLabor: $e");
       return null;
+    }
+  }
+
+  // Método optimizado para obtener todas las actividades con información de rendimientos
+  Future<List<Map<String, dynamic>>> getActividadesConRendimientosOptimizado() async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/actividades/'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final actividades = jsonDecode(response.body) as List;
+        
+        // Obtener todos los rendimientos en una sola llamada
+        final rendimientosResponse = await _makeRequest(() async {
+          return await http.get(
+            Uri.parse('$baseUrl/rendimientos/todos'),
+            headers: await _getHeaders(),
+          );
+        });
+
+        Map<String, bool> actividadesConRendimientos = {};
+        
+        if (rendimientosResponse.statusCode == 200) {
+          final rendimientosData = jsonDecode(rendimientosResponse.body);
+          
+          // Procesar rendimientos individuales propios
+          if (rendimientosData['propios'] is List) {
+            for (var rendimiento in rendimientosData['propios']) {
+              if (rendimiento['id_actividad'] != null) {
+                actividadesConRendimientos[rendimiento['id_actividad'].toString()] = true;
+              }
+            }
+          }
+          
+          // Procesar rendimientos individuales de contratistas
+          if (rendimientosData['contratistas'] is List) {
+            for (var rendimiento in rendimientosData['contratistas']) {
+              if (rendimiento['id_actividad'] != null) {
+                actividadesConRendimientos[rendimiento['id_actividad'].toString()] = true;
+              }
+            }
+          }
+          
+          // Procesar rendimientos grupales
+          if (rendimientosData['grupales'] is List) {
+            for (var rendimiento in rendimientosData['grupales']) {
+              if (rendimiento['id_actividad'] != null) {
+                actividadesConRendimientos[rendimiento['id_actividad'].toString()] = true;
+              }
+            }
+          }
+        }
+
+        // Agregar información de rendimientos a cada actividad
+        for (var actividad in actividades) {
+          actividad['tiene_rendimientos_cache'] = actividadesConRendimientos[actividad['id'].toString()] ?? false;
+        }
+
+        return actividades.cast<Map<String, dynamic>>();
+      } else {
+        throw Exception('Error al cargar actividades');
+      }
+    } catch (e) {
+      logError("❌ Error al cargar actividades con rendimientos optimizado: $e");
+      rethrow;
+    }
+  }
+
+  // Método alternativo que usa endpoints existentes pero de manera más eficiente
+  Future<List<Map<String, dynamic>>> getActividadesConRendimientosEficiente() async {
+    try {
+      // Obtener actividades
+      final actividadesResponse = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/actividades/'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (actividadesResponse.statusCode != 200) {
+        throw Exception('Error al cargar actividades');
+      }
+
+      final actividades = jsonDecode(actividadesResponse.body) as List;
+      
+      // Obtener todos los rendimientos individuales propios en una sola llamada
+      final rendimientosPropiosResponse = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/rendimientos/individual/propio'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      // Obtener todos los rendimientos individuales de contratistas en una sola llamada
+      final rendimientosContratistasResponse = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/rendimientos/individual/contratista'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      // Crear un set de IDs de actividades que tienen rendimientos
+      Set<String> actividadesConRendimientos = {};
+      
+      // Procesar rendimientos propios
+      if (rendimientosPropiosResponse.statusCode == 200) {
+        final rendimientosPropios = rendimientosPropiosResponse.body.isEmpty ? [] : jsonDecode(rendimientosPropiosResponse.body);
+        if (rendimientosPropios is List) {
+          for (var rendimiento in rendimientosPropios) {
+            if (rendimiento['id_actividad'] != null) {
+              actividadesConRendimientos.add(rendimiento['id_actividad'].toString());
+            }
+          }
+        }
+      }
+
+      // Procesar rendimientos de contratistas
+      if (rendimientosContratistasResponse.statusCode == 200) {
+        final rendimientosContratistas = rendimientosContratistasResponse.body.isEmpty ? [] : jsonDecode(rendimientosContratistasResponse.body);
+        if (rendimientosContratistas is List) {
+          for (var rendimiento in rendimientosContratistas) {
+            if (rendimiento['id_actividad'] != null) {
+              actividadesConRendimientos.add(rendimiento['id_actividad'].toString());
+            }
+          }
+        }
+      }
+
+      // Procesar rendimientos grupales (hacer llamadas solo para las actividades que no tienen rendimientos individuales)
+      for (var actividad in actividades) {
+        String actividadId = actividad['id'].toString();
+        if (!actividadesConRendimientos.contains(actividadId)) {
+          try {
+            final rendimientosGrupalesResponse = await _makeRequest(() async {
+              return await http.get(
+                Uri.parse('$baseUrl/rendimientos/$actividadId'),
+                headers: await _getHeaders(),
+              );
+            });
+
+            if (rendimientosGrupalesResponse.statusCode == 200) {
+              final dataGrupal = rendimientosGrupalesResponse.body.isEmpty ? {} : jsonDecode(rendimientosGrupalesResponse.body);
+              if (dataGrupal is Map && dataGrupal.containsKey('rendimientos')) {
+                final rendimientosGrupales = dataGrupal['rendimientos'];
+                if (rendimientosGrupales is List && rendimientosGrupales.isNotEmpty) {
+                  actividadesConRendimientos.add(actividadId);
+                }
+              }
+            }
+          } catch (e) {
+            // Si hay error, continuar con la siguiente actividad
+            continue;
+          }
+        }
+      }
+
+      // Agregar información de rendimientos a cada actividad
+      for (var actividad in actividades) {
+        actividad['tiene_rendimientos_cache'] = actividadesConRendimientos.contains(actividad['id'].toString());
+      }
+
+      return actividades.cast<Map<String, dynamic>>();
+    } catch (e) {
+      // logError("❌ Error al cargar actividades con rendimientos eficiente: $e");
+      rethrow;
+    }
+  }
+
+  // Método para obtener todos los rendimientos en una sola llamada
+  Future<Map<String, dynamic>> getAllRendimientos() async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/rendimientos/todos'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Error al cargar rendimientos');
+      }
+    } catch (e) {
+      logError("❌ Error al obtener todos los rendimientos: $e");
+      rethrow;
     }
   }
 

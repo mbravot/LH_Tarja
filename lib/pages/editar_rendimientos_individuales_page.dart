@@ -6,9 +6,10 @@ import 'package:collection/collection.dart';
 
 // Sistema de logging condicional
 void logInfo(String message) {
-  if (const bool.fromEnvironment('dart.vm.product') == false) {
-    print("ℹ️ $message");
-  }
+  // Comentado para mejorar rendimiento
+  // if (const bool.fromEnvironment('dart.vm.product') == false) {
+  //   print("ℹ️ $message");
+  // }
 }
 
 void logError(String message) {
@@ -62,29 +63,29 @@ class _EditarRendimientosIndividualesPageState extends State<EditarRendimientosI
       final prefs = await SharedPreferences.getInstance();
       await prefs.reload();
       final idSucursal = prefs.getString('id_sucursal');
-      logInfo('>>> idTipotrabajador: '
-          '[32m'
-          '[1m'
-          '[4m'
-          '[7m'
-          '[0m' + idTipotrabajador.toString());
-      logInfo('>>> idSucursal: $idSucursal');
-      logInfo('>>> idContratista: $idContratista');
+      // logInfo('>>> idTipotrabajador: '
+      //     '[32m'
+      //     '[1m'
+      //     '[4m'
+      //     '[7m'
+      //     '[0m' + idTipotrabajador.toString());
+      // logInfo('>>> idSucursal: $idSucursal');
+      // logInfo('>>> idContratista: $idContratista');
       if (idSucursal == null) throw Exception('No se encontró la sucursal activa');
       if (idTipotrabajador == 2) {
         if (idContratista == null || idContratista!.isEmpty) throw Exception('No se encontró el contratista');
         final listaTrabajadores = await ApiService().getTrabajadores(idSucursal, idContratista!);
         final listaPorcentajes = await ApiService().getPorcentajesContratista();
-        logInfo('>>> Trabajadores cargados: [32m${listaTrabajadores.length}[0m');
-        logInfo('>>> Porcentajes cargados: [32m${listaPorcentajes.length}[0m');
+        // logInfo('>>> Trabajadores cargados: [32m${listaTrabajadores.length}[0m');
+        // logInfo('>>> Porcentajes cargados: [32m${listaPorcentajes.length}[0m');
 
         // Cargar rendimientos existentes para filtrar
-        logInfo('>>> Cargando rendimientos existentes para contratistas');
+        // logInfo('>>> Cargando rendimientos existentes para contratistas');
         final rendimientos = await ApiService().getRendimientosIndividualesContratistas(
           idActividad: idActividad!,
           idContratista: idContratista!
         );
-        logInfo('>>> Rendimientos cargados: ${rendimientos.length}');
+        // logInfo('>>> Rendimientos cargados: ${rendimientos.length}');
 
         // Crear set de IDs que ya tienen rendimiento (excluyendo el actual)
         idsConRendimiento = rendimientos
@@ -93,7 +94,7 @@ class _EditarRendimientosIndividualesPageState extends State<EditarRendimientosI
           .map<String>((r) => r['id_trabajador'].toString())
           .toSet();
 
-        logInfo('>>> IDs con rendimiento (excluyendo actual): $idsConRendimiento');
+        // logInfo('>>> IDs con rendimiento (excluyendo actual): $idsConRendimiento');
 
         setState(() {
           trabajadores = List<Map<String, dynamic>>.from(listaTrabajadores);
@@ -101,14 +102,14 @@ class _EditarRendimientosIndividualesPageState extends State<EditarRendimientosI
         });
       } else if (idTipotrabajador == 1) {
         final listaColaboradores = await ApiService().getColaboradores();
-        logInfo('>>> Colaboradores cargados: [32m${listaColaboradores.length}[0m');
+        // logInfo('>>> Colaboradores cargados: [32m${listaColaboradores.length}[0m');
 
         // Cargar rendimientos existentes para filtrar
-        logInfo('>>> Cargando rendimientos existentes para propios');
+        // logInfo('>>> Cargando rendimientos existentes para propios');
         final rendimientos = await ApiService().getRendimientosIndividualesPropios(
           idActividad: idActividad!
         );
-        logInfo('>>> Rendimientos propios cargados: ${rendimientos.length}');
+        // logInfo('>>> Rendimientos propios cargados: ${rendimientos.length}');
 
         // Crear set de IDs que ya tienen rendimiento (excluyendo el actual)
         idsConRendimiento = rendimientos
@@ -116,7 +117,7 @@ class _EditarRendimientosIndividualesPageState extends State<EditarRendimientosI
           .map<String>((r) => r['id_colaborador'].toString())
           .toSet();
 
-        logInfo('>>> IDs con rendimiento (excluyendo actual): $idsConRendimiento');
+        // logInfo('>>> IDs con rendimiento (excluyendo actual): $idsConRendimiento');
 
         setState(() {
           colaboradores = List<Map<String, dynamic>>.from(listaColaboradores);
@@ -263,10 +264,10 @@ class _EditarRendimientosIndividualesPageState extends State<EditarRendimientosI
 
   @override
   Widget build(BuildContext context) {
-    logInfo('>>> [build] idTipotrabajador: $idTipotrabajador');
-    logInfo('>>> [build] trabajadores: [32m${trabajadores.length}[0m');
-    logInfo('>>> [build] colaboradores: [32m${colaboradores.length}[0m');
-    logInfo('>>> [build] porcentajes: [32m${porcentajes.length}[0m');
+    // logInfo('>>> [build] idTipotrabajador: $idTipotrabajador');
+    // logInfo('>>> [build] trabajadores: [32m${trabajadores.length}[0m');
+    // logInfo('>>> [build] colaboradores: [32m${colaboradores.length}[0m');
+    // logInfo('>>> [build] porcentajes: [32m${porcentajes.length}[0m');
     const primaryColor = Colors.green;
     const secondaryColor = Colors.white;
     return Scaffold(

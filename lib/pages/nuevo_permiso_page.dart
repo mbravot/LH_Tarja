@@ -26,10 +26,13 @@ class _NuevoPermisoPageState extends State<NuevoPermisoPage> {
     _cargarDatos();
   }
 
+
+
   Future<void> _cargarDatos() async {
     try {
       final tipos = await ApiService().getTiposPermiso();
       final colabs = await ApiService().getColaboradores();
+      
       setState(() {
         tiposPermiso = tipos;
         colaboradores = colabs;
@@ -131,8 +134,10 @@ class _NuevoPermisoPageState extends State<NuevoPermisoPage> {
                             lastDate: DateTime(2100),
                           );
                           if (picked != null) {
-                            _fechaController.text = picked.toIso8601String().substring(0, 10);
-                            _fechaVisibleController.text = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                                                         setState(() {
+                               _fechaController.text = picked.toIso8601String().substring(0, 10);
+                               _fechaVisibleController.text = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                             });
                           }
                         },
                       ),
@@ -158,27 +163,32 @@ class _NuevoPermisoPageState extends State<NuevoPermisoPage> {
                       validator: (val) => val == null ? 'Seleccione un tipo' : null,
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: _colaboradorId,
-                      items: colaboradores.map((colab) {
-                        final nombre = (colab['nombre'] ?? '') + ' ' + (colab['apellido_paterno'] ?? '') + ' ' + (colab['apellido_materno'] ?? '');
-                        return DropdownMenuItem<String>(
-                          value: colab['id'].toString(),
-                          child: Text(nombre.trim()),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _colaboradorId = val),
-                      decoration: InputDecoration(
-                        labelText: 'Colaborador',
-                        prefixIcon: Icon(Icons.person, color: theme.colorScheme.primary),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        filled: true,
-                        fillColor: Colors.grey.withOpacity(0.05),
-                      ),
-                      validator: (val) => val == null ? 'Seleccione un colaborador' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
+                                         DropdownButtonFormField<String>(
+                       value: _colaboradorId,
+                                               items: colaboradores.map((colab) {
+                          final nombre = (colab['nombre'] ?? '') + ' ' + (colab['apellido_paterno'] ?? '') + ' ' + (colab['apellido_materno'] ?? '');
+                          return DropdownMenuItem<String>(
+                            value: colab['id'].toString(),
+                            child: Text(
+                              nombre.trim(),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          );
+                        }).toList(),
+                       onChanged: (val) => setState(() => _colaboradorId = val),
+                       decoration: InputDecoration(
+                         labelText: 'Colaborador',
+                         prefixIcon: Icon(Icons.person, color: theme.colorScheme.primary),
+                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                         filled: true,
+                         fillColor: Colors.grey.withOpacity(0.05),
+                       ),
+                       validator: (val) => val == null ? 'Seleccione un colaborador' : null,
+                     ),
+                     const SizedBox(height: 16),
+                     TextFormField(
                       controller: _horasController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(

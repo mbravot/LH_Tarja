@@ -29,11 +29,15 @@ class _EditarPermisoPageState extends State<EditarPermisoPage> {
     try {
       final tipos = await ApiService().getTiposPermiso();
       final colabs = await ApiService().getColaboradores();
+      
+      // Obtener el permiso primero
+      final permiso = await ApiService().getPermiso(widget.permiso['id']);
+      
       setState(() {
         tiposPermiso = tipos;
         colaboradores = colabs;
       });
-      final permiso = await ApiService().getPermiso(widget.permiso['id']);
+      
       String? tipoId = permiso['id_tipopermiso']?.toString();
       String? colabId = permiso['id_colaborador']?.toString();
       // Validar que los valores existan en los catálogos
@@ -50,6 +54,8 @@ class _EditarPermisoPageState extends State<EditarPermisoPage> {
     }
   }
 
+
+
   void _mostrarError(String mensaje) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(mensaje), backgroundColor: Colors.red),
@@ -64,10 +70,10 @@ class _EditarPermisoPageState extends State<EditarPermisoPage> {
     try {
       final permiso = {
         'fecha': _fechaController.text,
-        'tipo_permiso_id': _tipoPermisoId,
-        'colaborador_id': _colaboradorId,
+        'id_tipopermiso': _tipoPermisoId,
+        'id_colaborador': _colaboradorId,
         'horas': int.parse(_horasController.text),
-        'estado': 1
+        'id_estadopermiso': 1
       };
 
       await ApiService().actualizarPermiso(widget.permiso['id'], permiso);
@@ -135,9 +141,11 @@ class _EditarPermisoPageState extends State<EditarPermisoPage> {
                           firstDate: DateTime(2020),
                           lastDate: DateTime(2100),
                         );
-                        if (picked != null) {
-                          _fechaController.text = picked.toIso8601String().substring(0, 10);
-                        }
+                                                 if (picked != null) {
+                           setState(() {
+                             _fechaController.text = picked.toIso8601String().substring(0, 10);
+                           });
+                         }
                       },
                       trailing: Icon(Icons.calendar_today, color: theme.colorScheme.primary),
                     ),
@@ -161,27 +169,32 @@ class _EditarPermisoPageState extends State<EditarPermisoPage> {
                       validator: (val) => val == null ? 'Seleccione un tipo' : null,
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: _colaboradorId,
-                      items: colaboradores.map((colab) {
-                        final nombre = (colab['nombre'] ?? '') + ' ' + (colab['apellido_paterno'] ?? '') + ' ' + (colab['apellido_materno'] ?? '');
-                        return DropdownMenuItem<String>(
-                          value: colab['id'].toString(),
-                          child: Text(nombre.trim()),
-                        );
-                      }).toList(),
-                      onChanged: (val) => setState(() => _colaboradorId = val),
-                      decoration: InputDecoration(
-                        labelText: 'Colaborador',
-                        prefixIcon: Icon(Icons.person, color: theme.colorScheme.primary),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        filled: true,
-                        fillColor: Colors.grey.withOpacity(0.05),
-                      ),
-                      validator: (val) => val == null ? 'Seleccione un colaborador' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
+                                         DropdownButtonFormField<String>(
+                       value: _colaboradorId,
+                                               items: colaboradores.map((colab) {
+                          final nombre = (colab['nombre'] ?? '') + ' ' + (colab['apellido_paterno'] ?? '') + ' ' + (colab['apellido_materno'] ?? '');
+                          return DropdownMenuItem<String>(
+                            value: colab['id'].toString(),
+                            child: Text(
+                              nombre.trim(),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          );
+                        }).toList(),
+                       onChanged: (val) => setState(() => _colaboradorId = val),
+                       decoration: InputDecoration(
+                         labelText: 'Colaborador',
+                         prefixIcon: Icon(Icons.person, color: theme.colorScheme.primary),
+                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                         filled: true,
+                         fillColor: Colors.grey.withOpacity(0.05),
+                       ),
+                       validator: (val) => val == null ? 'Seleccione un colaborador' : null,
+                     ),
+                     const SizedBox(height: 16),
+                     TextFormField(
                       controller: _horasController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(

@@ -10,9 +10,8 @@ import 'rendimientos_page.dart';
 
 // Sistema de logging condicional
 void logInfo(String message) {
-  if (const bool.fromEnvironment('dart.vm.product') == false) {
-    print("ℹ️ $message");
-  }
+  // Comentado para mejorar rendimiento
+  // print("ℹ️ $message");
 }
 
 void logError(String message) {
@@ -89,12 +88,12 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
   Future<void> _cargarActividades() async {
     setState(() => _isLoading = true);
     try {
-      final actividades = await ApiService().getActividades();
+      // Usar el método eficiente que reduce significativamente las llamadas a la API
+      final actividadesProcesadas = await ApiService().getActividadesConRendimientosEficiente();
       if (!mounted) return;
 
-      // Los datos de actividades se procesan normalmente
-
-      List<dynamic> actividadesProcesadas = actividades.map((actividad) {
+      // Procesar fechas
+      for (var actividad in actividadesProcesadas) {
         try {
           DateTime fechaOriginal = DateTime.parse(actividad['fecha']);
           actividad['fecha_mostrada'] = DateFormat("dd/MM/yyyy").format(fechaOriginal);
@@ -103,9 +102,9 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
           actividad['fecha_mostrada'] = "Fecha inválida";
           actividad['fecha_datetime'] = DateTime(1970, 1, 1);
         }
-        return actividad;
-      }).toList();
+      }
 
+      // Ordenar por fecha
       actividadesProcesadas.sort((a, b) => b['fecha_datetime'].compareTo(a['fecha_datetime']));
 
       setState(() {
@@ -420,10 +419,10 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
     final textColor = theme.colorScheme.onSurface;
 
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
         final actividadConNombre = Map<String, dynamic>.from(actividad);
         actividadConNombre['nombre'] = actividad['nombre_labor'] ?? 'Sin nombre';
-        Navigator.push(
+        final resultado = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => RendimientosPage(
@@ -431,6 +430,10 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
             ),
           ),
         );
+        // Solo actualizar si se realizó alguna acción en rendimientos
+        if (resultado == true) {
+          _refreshActividades();
+        }
       },
       child: Card(
           color: cardColor,
@@ -478,12 +481,44 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
               ),
               SizedBox(height: 8),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.straighten, color: Colors.indigo, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Unidad: ${actividad['nombre_unidad'] ?? 'Sin unidad'}',
+                      style: TextStyle(color: textColor.withOpacity(0.7)),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Icon(Icons.category, color: Colors.purple, size: 20),
                   SizedBox(width: 8),
-                  Text(
-                    'Tipo CECO: ${actividad['nombre_tipoceco'] ?? 'Sin tipo de CECO'}',
-                    style: TextStyle(color: textColor.withOpacity(0.7)),
+                  Expanded(
+                    child: Text(
+                      'Tipo CECO: ${actividad['nombre_tipoceco'] ?? 'Sin tipo de CECO'}',
+                      style: TextStyle(color: textColor.withOpacity(0.7)),
+                    ),
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _tieneRendimientos(actividad) ? Colors.green[300]! : Colors.red[300]!,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _tieneRendimientos(actividad) ? 'Con rendimientos' : 'Sin rendimientos',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -617,11 +652,30 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
                   ),
                 ],
               ),
+              SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.attach_money, color: Colors.green, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Tarifa: \$${actividad['tarifa']?.toString() ?? '0'}',
+                      style: TextStyle(color: textColor.withOpacity(0.7)),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  bool _tieneRendimientos(Map<String, dynamic> actividad) {
+    // Verificar si la actividad tiene rendimientos usando el campo cache
+    return actividad['tiene_rendimientos_cache'] == true;
   }
 
   String obtenerNombreCeco(Map<String, dynamic> actividad) {

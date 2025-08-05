@@ -14,11 +14,12 @@ import 'ceco_maquinaria_form.dart';
 import 'ceco_inversion_form.dart';
 import 'ceco_riego_form.dart';
 
-// 🔧 Sistema de logging condicional
+// 🔧 Sistema de logging condicional - Comentado para mejorar rendimiento
 void logDebug(String message) {
-  if (kDebugMode) {
-    print(message);
-  }
+  // Comentado para mejorar rendimiento
+  // if (kDebugMode) {
+  //   print(message);
+  // }
 }
 
 void logError(String message) {
@@ -28,9 +29,10 @@ void logError(String message) {
 }
 
 void logInfo(String message) {
-  if (kDebugMode) {
-    print("ℹ️ $message");
-  }
+  // Comentado para mejorar rendimiento
+  // if (kDebugMode) {
+  //   print("ℹ️ $message");
+  // }
 }
 
 class NuevaActividadPage extends StatefulWidget {
@@ -127,8 +129,8 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
     }
 
     try {
-      logInfo(
-          "🔍 Cargando contratistas para id_sucursal: $idSucursalUsuario y id_tipo_trab: $selectedTipoTrabajador");
+      // logInfo(
+      //     "🔍 Cargando contratistas para id_sucursal: $idSucursalUsuario y id_tipo_trab: $selectedTipoTrabajador");
 
       final lista = await ApiService().getContratistas(
         idSucursalUsuario!,
@@ -139,8 +141,8 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
       // 🔹 Si tipo es propio (1), seleccionar automáticamente
       if (selectedTipoTrabajador == "1" && lista.isNotEmpty) {
         contratistaPropioId = lista.first['id'].toString();
-        logInfo(
-            "✅ Contratista propio seleccionado automáticamente: $contratistaPropioId");
+        // logInfo(
+        //     "✅ Contratista propio seleccionado automáticamente: $contratistaPropioId");
       }
 
       // 🔹 Limpiar contratista si no está en la nueva lista

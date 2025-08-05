@@ -7,9 +7,10 @@ import 'package:app_lh_tarja/pages/trabajadores_page.dart';
 
 // Sistema de logging condicional
 void logInfo(String message) {
-  if (const bool.fromEnvironment('dart.vm.product') == false) {
-    print("ℹ️ $message");
-  }
+  // Comentado para mejorar rendimiento
+  // if (const bool.fromEnvironment('dart.vm.product') == false) {
+  //   print("ℹ️ $message");
+  // }
 }
 
 void logError(String message) {
@@ -107,7 +108,7 @@ class _EditarTrabajadorPageState extends State<EditarTrabajadorPage> {
         data["codigo_verificador"] = dvController.text.trim();
       }
 
-      logInfo("📤 Datos a enviar: $data"); // Para debugging
+              // logInfo("📤 Datos a enviar: $data"); // Para debugging
 
       bool success = await ApiService().editarTrabajador(widget.trabajador['id'].toString(), data);
 

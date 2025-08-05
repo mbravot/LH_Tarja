@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import 'crear_rendimiento_individual_page.dart';
-import 'package:collection/collection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:collection/collection.dart';
+import 'crear_rendimiento_individual_page.dart';
+import 'crear_rendimiento_grupal_page.dart';
 import 'editar_rendimientos_individuales_page.dart';
 import 'editar_rendimientos_grupales_page.dart';
-import 'crear_rendimiento_grupal_page.dart';
 
 // Sistema de logging condicional
 void logInfo(String message) {
-  if (const bool.fromEnvironment('dart.vm.product') == false) {
-    print("ℹ️ $message");
-  }
+  // Comentado para mejorar rendimiento
+  // if (const bool.fromEnvironment('dart.vm.product') == false) {
+  //   print("ℹ️ $message");
+  // }
 }
 
 void logError(String message) {
@@ -23,13 +24,10 @@ void logError(String message) {
 class RendimientosPage extends StatefulWidget {
   final Map<String, dynamic> actividad;
 
-  const RendimientosPage({
-    Key? key,
-    required this.actividad,
-  }) : super(key: key);
+  RendimientosPage({required this.actividad});
 
   @override
-  State<RendimientosPage> createState() => _RendimientosPageState();
+  _RendimientosPageState createState() => _RendimientosPageState();
 }
 
 class _RendimientosPageState extends State<RendimientosPage> {
@@ -41,39 +39,46 @@ class _RendimientosPageState extends State<RendimientosPage> {
   List<Map<String, dynamic>> colaboradores = [];
   List<Map<String, dynamic>> porcentajesContratista = [];
   List<Map<String, dynamic>> trabajadores = [];
+  bool _seRealizoAccion = false; // Variable para rastrear si se realizó alguna acción
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(_filtrarRendimientos);
     _cargarColaboradoresYTrabajadoresYPorcentajesYRendimientos();
   }
 
-  void _filtrarRendimientos() {
-    String query = _searchController.text.toLowerCase();
-    if (query.isEmpty) {
-      setState(() => _rendimientosFiltrados = List.from(_rendimientos));
-      return;
-    }
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filtrarRendimientos(String query) {
     setState(() {
-      _rendimientosFiltrados = _rendimientos.where((rend) {
-        String nombre = '';
-        if (rend['trabajador'] != null) {
-          nombre = rend['trabajador'].toString().toLowerCase();
-        } else if (rend['id_trabajador'] != null && trabajadores.isNotEmpty) {
-          final t = trabajadores.firstWhereOrNull((x) => x['id'].toString() == rend['id_trabajador'].toString());
-          if (t != null) {
-            nombre = ('${t['nombre']} ${t['apellido_paterno'] ?? ''} ${t['apellido_materno'] ?? ''}').toLowerCase();
+      if (query.isEmpty) {
+        _rendimientosFiltrados = List.from(_rendimientos);
+      } else {
+        _rendimientosFiltrados = _rendimientos.where((rendimiento) {
+          String nombre = '';
+          if (rendimiento['trabajador'] != null && rendimiento['trabajador'].toString().trim().isNotEmpty) {
+            nombre = rendimiento['trabajador'];
+          } else if (rendimiento['id_trabajador'] != null && trabajadores.isNotEmpty) {
+            final t = trabajadores.firstWhereOrNull((x) => x['id'].toString() == rendimiento['id_trabajador'].toString());
+            if (t != null) {
+              nombre = ('${t['nombre']} ${t['apellido_paterno'] ?? ''} ${t['apellido_materno'] ?? ''}').trim();
+            }
+          } else if (rendimiento['id_colaborador'] != null && colaboradores.isNotEmpty) {
+            final c = colaboradores.firstWhereOrNull((x) => x['id'].toString() == rendimiento['id_colaborador'].toString());
+            if (c != null) {
+              nombre = ('${c['nombre']} ${c['apellido_paterno'] ?? ''} ${c['apellido_materno'] ?? ''}').trim();
+            }
+          } else if (rendimiento['nombre'] != null) {
+            nombre = ('${rendimiento['nombre']} ${rendimiento['apellido_paterno'] ?? ''} ${rendimiento['apellido_materno'] ?? ''}').trim();
           }
-        } else if (rend['id_colaborador'] != null && colaboradores.isNotEmpty) {
-          final c = colaboradores.firstWhereOrNull((x) => x['id'].toString() == rend['id_colaborador'].toString());
-          if (c != null) {
-            nombre = ('${c['nombre']} ${c['apellido_paterno'] ?? ''} ${c['apellido_materno'] ?? ''}').toLowerCase();
-          }
-        }
-        return nombre.contains(query);
-      }).toList();
+          return nombre.toLowerCase().contains(query.toLowerCase());
+        }).toList();
+      }
     });
   }
 
@@ -86,7 +91,7 @@ class _RendimientosPageState extends State<RendimientosPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.reload(); // Forzar recarga
       final idSucursal = prefs.getString('id_sucursal');
-      logInfo('Sucursal activa usada para cargar colaboradores/rendimientos: $idSucursal');
+      // logInfo('Sucursal activa usada para cargar colaboradores/rendimientos: $idSucursal');
       if (idSucursal == null) throw Exception('No se encontró la sucursal activa');
       final listaColaboradores = await ApiService().getColaboradores();
       final listaPorcentajes = await ApiService().getPorcentajesContratista();
@@ -122,12 +127,12 @@ class _RendimientosPageState extends State<RendimientosPage> {
       final idActividad = widget.actividad['id'].toString();
       final idContratista = widget.actividad['id_contratista']?.toString();
       
-      logInfo("🔍 ====== CARGANDO RENDIMIENTOS ======");
-      logInfo("🔍 Actividad ID: $idActividad");
-      logInfo("🔍 Tipo rendimiento: $tipo");
-      logInfo("🔍 Tipo trabajador: $idTipotrabajador");
-      logInfo("🔍 Contratista ID: $idContratista");
-      logInfo("🔍 Actividad completa: ${widget.actividad}");
+      // logInfo("🔍 ====== CARGANDO RENDIMIENTOS ======");
+      // logInfo("🔍 Actividad ID: $idActividad");
+      // logInfo("🔍 Tipo rendimiento: $tipo");
+      // logInfo("🔍 Tipo trabajador: $idTipotrabajador");
+      // logInfo("🔍 Contratista ID: $idContratista");
+      // logInfo("🔍 Actividad completa: ${widget.actividad}");
       
       // Limpiar rendimientos anteriores
       setState(() {
@@ -137,11 +142,11 @@ class _RendimientosPageState extends State<RendimientosPage> {
 
       if (tipo == 1) { // Individual
         if (idTipotrabajador == 1) { // Propio
-          logInfo("🔍 Cargando rendimientos individuales PROPIOS");
+          // logInfo("🔍 Cargando rendimientos individuales PROPIOS");
           final rendimientosPropios = await _apiService.getRendimientosIndividualesPropios(
             idActividad: idActividad
           );
-          logInfo("📥 Rendimientos propios recibidos: ${rendimientosPropios.length}");
+          // logInfo("📥 Rendimientos propios recibidos: ${rendimientosPropios.length}");
           
           setState(() {
             _rendimientos = rendimientosPropios.map((r) {
@@ -155,7 +160,7 @@ class _RendimientosPageState extends State<RendimientosPage> {
           });
         } else if (idTipotrabajador == 2) { // Contratista
           if (idContratista == null || idContratista.isEmpty) {
-            logInfo("❌ Error: Actividad de contratista sin ID de contratista");
+            // logInfo("❌ Error: Actividad de contratista sin ID de contratista");
             setState(() {
               _error = 'Error: Actividad de contratista sin ID de contratista';
               _isLoading = false;
@@ -163,19 +168,19 @@ class _RendimientosPageState extends State<RendimientosPage> {
             return;
           }
           
-          logInfo("🔍 Cargando rendimientos individuales de CONTRATISTA");
-          logInfo("🔍 ID Actividad: $idActividad");
-          logInfo("🔍 ID Contratista: $idContratista");
+          // logInfo("🔍 Cargando rendimientos individuales de CONTRATISTA");
+          // logInfo("🔍 ID Actividad: $idActividad");
+          // logInfo("🔍 ID Contratista: $idContratista");
           
           final rendimientosContratistas = await _apiService.getRendimientosIndividualesContratistas(
             idActividad: idActividad,
             idContratista: idContratista
           );
           
-          logInfo("📥 Rendimientos contratistas recibidos: ${rendimientosContratistas.length}");
-          rendimientosContratistas.forEach((r) {
-            logInfo("📥 Rendimiento: ID Actividad=${r['id_actividad']}, ID Contratista=${r['id_contratista']}");
-          });
+          // logInfo("📥 Rendimientos contratistas recibidos: ${rendimientosContratistas.length}");
+          // rendimientosContratistas.forEach((r) {
+          //   logInfo("📥 Rendimiento: ID Actividad=${r['id_actividad']}, ID Contratista=${r['id_contratista']}");
+          // });
           
           setState(() {
             _rendimientos = rendimientosContratistas.map((r) {
@@ -189,11 +194,11 @@ class _RendimientosPageState extends State<RendimientosPage> {
           });
         }
       } else if (tipo == 2) { // Grupal
-        logInfo("🔍 Cargando rendimientos GRUPALES");
+        // logInfo("🔍 Cargando rendimientos GRUPALES");
         final data = await _apiService.getRendimientos(idActividad: idActividad);
         if (data['rendimientos'] != null && data['rendimientos'] is List) {
           final List<dynamic> rawRendimientos = data['rendimientos'];
-          logInfo("📥 Rendimientos grupales recibidos: ${rawRendimientos.length}");
+          // logInfo("📥 Rendimientos grupales recibidos: ${rawRendimientos.length}");
           
           setState(() {
             _rendimientos = rawRendimientos.map((rendimiento) {
@@ -207,9 +212,9 @@ class _RendimientosPageState extends State<RendimientosPage> {
         }
       }
       
-      logInfo("✅ Carga de rendimientos completada");
-      logInfo("✅ Total rendimientos: ${_rendimientos.length}");
-      logInfo("✅ ====== FIN CARGA RENDIMIENTOS ======");
+      // logInfo("✅ Carga de rendimientos completada");
+      // logInfo("✅ Total rendimientos: ${_rendimientos.length}");
+      // logInfo("✅ ====== FIN CARGA RENDIMIENTOS ======");
       
     } catch (e) {
       logError("❌ Error al cargar rendimientos: $e");
@@ -220,195 +225,193 @@ class _RendimientosPageState extends State<RendimientosPage> {
     }
   }
 
-  Future<void> _editarRendimiento(Map<String, dynamic> rendimiento) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EditarRendimientosGrupalesPage(
-          rendimiento: rendimiento,
-        ),
-      ),
-    );
-    if (result == true) {
-      await _cargarRendimientos();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Rendimientos - ${widget.actividad['nombre']}'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
-      ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : _error.isNotEmpty
-              ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 48, color: Colors.red),
-                SizedBox(height: 16),
-                      Text(_error, textAlign: TextAlign.center),
-                      SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _cargarRendimientos,
-                        child: Text('Reintentar'),
-                ),
-              ],
-            ),
-                )
-              : Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                          borderRadius: BorderRadius.circular(15),
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pop(context, _seRealizoAccion);
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Rendimientos - ${widget.actividad['nombre']}'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Colors.white,
+        ),
+        body: _isLoading
+            ? Center(child: CircularProgressIndicator())
+            : _error.isNotEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 48, color: Colors.red),
+                        SizedBox(height: 16),
+                        Text(_error, textAlign: TextAlign.center),
+                        SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _cargarRendimientos,
+                          child: Text('Reintentar'),
                         ),
-                        child: TextField(
-                          controller: _searchController,
-                          onSubmitted: (_) => FocusScope.of(context).unfocus(),
-                          decoration: InputDecoration(
-                            hintText: 'Buscar por nombre o apellido',
-                            hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
-                            prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
-                            suffixIcon: _searchController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: Icon(Icons.clear, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      FocusScope.of(context).unfocus();
-                                    },
-                                  )
-                                : null,
-                            filled: true,
-                            fillColor: Theme.of(context).colorScheme.surface,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: BorderSide.none,
+                      ],
+                    ),
+                  )
+                : Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: _filtrarRendimientos,
+                            onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                            decoration: InputDecoration(
+                              hintText: 'Buscar por nombre o apellido',
+                              hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                              prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.primary),
+                              suffixIcon: _searchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(Icons.clear, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        _filtrarRendimientos('');
+                                        FocusScope.of(context).unfocus();
+                                      },
+                                    )
+                                  : null,
+                              filled: true,
+                              fillColor: Theme.of(context).colorScheme.surface,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(15),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(15),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(15),
+                                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
                           ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: _rendimientosFiltrados.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'No hay rendimientos registrados',
-                                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                                  ),
-                                ],
+                      Expanded(
+                        child: _rendimientosFiltrados.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No hay rendimientos registrados',
+                                      style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.only(bottom: 80),
+                                itemCount: _rendimientosFiltrados.length,
+                                itemBuilder: (context, index) {
+                                  final rendimiento = _rendimientosFiltrados[index];
+                                  final bool esIndividual = rendimiento['tipo'] == 'individual';
+                                  return _RendimientoCard(
+                                    rendimiento: rendimiento,
+                                    esIndividual: esIndividual,
+                                    trabajadores: trabajadores,
+                                    colaboradores: colaboradores,
+                                    porcentajesContratista: porcentajesContratista,
+                                    onEditar: () async {
+                                      final rendimientoConTipo = Map<String, dynamic>.from(rendimiento);
+                                      rendimientoConTipo['id_tipotrabajador'] ??= widget.actividad['id_tipotrabajador'];
+                                      rendimientoConTipo['id_contratista'] ??= widget.actividad['id_contratista'];
+                                      rendimientoConTipo['id_actividad'] ??= widget.actividad['id'];
+                                      if (rendimiento['tipo'] == 'grupal') {
+                                        final result = await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => EditarRendimientosGrupalesPage(rendimiento: rendimientoConTipo),
+                                          ),
+                                        );
+                                        if (result == true) {
+                                          _cargarRendimientos();
+                                          _seRealizoAccion = true; // Marcar que se realizó una acción
+                                        }
+                                      } else {
+                                        final result = await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => EditarRendimientosIndividualesPage(rendimiento: rendimientoConTipo),
+                                          ),
+                                        );
+                                        if (result == true) {
+                                          _cargarRendimientos();
+                                          _seRealizoAccion = true; // Marcar que se realizó una acción
+                                        }
+                                      }
+                                    },
+                                    onEliminar: () => _confirmarEliminarRendimiento(rendimiento),
+                                  );
+                                },
                               ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.only(bottom: 80),
-                              itemCount: _rendimientosFiltrados.length,
-                              itemBuilder: (context, index) {
-                                final rendimiento = _rendimientosFiltrados[index];
-                                final bool esIndividual = rendimiento['tipo'] == 'individual';
-                                return _RendimientoCard(
-                                  rendimiento: rendimiento,
-                                  esIndividual: esIndividual,
-                                  trabajadores: trabajadores,
-                                  colaboradores: colaboradores,
-                                  porcentajesContratista: porcentajesContratista,
-                                  onEditar: () async {
-                                    final rendimientoConTipo = Map<String, dynamic>.from(rendimiento);
-                                    rendimientoConTipo['id_tipotrabajador'] ??= widget.actividad['id_tipotrabajador'];
-                                    rendimientoConTipo['id_contratista'] ??= widget.actividad['id_contratista'];
-                                    rendimientoConTipo['id_actividad'] ??= widget.actividad['id'];
-                                    if (rendimiento['tipo'] == 'grupal') {
-                                      final result = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => EditarRendimientosGrupalesPage(rendimiento: rendimientoConTipo),
-                                        ),
-                                      );
-                                      if (result == true) {
-                                        _cargarRendimientos();
-                                      }
-                                    } else {
-                                      final result = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => EditarRendimientosIndividualesPage(rendimiento: rendimientoConTipo),
-                                        ),
-                                      );
-                                      if (result == true) {
-                                        _cargarRendimientos();
-                                      }
-                                    }
-                                  },
-                                  onEliminar: () => _confirmarEliminarRendimiento(rendimiento),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            final tipo = widget.actividad['id_tiporendimiento'];
+            final idTipotrabajador = widget.actividad['id_tipotrabajador'];
+            final idContratista = widget.actividad['id_contratista']?.toString();
+            if (tipo == 1) {
+              // Individual
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CrearRendimientoIndividualPage(
+                    idActividad: widget.actividad['id'].toString(),
+                    idTipotrabajador: idTipotrabajador,
+                    idContratista: idContratista,
+                  ),
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final tipo = widget.actividad['id_tiporendimiento'];
-          final idTipotrabajador = widget.actividad['id_tipotrabajador'];
-          final idContratista = widget.actividad['id_contratista']?.toString();
-          if (tipo == 1) {
-            // Individual
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => CrearRendimientoIndividualPage(
-                  idActividad: widget.actividad['id'].toString(),
-                  idTipotrabajador: idTipotrabajador,
-                  idContratista: idContratista,
+              );
+              if (result == true) {
+                _cargarRendimientos();
+                _seRealizoAccion = true; // Marcar que se realizó una acción
+              }
+            } else {
+              // Grupal
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CrearRendimientoGrupalPage(
+                    actividad: widget.actividad,
+                  ),
                 ),
-              ),
-            );
-            if (result == true) {
-              _cargarRendimientos();
+              );
+              if (result == true) {
+                _cargarRendimientos();
+                _seRealizoAccion = true; // Marcar que se realizó una acción
+              }
             }
-          } else {
-            // Grupal
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => CrearRendimientoGrupalPage(
-                  actividad: widget.actividad,
-                ),
-              ),
-            );
-            if (result == true) {
-              _cargarRendimientos();
-            }
-          }
-        },
-        child: Icon(Icons.add),
-        tooltip: 'Agregar Rendimiento',
+          },
+          child: Icon(Icons.add),
+          tooltip: 'Agregar Rendimiento',
+        ),
       ),
     );
   }
@@ -418,7 +421,7 @@ class _RendimientosPageState extends State<RendimientosPage> {
       padding: EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+        children: [
           Text(
             label,
             style: TextStyle(
@@ -426,14 +429,14 @@ class _RendimientosPageState extends State<RendimientosPage> {
               fontWeight: FontWeight.w500,
             ),
           ),
-                  Text(
+          Text(
             value,
             style: TextStyle(
               fontWeight: FontWeight.w500,
             ),
-                  ),
-                ],
-              ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -480,6 +483,7 @@ class _RendimientosPageState extends State<RendimientosPage> {
             ),
           );
           _cargarRendimientos();
+          _seRealizoAccion = true; // Marcar que se realizó una acción
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -698,4 +702,4 @@ class _RendimientoCard extends StatelessWidget {
       ),
     );
   }
-}
+} 

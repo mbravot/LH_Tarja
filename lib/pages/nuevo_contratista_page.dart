@@ -78,16 +78,26 @@ class _NuevoContratistaPageState extends State<NuevoContratistaPage> {
         'id_estado': _estadoSeleccionado,
       };
 
-      await _apiService.createContratista(contratistaData);
+      final success = await _apiService.crearContratista(contratistaData);
 
       if (!mounted) return;
-      Navigator.pop(context, true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Contratista creado exitosamente'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      
+      if (success) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Contratista creado exitosamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al crear el contratista'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
