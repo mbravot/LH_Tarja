@@ -32,7 +32,7 @@ class MyApp extends StatelessWidget {
     final themeProvider = Provider.of<ThemeProvider>(context);
     
     return MaterialApp(
-      title: 'LH Gestión Tarjas',
+      title: 'LH Tarjas',
       debugShowCheckedModeBanner: false,
       navigatorKey: ApiService.navigatorKey,
       theme: themeProvider.currentTheme,

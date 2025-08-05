@@ -106,7 +106,7 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
 
   Future<void> _cargarOpciones() async {
     try {
-      logDebug("🔍 Cargando opciones...");
+      // Cargando opciones...
 
       especies = await ApiService().getEspecies();
       labores = await ApiService().getLabores();
@@ -114,33 +114,25 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
       tiposTrabajadores = await ApiService().getTipoTrabajadores();
       tiposRendimientos = await ApiService().getTipoRendimientos();
 
-      logInfo("✅ Tipos Trabajadores cargados: $tiposTrabajadores");
-      logInfo("✅ Tipos Rendimientos cargados: $tiposRendimientos");
-
-      // ✅ Verificar que id_sucursalactiva no sea nulo ni vacío antes de llamar a la API
+      // Verificar que id_sucursalactiva no sea nulo ni vacío antes de llamar a la API
       String? idSucursal = widget.actividad['id_sucursalactiva']?.toString();
       if (idSucursal == null || idSucursal.isEmpty) {
-        logInfo(
-            "⚠️ Error: id_sucursalactiva es nulo o vacío. No se pueden cargar contratistas.");
+        // Error: id_sucursalactiva es nulo o vacío. No se pueden cargar contratistas.
       } else if (selectedTipoTrabajador != null) {
-        logInfo("✅ id_sucursalactiva obtenido correctamente: $idSucursal");
-        // ✅ Filtrar contratistas según el tipo de trabajador y sucursal
+        // Filtrar contratistas según el tipo de trabajador y sucursal
         await _cargarContratistas();
-        logInfo("✅ Contratistas cargados: $contratistas");
       }
 
-      // ✅ Cargar variedades si hay un id_especie válido
+      // Cargar variedades si hay un id_especie válido
       if (selectedEspecie != null && selectedEspecie!.isNotEmpty) {
         variedades =
             await ApiService().getVariedades(selectedEspecie!, idSucursal!);
-        logInfo("✅ Variedades cargadas: $variedades");
       }
 
-      // ✅ Cargar CECOs si hay un id_especie y id_variedad válidos
+      // Cargar CECOs si hay un id_especie y id_variedad válidos
       if (selectedEspecie != null && selectedVariedad != null) {
         cecos = await ApiService()
             .getCecos(selectedEspecie!, selectedVariedad!, idSucursal!);
-        logInfo("✅ CECOs cargados: $cecos");
       }
 
       // 🔹 Asegurar que los valores de la actividad existen en las listas
@@ -163,7 +155,7 @@ class _EditarActividadPageState extends State<EditarActividadPage> {
     if (valor != null &&
         valor.isNotEmpty &&
         !lista.any((item) => item['id'].toString() == valor)) {
-      logInfo("⚠️ Agregando valor seleccionado previamente: $valor");
+      // Agregando valor seleccionado previamente
       lista.insert(0, {'id': valor, 'nombre': 'Seleccionado previamente'});
     }
   }

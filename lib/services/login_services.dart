@@ -28,15 +28,10 @@ class AuthService {
 
   Future<void> login(String usuario, String clave) async {
     try {
-      logDebug("🔄 Intentando login con URL: $baseUrl/auth/login");
-      logInfo("📤 Datos de login - Usuario: $usuario");
-
       final Map<String, String> body = {
         "usuario": usuario,
         "clave": clave,
       };
-
-      logDebug("📦 Body de la petición: ${jsonEncode(body)}");
 
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
@@ -47,8 +42,7 @@ class AuthService {
         body: jsonEncode(body),
       );
 
-      logDebug("📡 Código de respuesta: ${response.statusCode}");
-      logDebug("📝 Respuesta del servidor: ${response.body}");
+      // Log solo en caso de error para debugging
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -100,7 +94,7 @@ class AuthService {
         return false;
       }
 
-      logDebug("🔄 Intentando refresh token...");
+      // Intentando refresh token...
 
       final response = await http.post(
         Uri.parse("$baseUrl/auth/refresh"),
@@ -110,8 +104,7 @@ class AuthService {
         },
       );
 
-      logDebug("📡 Código de respuesta refresh: ${response.statusCode}");
-      logDebug("📝 Respuesta del servidor refresh: ${response.body}");
+      // Log solo en caso de error para debugging
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

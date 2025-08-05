@@ -124,9 +124,7 @@ class ApiService {
     try {
       final response = await requestFunction();
       
-      logDebug("🔍 Response status: ${response.statusCode}");
-      logDebug("🔍 Response headers: ${response.headers}");
-      logDebug("🔍 Response body: ${response.body}");
+      // Log solo en caso de error para debugging
       
       // Si la respuesta es una redirección (3xx)
       if (response.statusCode >= 300 && response.statusCode < 400) {

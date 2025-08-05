@@ -118,9 +118,7 @@ class _CecoRiegoFormState extends State<CecoRiegoForm> {
     if (value != null) {
       try {
         setState(() => _isLoading = true);
-        logInfo('Llamando a getSectoresRiegoPorActividadYEquipo con id_actividad: ${widget.idActividad}, id_equipo: ${value['id']}');
-        final sectorList = await ApiService().getSectoresRiegoPorActividadYEquipo(widget.idActividad, value['id']);
-        logInfo('Sectores recibidos: $sectorList');
+            final sectorList = await ApiService().getSectoresRiegoPorActividadYEquipo(widget.idActividad, value['id']);
         sectorList.sort((a, b) => a['nombre'].toString().compareTo(b['nombre'].toString()));
         setState(() {
           sectoresRiego = sectorList;

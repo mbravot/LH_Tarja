@@ -101,9 +101,7 @@ class _NuevaActividadPageState extends State<NuevaActividadPage> {
     try {
       // Cargar datos de la API
       final data = await ApiService().getOpciones();
-      logDebug('Labores: \\${data['labores']}');
-      logDebug('Unidades: \\${data['unidades']}');
-      logDebug('TipoCecos: \\${data['tipoCecos']}');
+      // Datos cargados exitosamente
       setState(() {
         tiposTrabajadores = List<Map<String, dynamic>>.from(data['tiposTrabajadores'] ?? []);
         contratistas = List<Map<String, dynamic>>.from(data['contratistas'] ?? []);
