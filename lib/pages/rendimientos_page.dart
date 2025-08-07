@@ -324,50 +324,188 @@ class _RendimientosPageState extends State<RendimientosPage> {
                                   ],
                                 ),
                               )
-                            : ListView.builder(
-                                padding: const EdgeInsets.only(bottom: 80),
-                                itemCount: _rendimientosFiltrados.length,
-                                itemBuilder: (context, index) {
-                                  final rendimiento = _rendimientosFiltrados[index];
-                                  final bool esIndividual = rendimiento['tipo'] == 'individual';
-                                  return _RendimientoCard(
-                                    rendimiento: rendimiento,
-                                    esIndividual: esIndividual,
-                                    trabajadores: trabajadores,
-                                    colaboradores: colaboradores,
-                                    porcentajesContratista: porcentajesContratista,
-                                    onEditar: () async {
-                                      final rendimientoConTipo = Map<String, dynamic>.from(rendimiento);
-                                      rendimientoConTipo['id_tipotrabajador'] ??= widget.actividad['id_tipotrabajador'];
-                                      rendimientoConTipo['id_contratista'] ??= widget.actividad['id_contratista'];
-                                      rendimientoConTipo['id_actividad'] ??= widget.actividad['id'];
-                                      if (rendimiento['tipo'] == 'grupal') {
-                                        final result = await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => EditarRendimientosGrupalesPage(rendimiento: rendimientoConTipo),
-                                          ),
+                            : Column(
+                                children: [
+                                  Expanded(
+                                    child: ListView.builder(
+                                      padding: const EdgeInsets.only(bottom: 80),
+                                      itemCount: _rendimientosFiltrados.length,
+                                      itemBuilder: (context, index) {
+                                        final rendimiento = _rendimientosFiltrados[index];
+                                        final bool esIndividual = rendimiento['tipo'] == 'individual';
+                                        return _RendimientoCard(
+                                          rendimiento: rendimiento,
+                                          esIndividual: esIndividual,
+                                          trabajadores: trabajadores,
+                                          colaboradores: colaboradores,
+                                          porcentajesContratista: porcentajesContratista,
+                                          actividad: widget.actividad,
+                                          onEditar: () async {
+                                            final rendimientoConTipo = Map<String, dynamic>.from(rendimiento);
+                                            rendimientoConTipo['id_tipotrabajador'] ??= widget.actividad['id_tipotrabajador'];
+                                            rendimientoConTipo['id_contratista'] ??= widget.actividad['id_contratista'];
+                                            rendimientoConTipo['id_actividad'] ??= widget.actividad['id'];
+                                            if (rendimiento['tipo'] == 'grupal') {
+                                              final result = await Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => EditarRendimientosGrupalesPage(rendimiento: rendimientoConTipo),
+                                                ),
+                                              );
+                                              if (result == true) {
+                                                _cargarRendimientos();
+                                                _seRealizoAccion = true; // Marcar que se realizó una acción
+                                              }
+                                            } else {
+                                              final result = await Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => EditarRendimientosIndividualesPage(rendimiento: rendimientoConTipo),
+                                                ),
+                                              );
+                                              if (result == true) {
+                                                _cargarRendimientos();
+                                                _seRealizoAccion = true; // Marcar que se realizó una acción
+                                              }
+                                            }
+                                          },
+                                          onEliminar: () => _confirmarEliminarRendimiento(rendimiento),
                                         );
-                                        if (result == true) {
-                                          _cargarRendimientos();
-                                          _seRealizoAccion = true; // Marcar que se realizó una acción
-                                        }
-                                      } else {
-                                        final result = await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => EditarRendimientosIndividualesPage(rendimiento: rendimientoConTipo),
-                                          ),
-                                        );
-                                        if (result == true) {
-                                          _cargarRendimientos();
-                                          _seRealizoAccion = true; // Marcar que se realizó una acción
-                                        }
-                                      }
-                                    },
-                                    onEliminar: () => _confirmarEliminarRendimiento(rendimiento),
-                                  );
-                                },
+                                      },
+                                    ),
+                                  ),
+                                                                                                        // Widget de resumen total (abajo de la lista, arriba del botón flotante)
+                                   if (_rendimientosFiltrados.isNotEmpty)
+                                     Column(
+                                       children: [
+                                         Container(
+                                           margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                                           padding: const EdgeInsets.all(16),
+                                           decoration: BoxDecoration(
+                                             color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                             borderRadius: BorderRadius.circular(12),
+                                             border: Border.all(
+                                               color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                                               width: 1,
+                                             ),
+                                           ),
+                                           child: Row(
+                                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                             children: [
+                                               Row(
+                                                 children: [
+                                                   Icon(
+                                                     Icons.calculate,
+                                                     color: Theme.of(context).colorScheme.primary,
+                                                     size: 24,
+                                                   ),
+                                                   const SizedBox(width: 8),
+                                                   Text(
+                                                     'Rendimiento Total Actividad:',
+                                                     style: TextStyle(
+                                                       fontSize: 16,
+                                                       fontWeight: FontWeight.bold,
+                                                       color: Theme.of(context).colorScheme.primary,
+                                                     ),
+                                                   ),
+                                                 ],
+                                               ),
+                                               Row(
+                                                 children: [
+                                                   Text(
+                                                     _calcularRendimientoTotal().toStringAsFixed(1),
+                                                     style: TextStyle(
+                                                       fontSize: 18,
+                                                       fontWeight: FontWeight.bold,
+                                                       color: Theme.of(context).colorScheme.primary,
+                                                     ),
+                                                   ),
+                                                   const SizedBox(width: 8),
+                                                   Icon(
+                                                     Icons.category,
+                                                     color: Theme.of(context).colorScheme.primary,
+                                                     size: 16,
+                                                   ),
+                                                   const SizedBox(width: 2),
+                                                   Text(
+                                                     widget.actividad['nombre_unidad'] ?? 'unidad',
+                                                     style: TextStyle(
+                                                       fontSize: 14,
+                                                       fontWeight: FontWeight.w500,
+                                                       color: Theme.of(context).colorScheme.primary,
+                                                     ),
+                                                   ),
+                                                 ],
+                                               ),
+                                             ],
+                                           ),
+                                         ),
+                                         // Widget de pago total actividad
+                                         Container(
+                                           margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                                           padding: const EdgeInsets.all(16),
+                                           decoration: BoxDecoration(
+                                             color: Colors.green.withOpacity(0.1),
+                                             borderRadius: BorderRadius.circular(12),
+                                             border: Border.all(
+                                               color: Colors.green.withOpacity(0.3),
+                                               width: 1,
+                                             ),
+                                           ),
+                                           child: Row(
+                                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                             children: [
+                                               Row(
+                                                 children: [
+                                                   Icon(
+                                                     Icons.attach_money,
+                                                     color: Colors.green,
+                                                     size: 24,
+                                                   ),
+                                                   const SizedBox(width: 8),
+                                                   Text(
+                                                     'Pago Total Actividad:',
+                                                     style: TextStyle(
+                                                       fontSize: 16,
+                                                       fontWeight: FontWeight.bold,
+                                                       color: Colors.green,
+                                                     ),
+                                                   ),
+                                                 ],
+                                               ),
+                                               Row(
+                                                 children: [
+                                                   Text(
+                                                     _formatearPesoChileno(_calcularPagoTotal()),
+                                                     style: TextStyle(
+                                                       fontSize: 18,
+                                                       fontWeight: FontWeight.bold,
+                                                       color: Colors.green,
+                                                     ),
+                                                   ),
+                                                   const SizedBox(width: 8),
+                                                   Icon(
+                                                     Icons.monetization_on,
+                                                     color: Colors.green,
+                                                     size: 16,
+                                                   ),
+                                                   const SizedBox(width: 2),
+                                                   Text(
+                                                     'CLP',
+                                                     style: TextStyle(
+                                                       fontSize: 14,
+                                                       fontWeight: FontWeight.w500,
+                                                       color: Colors.green,
+                                                     ),
+                                                   ),
+                                                 ],
+                                               ),
+                                             ],
+                                           ),
+                                         ),
+                                       ],
+                                     ),
+                                ],
                               ),
                       ),
                     ],
@@ -413,6 +551,88 @@ class _RendimientosPageState extends State<RendimientosPage> {
           tooltip: 'Agregar Rendimiento',
         ),
       ),
+    );
+  }
+
+  // Método para calcular el rendimiento total de la actividad
+  double _calcularRendimientoTotal() {
+    double total = 0.0;
+    
+    for (var rendimiento in _rendimientosFiltrados) {
+      if (rendimiento['tipo'] == 'grupal') {
+        // Para rendimientos grupales, usar rendimiento_total
+        double valor = double.tryParse(rendimiento['rendimiento_total']?.toString() ?? '0') ?? 0.0;
+        total += valor;
+      } else {
+        // Para rendimientos individuales (propios y de contratista)
+        double valor = double.tryParse(rendimiento['rendimiento']?.toString() ?? '0') ?? 0.0;
+        total += valor;
+      }
+    }
+    
+    return total;
+  }
+
+    // Método para calcular el pago total de la actividad
+  double _calcularPagoTotal() {
+    double pagoTotal = 0.0;
+    double tarifa = double.tryParse(widget.actividad['tarifa']?.toString() ?? '0') ?? 0.0;
+    
+    for (var rendimiento in _rendimientosFiltrados) {
+      if (rendimiento['tipo'] == 'grupal') {
+        // Para rendimientos grupales: rendimiento_total * tarifa * (1 + porcentaje)
+        double rendimientoTotal = double.tryParse(rendimiento['rendimiento_total']?.toString() ?? '0') ?? 0.0;
+        
+        // Obtener el porcentaje del rendimiento grupal
+        double porcentaje = 0.0;
+        var porcentajeValor = rendimiento['porcentaje'] ?? rendimiento['porcentaje_trabajador'];
+        if (porcentajeValor == null && rendimiento['id_porcentaje'] != null) {
+          final p = porcentajesContratista.firstWhereOrNull((porc) => porc['id'].toString() == rendimiento['id_porcentaje'].toString());
+          if (p != null && p['porcentaje'] != null) porcentajeValor = p['porcentaje'];
+        }
+        if (porcentajeValor != null) {
+          porcentaje = porcentajeValor is num ? (porcentajeValor as num).toDouble() : double.tryParse(porcentajeValor.toString()) ?? 0.0;
+        }
+        
+        // Calcular: rendimiento_total * tarifa * (1 + porcentaje)
+        double pagoGrupal = rendimientoTotal * tarifa * (1 + porcentaje);
+        pagoTotal += pagoGrupal;
+      } else {
+        // Para rendimientos individuales
+        double rendimientoValor = double.tryParse(rendimiento['rendimiento']?.toString() ?? '0') ?? 0.0;
+        
+        // Verificar si es rendimiento de contratista (tiene id_trabajador)
+        if (rendimiento['id_trabajador'] != null) {
+          // Para rendimientos individuales de contratista: rendimiento * tarifa * (1 + porcentaje)
+          double porcentaje = 0.0;
+          var porcentajeValor = rendimiento['porcentaje'] ?? rendimiento['porcentaje_trabajador'] ?? rendimiento['porcentaje_individual'];
+          if (porcentajeValor == null && rendimiento['id_porcentaje_individual'] != null) {
+            final p = porcentajesContratista.firstWhereOrNull((porc) => porc['id'].toString() == rendimiento['id_porcentaje_individual'].toString());
+            if (p != null && p['porcentaje'] != null) porcentajeValor = p['porcentaje'];
+          }
+          if (porcentajeValor != null) {
+            porcentaje = porcentajeValor is num ? (porcentajeValor as num).toDouble() : double.tryParse(porcentajeValor.toString()) ?? 0.0;
+          }
+          
+          // Calcular: rendimiento * tarifa * (1 + porcentaje)
+          double pagoIndividualContratista = rendimientoValor * tarifa * (1 + porcentaje);
+          pagoTotal += pagoIndividualContratista;
+        } else {
+          // Para rendimientos individuales propios: rendimiento * tarifa
+          double pagoIndividualPropio = rendimientoValor * tarifa;
+          pagoTotal += pagoIndividualPropio;
+        }
+      }
+    }
+    
+    return pagoTotal;
+  }
+
+  // Método para formatear peso chileno con separación de miles y 2 decimales
+  String _formatearPesoChileno(double valor) {
+    return valor.toStringAsFixed(2).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match match) => '${match[1]}.'
     );
   }
 
@@ -508,6 +728,7 @@ class _RendimientoCard extends StatelessWidget {
   final List<Map<String, dynamic>> trabajadores;
   final List<Map<String, dynamic>> colaboradores;
   final List<Map<String, dynamic>> porcentajesContratista;
+  final Map<String, dynamic> actividad;
   final VoidCallback onEditar;
   final VoidCallback onEliminar;
 
@@ -517,6 +738,7 @@ class _RendimientoCard extends StatelessWidget {
     required this.trabajadores,
     required this.colaboradores,
     required this.porcentajesContratista,
+    required this.actividad,
     required this.onEditar,
     required this.onEliminar,
     Key? key,
@@ -540,6 +762,32 @@ class _RendimientoCard extends StatelessWidget {
       }
     } else if (rendimiento['nombre'] != null) {
       nombre = ('${rendimiento['nombre']} ${rendimiento['apellido_paterno'] ?? ''} ${rendimiento['apellido_materno'] ?? ''}').trim();
+    }
+    
+    // Método para calcular el pago por persona (individual)
+    double _calcularPagoPorPersona(Map<String, dynamic> rendimiento) {
+      double rendimientoValor = double.tryParse(rendimiento['rendimiento']?.toString() ?? '0') ?? 0.0;
+      double tarifa = double.tryParse(actividad['tarifa']?.toString() ?? '0') ?? 0.0;
+      return rendimientoValor * tarifa;
+    }
+    
+    // Método para calcular el pago estimado por persona (grupal)
+    double _calcularPagoEstimadoPorPersona(Map<String, dynamic> rendimiento) {
+      double rendimientoTotal = double.tryParse(rendimiento['rendimiento_total']?.toString() ?? '0') ?? 0.0;
+      double cantidadTrabajadores = double.tryParse(rendimiento['cantidad_trab']?.toString() ?? '1') ?? 1.0;
+      double tarifa = double.tryParse(actividad['tarifa']?.toString() ?? '0') ?? 0.0;
+      
+      // (Rendimiento total ÷ Cantidad trabajadores) × Tarifa
+      double rendimientoPorPersona = rendimientoTotal / cantidadTrabajadores;
+      return rendimientoPorPersona * tarifa;
+    }
+    
+    // Método para formatear peso chileno
+    String _formatearPesoChileno(double valor) {
+      return valor.toStringAsFixed(2).replaceAllMapped(
+        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+        (Match match) => '${match[1]}.'
+      );
     }
     String porcentaje = '';
     if ((rendimiento['porcentaje_trabajador'] != null && rendimiento['id_trabajador'] != null) || (rendimiento['porcentaje'] != null && rendimiento['id_trabajador'] != null)) {
@@ -580,7 +828,7 @@ class _RendimientoCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 padding: const EdgeInsets.all(8),
-                child: Icon(Icons.speed, color: theme.colorScheme.primary, size: 32),
+                child: Icon(Icons.person, color: theme.colorScheme.primary, size: 32),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -612,86 +860,176 @@ class _RendimientoCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    if (esIndividual) ...[
-                      Row(
-                        children: [
-                          Icon(Icons.speed, color: Colors.green, size: 18),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Rendimiento: ',
-                            style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
-                          ),
-                          Text(
-                            rendimiento['rendimiento']?.toString() ?? '-',
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                          if (porcentaje.isNotEmpty) ...[
-                            const SizedBox(width: 12),
-                            Icon(Icons.percent, color: Colors.green, size: 18),
-                            const SizedBox(width: 2),
-                            Text(
-                              porcentaje,
-                              style: const TextStyle(fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ] else ...[
-                      Row(
-                        children: [
-                          Icon(Icons.speed, color: Colors.green, size: 18),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Rendimiento total: ',
-                            style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
-                          ),
-                          Text(
-                            rendimiento['rendimiento_total']?.toString() ?? '-',
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(Icons.groups, color: Colors.green, size: 18),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Cantidad trabajadores: ',
-                            style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
-                          ),
-                          Text(
-                            rendimiento['cantidad_trab']?.toString() ?? '-',
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(Icons.percent, color: Colors.green, size: 18),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Porcentaje: ',
-                            style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
-                          ),
-                          Text(
-                            (() {
-                              var porcentaje = rendimiento['porcentaje'] ?? rendimiento['porcentaje_trabajador'];
-                              if (porcentaje == null && rendimiento['id_porcentaje'] != null) {
-                                final p = porcentajesContratista.firstWhereOrNull((porc) => porc['id'].toString() == rendimiento['id_porcentaje'].toString());
-                                if (p != null && p['porcentaje'] != null) porcentaje = p['porcentaje'];
-                              }
-                              if (porcentaje != null) {
-                                final valor = (porcentaje is num ? porcentaje : double.tryParse(porcentaje.toString()) ?? 0) * 100;
-                                return valor.toStringAsFixed(0) + '%';
-                              }
-                              return '-';
-                            })(),
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
+                                         if (esIndividual) ...[
+                       Row(
+                         children: [
+                           Icon(Icons.speed, color: Colors.orange, size: 18),
+                           const SizedBox(width: 4),
+                           Text(
+                             'Rendimiento: ',
+                             style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                           ),
+                           Text(
+                             rendimiento['rendimiento']?.toString() ?? '-',
+                             style: const TextStyle(fontWeight: FontWeight.w500),
+                           ),
+                           const SizedBox(width: 8),
+                           Icon(
+                             Icons.straighten,
+                             color: Colors.blue,
+                             size: 14,
+                           ),
+                           const SizedBox(width: 2),
+                           Text(
+                             actividad['nombre_unidad'] ?? 'unidad',
+                             style: TextStyle(
+                               color: Colors.grey[600],
+                               fontWeight: FontWeight.w500,
+                               fontSize: 12,
+                             ),
+                           ),
+                           if (porcentaje.isNotEmpty) ...[
+                             const SizedBox(width: 12),
+                             Icon(Icons.percent, color: Colors.purple, size: 18),
+                             const SizedBox(width: 2),
+                             Text(
+                               porcentaje,
+                               style: const TextStyle(fontWeight: FontWeight.w500),
+                             ),
+                           ],
+                         ],
+                       ),
+                       const SizedBox(height: 2),
+                       Row(
+                         children: [
+                           Icon(Icons.attach_money, color: Colors.green, size: 18),
+                           const SizedBox(width: 4),
+                           Text(
+                             'Líquido por persona: ',
+                             style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                           ),
+                           Text(
+                             _formatearPesoChileno(_calcularPagoPorPersona(rendimiento)),
+                             style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.green),
+                           ),
+                           const SizedBox(width: 8),
+                           Icon(
+                             Icons.monetization_on,
+                             color: Colors.green,
+                             size: 14,
+                           ),
+                           const SizedBox(width: 2),
+                           Text(
+                             'CLP',
+                             style: TextStyle(
+                               color: Colors.green,
+                               fontWeight: FontWeight.w500,
+                               fontSize: 12,
+                             ),
+                           ),
+                         ],
+                       ),
+                                         ] else ...[
+                       Row(
+                         children: [
+                           Icon(Icons.speed, color: Colors.green, size: 18),
+                           const SizedBox(width: 4),
+                           Text(
+                             'Rendimiento total: ',
+                             style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                           ),
+                           Text(
+                             rendimiento['rendimiento_total']?.toString() ?? '-',
+                             style: const TextStyle(fontWeight: FontWeight.w500),
+                           ),
+                           const SizedBox(width: 8),
+                           Icon(
+                             Icons.straighten,
+                             color: Colors.blue,
+                             size: 14,
+                           ),
+                           const SizedBox(width: 2),
+                           Text(
+                             actividad['nombre_unidad'] ?? 'unidad',
+                             style: TextStyle(
+                               color: Colors.grey[600],
+                               fontWeight: FontWeight.w500,
+                               fontSize: 12,
+                             ),
+                           ),
+                         ],
+                       ),
+                       const SizedBox(height: 2),
+                       Row(
+                         children: [
+                           Icon(Icons.groups, color: Colors.orange, size: 18),
+                           const SizedBox(width: 4),
+                           Text(
+                             'Cantidad trabajadores: ',
+                             style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                           ),
+                           Text(
+                             rendimiento['cantidad_trab']?.toString() ?? '-',
+                             style: const TextStyle(fontWeight: FontWeight.w500),
+                           ),
+                         ],
+                       ),
+                       const SizedBox(height: 2),
+                       Row(
+                         children: [
+                           Icon(Icons.percent, color: Colors.purple, size: 18),
+                           const SizedBox(width: 4),
+                           Text(
+                             'Porcentaje: ',
+                             style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                           ),
+                           Text(
+                             (() {
+                               var porcentaje = rendimiento['porcentaje'] ?? rendimiento['porcentaje_trabajador'];
+                               if (porcentaje == null && rendimiento['id_porcentaje'] != null) {
+                                 final p = porcentajesContratista.firstWhereOrNull((porc) => porc['id'].toString() == rendimiento['id_porcentaje'].toString());
+                                 if (p != null && p['porcentaje'] != null) porcentaje = p['porcentaje'];
+                               }
+                               if (porcentaje != null) {
+                                 final valor = (porcentaje is num ? porcentaje : double.tryParse(porcentaje.toString()) ?? 0) * 100;
+                                 return valor.toStringAsFixed(0) + '%';
+                               }
+                               return '-';
+                             })(),
+                             style: const TextStyle(fontWeight: FontWeight.w500),
+                           ),
+                         ],
+                       ),
+                       const SizedBox(height: 2),
+                       Row(
+                         children: [
+                           Icon(Icons.attach_money, color: Colors.green, size: 18),
+                           const SizedBox(width: 4),
+                           Text(
+                             'Líquido promedio por persona: ',
+                             style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                           ),
+                           Text(
+                             _formatearPesoChileno(_calcularPagoEstimadoPorPersona(rendimiento)),
+                             style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.green),
+                           ),
+                           const SizedBox(width: 8),
+                           Icon(
+                             Icons.monetization_on,
+                             color: Colors.green,
+                             size: 14,
+                           ),
+                           const SizedBox(width: 2),
+                           Text(
+                             'CLP',
+                             style: TextStyle(
+                               color: Colors.green,
+                               fontWeight: FontWeight.w500,
+                               fontSize: 12,
+                             ),
+                           ),
+                         ],
+                       ),
                     ],
                   ],
                 ),

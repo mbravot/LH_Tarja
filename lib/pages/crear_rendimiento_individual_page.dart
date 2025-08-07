@@ -152,13 +152,15 @@ class _CrearRendimientoIndividualPageState extends State<CrearRendimientoIndivid
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       try {
-        final Map<String, dynamic> rendimiento = {
-          'id_actividad': widget.idActividad,
-          'rendimiento': double.tryParse(rendimientoController.text) ?? 0,
-          'id_trabajador': null,
-          'id_colaborador': null,
-          'id_porcentaje_individual': null,
-        };
+                              final double rendimientoValor = double.tryParse(rendimientoController.text) ?? 0;
+                      
+                      final Map<String, dynamic> rendimiento = {
+                        'id_actividad': widget.idActividad,
+                        'rendimiento': rendimientoValor,
+                        'id_trabajador': null,
+                        'id_colaborador': null,
+                        'id_porcentaje_individual': null,
+                      };
 
         bool response;
         if (widget.idTipotrabajador == 2) {
