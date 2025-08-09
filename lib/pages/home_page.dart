@@ -51,6 +51,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   
   Key _actividadesKey = UniqueKey();
   Key _rendimientosKey = UniqueKey();
+  Key _indicadoresKey = UniqueKey();
   List<Map<String, dynamic>> _sucursalesDisponibles = [];
 
   @override
@@ -74,6 +75,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     setState(() {
       _actividadesKey = UniqueKey();
       _rendimientosKey = UniqueKey();
+      _indicadoresKey = UniqueKey();
     });
   }
 
@@ -332,7 +334,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     ? ActividadesPage(
                         key: _actividadesKey,
                       )
-                    : IndicadoresPage(),
+                    : IndicadoresPage(
+                        key: _indicadoresKey,
+                      ),
               ),
             ],
           ),

@@ -88,8 +88,8 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
   Future<void> _cargarActividades() async {
     setState(() => _isLoading = true);
     try {
-      // Usar el método eficiente que reduce significativamente las llamadas a la API
-      final actividadesProcesadas = await ApiService().getActividadesConRendimientosEficiente();
+      // Usar el método optimizado: solo 2 llamadas (actividades + rendimientos/todos)
+      final actividadesProcesadas = await ApiService().getActividadesConRendimientosOptimizado();
       if (!mounted) return;
 
       // Procesar fechas
@@ -136,6 +136,41 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  String _formatearHora(dynamic valor) {
+    if (valor == null) return '--:--';
+    final String s = valor.toString();
+    if (!s.contains(':')) return s;
+    final parts = s.split(':');
+    if (parts.length >= 2) {
+      final hh = parts[0].padLeft(2, '0');
+      final mm = parts[1].padLeft(2, '0');
+      return '$hh:$mm';
+    }
+    return s;
+  }
+
+  Widget _infoRow(IconData icon, Color iconColor, String text, {Widget? trailing}) {
+    final theme = Theme.of(context);
+    final textColor = theme.colorScheme.onSurface;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(icon, color: iconColor, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: textColor.withOpacity(0.7)),
+            ),
+          ),
+          if (trailing != null) trailing,
+        ],
       ),
     );
   }
@@ -480,191 +515,142 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
                 ],
               ),
               SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.straighten, color: Colors.indigo, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Unidad: ${actividad['nombre_unidad'] ?? 'Sin unidad'}',
-                      style: TextStyle(color: textColor.withOpacity(0.7)),
-                    ),
-                  ),
-                ],
+              _infoRow(
+                Icons.straighten,
+                Colors.indigo,
+                'Unidad: ${actividad['nombre_unidad'] ?? 'Sin unidad'}',
               ),
-              SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Icon(Icons.category, color: Colors.purple, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Tipo CECO: ${actividad['nombre_tipoceco'] ?? 'Sin tipo de CECO'}',
-                      style: TextStyle(color: textColor.withOpacity(0.7)),
+              _infoRow(
+                Icons.category,
+                Colors.purple,
+                'Tipo CECO: ${actividad['nombre_tipoceco'] ?? 'Sin tipo de CECO'}',
+                trailing: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _tieneRendimientos(actividad) ? Colors.green[300]! : Colors.red[300]!,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _tieneRendimientos(actividad) ? 'Con rendimientos' : 'Sin rendimientos',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
                     ),
                   ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _tieneRendimientos(actividad) ? Colors.green[300]! : Colors.red[300]!,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _tieneRendimientos(actividad) ? 'Con rendimientos' : 'Sin rendimientos',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
+                ),
+              ),
+              _infoRow(
+                Icons.folder,
+                Colors.amber,
+                'CECO: ${obtenerNombreCeco(actividad)}',
+                trailing: IconButton(
+                  icon: Icon(Icons.edit, color: Colors.green, size: 24),
+                  onPressed: () async {
+                    final resultado = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => EditarActividadPage(
+                          actividad: actividad,
+                        ),
                       ),
-                    ),
-                  ),
-                ],
+                    );
+                    if (resultado == true) _refreshActividades();
+                  },
+                  tooltip: 'Editar',
+                ),
               ),
-              SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Icon(Icons.folder, color: Colors.amber, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'CECO: ${obtenerNombreCeco(actividad)}',
-                      style: TextStyle(color: textColor.withOpacity(0.7)),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.edit, color: Colors.green, size: 28),
-                    onPressed: () async {
-                      final resultado = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => EditarActividadPage(
-                            actividad: actividad,
+              _infoRow(
+                Icons.business,
+                Colors.blue,
+                actividad['nombre_contratista'] ?? 'PERSONAL PROPIO',
+              ),
+              _infoRow(
+                Icons.assessment,
+                Colors.purple,
+                'Rendimiento: ${actividad['nombre_tiporendimiento'] ?? 'Sin tipo de rendimiento'}',
+                trailing: IconButton(
+                  icon: Icon(Icons.delete, color: Colors.red, size: 24),
+                  onPressed: () async {
+                    final confirmacion = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text('¿Eliminar actividad?'),
+                        content: Text('¿Está seguro que desea eliminar esta actividad?'),
+                        actions: [
+                          TextButton(
+                            child: Text('Cancelar'),
+                            onPressed: () => Navigator.pop(context, false),
                           ),
-                        ),
-                      );
-                      if (resultado == true) _refreshActividades();
-                    },
-                    tooltip: 'Editar',
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.business, color: Colors.blue, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      actividad['nombre_contratista'] ?? 'PERSONAL PROPIO',
-                    style: TextStyle(color: textColor.withOpacity(0.7)),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Icon(Icons.assessment, color: Colors.purple, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Rendimiento: ${actividad['nombre_tiporendimiento'] ?? 'Sin tipo de rendimiento'}',
-                    style: TextStyle(color: textColor.withOpacity(0.7)),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.delete, color: Colors.red, size: 28),
-                    onPressed: () async {
-                      final confirmacion = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: Text("¿Eliminar actividad?"),
-                          content: Text("¿Está seguro que desea eliminar esta actividad?"),
-                          actions: [
-                            TextButton(
-                              child: Text("Cancelar"),
-                              onPressed: () => Navigator.pop(context, false),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
                             ),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
+                            child: Text('Eliminar'),
+                            onPressed: () => Navigator.pop(context, true),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmacion == true) {
+                      try {
+                        final exito = await ApiService().eliminarActividad(actividad['id'].toString());
+                        if (exito) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  Icon(Icons.check_circle, color: Colors.white),
+                                  SizedBox(width: 8),
+                                  Text('Actividad eliminada correctamente'),
+                                ],
                               ),
-                              child: Text("Eliminar"),
-                              onPressed: () => Navigator.pop(context, true),
+                              backgroundColor: Colors.green,
                             ),
-                          ],
-                        ),
-                      );
-                      if (confirmacion == true) {
-                        try {
-                          final exito = await ApiService().eliminarActividad(actividad['id'].toString());
-                          if (exito) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    Icon(Icons.check_circle, color: Colors.white),
-                                    SizedBox(width: 8),
-                                    Text("Actividad eliminada correctamente"),
-                                  ],
-                                ),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                            _refreshActividades();
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    Icon(Icons.error_outline, color: Colors.white),
-                                    SizedBox(width: 8),
-                                    Text("No se pudo eliminar la actividad"),
-                                  ],
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        } catch (e) {
+                          );
+                          _refreshActividades();
+                        } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Row(
                                 children: [
                                   Icon(Icons.error_outline, color: Colors.white),
                                   SizedBox(width: 8),
-                                  Text("Error al eliminar la actividad: "+e.toString()),
+                                  Text('No se pudo eliminar la actividad'),
                                 ],
                               ),
                               backgroundColor: Colors.red,
                             ),
                           );
                         }
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Row(
+                              children: [
+                                Icon(Icons.error_outline, color: Colors.white),
+                                SizedBox(width: 8),
+                                Text('Error al eliminar la actividad: ' + e.toString()),
+                              ],
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
                       }
-                    },
-                    tooltip: 'Eliminar',
-                  ),
-                ],
+                    }
+                  },
+                ),
               ),
-              SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.attach_money, color: Colors.green, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Tarifa: \$${actividad['tarifa']?.toString() ?? '0'}',
-                      style: TextStyle(color: textColor.withOpacity(0.7)),
-                    ),
-                  ),
-                ],
+              _infoRow(
+                Icons.attach_money,
+                Colors.green,
+                'Tarifa: \$${actividad['tarifa']?.toString() ?? '0'}',
+              ),
+              _infoRow(
+                Icons.access_time,
+                Colors.teal,
+                'Horario: ${_formatearHora(actividad['hora_inicio'])} - ${_formatearHora(actividad['hora_fin'])}',
               ),
             ],
           ),

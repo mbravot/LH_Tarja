@@ -28,7 +28,15 @@ class ApiService {
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
   final String baseUrl = 'https://apilhtarja-927498545444.us-central1.run.app/api';
-  //final String baseUrl = 'http://192.168.1.37:5000/api';
+  //final String baseUrl = 'http://192.168.1.52:5000/api';
+
+  // ===== CACHES EN MEMORIA PARA REDUCIR LLAMADAS =====
+  Map<String, bool>? _cacheIdsConRendimientos;
+  List<Map<String, dynamic>>? _cacheActividades;
+  DateTime? _cacheRendimientosAt;
+  DateTime? _cacheActividadesAt;
+  final Duration _cacheTTL = Duration(minutes: 2);
+  Future<List<Map<String, dynamic>>>? _ongoingActividadesConRendOptimized;
 
   /// 🔹 Método para manejar token expirado
   Future<void> manejarTokenExpirado() async {
@@ -2831,71 +2839,110 @@ class ApiService {
 
   // Método optimizado para obtener todas las actividades con información de rendimientos
   Future<List<Map<String, dynamic>>> getActividadesConRendimientosOptimizado() async {
-    try {
-      final response = await _makeRequest(() async {
-        return await http.get(
-          Uri.parse('$baseUrl/actividades/'),
-          headers: await _getHeaders(),
-        );
-      });
+    // De-duplicar llamadas concurrentes
+    if (_ongoingActividadesConRendOptimized != null) {
+      return _ongoingActividadesConRendOptimized!;
+    }
 
-      if (response.statusCode == 200) {
-        final actividades = jsonDecode(response.body) as List;
-        
-        // Obtener todos los rendimientos en una sola llamada
-        final rendimientosResponse = await _makeRequest(() async {
-          return await http.get(
-            Uri.parse('$baseUrl/rendimientos/todos'),
-            headers: await _getHeaders(),
-          );
-        });
+    // Si caches son válidos, devolver desde memoria
+    final now = DateTime.now();
+    final cacheActividadesValida = _cacheActividades != null && _cacheActividadesAt != null && now.difference(_cacheActividadesAt!) < _cacheTTL;
+    final cacheRendimientosValida = _cacheIdsConRendimientos != null && _cacheRendimientosAt != null && now.difference(_cacheRendimientosAt!) < _cacheTTL;
+    if (cacheActividadesValida && cacheRendimientosValida) {
+      final actividades = _cacheActividades!.map((a) => Map<String, dynamic>.from(a)).toList();
+      for (var actividad in actividades) {
+        actividad['tiene_rendimientos_cache'] = _cacheIdsConRendimientos![actividad['id'].toString()] ?? false;
+      }
+      return actividades;
+    }
+
+    _ongoingActividadesConRendOptimized = (() async {
+      try {
+        // Lanzar ambas peticiones en paralelo
+        final headers = await _getHeaders();
+        final actividadesFuture = http.get(Uri.parse('$baseUrl/actividades/'), headers: headers);
+        final rendTodosFuture = http.get(Uri.parse('$baseUrl/rendimientos/todos'), headers: headers);
+
+        final actividadesResponse = await actividadesFuture;
+        if (actividadesResponse.statusCode != 200) {
+          throw Exception('Error al cargar actividades');
+        }
+        final actividades = (jsonDecode(actividadesResponse.body) as List).cast<Map<String, dynamic>>();
 
         Map<String, bool> actividadesConRendimientos = {};
-        
+        final rendimientosResponse = await rendTodosFuture;
         if (rendimientosResponse.statusCode == 200) {
-          final rendimientosData = jsonDecode(rendimientosResponse.body);
-          
-          // Procesar rendimientos individuales propios
-          if (rendimientosData['propios'] is List) {
-            for (var rendimiento in rendimientosData['propios']) {
-              if (rendimiento['id_actividad'] != null) {
-                actividadesConRendimientos[rendimiento['id_actividad'].toString()] = true;
+          final dynamic data = jsonDecode(rendimientosResponse.body);
+          // Recolector genérico de ids
+          void collectIds(dynamic node) {
+            if (node is Map) {
+              if (node.containsKey('id_actividad') && node['id_actividad'] != null) {
+                actividadesConRendimientos[node['id_actividad'].toString()] = true;
               }
+              for (final v in node.values) collectIds(v);
+            } else if (node is List) {
+              for (final item in node) collectIds(item);
             }
           }
-          
-          // Procesar rendimientos individuales de contratistas
-          if (rendimientosData['contratistas'] is List) {
-            for (var rendimiento in rendimientosData['contratistas']) {
-              if (rendimiento['id_actividad'] != null) {
-                actividadesConRendimientos[rendimiento['id_actividad'].toString()] = true;
+          collectIds(data);
+          _cacheIdsConRendimientos = actividadesConRendimientos;
+          _cacheRendimientosAt = now;
+        } else {
+          // Fallback barato: consultar solo rendimientos individuales (2 endpoints) en paralelo
+          try {
+            final propiosFuture = http.get(Uri.parse('$baseUrl/rendimientos/individual/propio'), headers: headers);
+            final contratistasFuture = http.get(Uri.parse('$baseUrl/rendimientos/individual/contratista'), headers: headers);
+            final propiosResp = await propiosFuture;
+            final contratistasResp = await contratistasFuture;
+
+            if (propiosResp.statusCode == 200) {
+              final list = propiosResp.body.isEmpty ? [] : jsonDecode(propiosResp.body);
+              if (list is List) {
+                for (final r in list) {
+                  if (r is Map && r['id_actividad'] != null) {
+                    actividadesConRendimientos[r['id_actividad'].toString()] = true;
+                  }
+                }
               }
             }
-          }
-          
-          // Procesar rendimientos grupales
-          if (rendimientosData['grupales'] is List) {
-            for (var rendimiento in rendimientosData['grupales']) {
-              if (rendimiento['id_actividad'] != null) {
-                actividadesConRendimientos[rendimiento['id_actividad'].toString()] = true;
+            if (contratistasResp.statusCode == 200) {
+              final list = contratistasResp.body.isEmpty ? [] : jsonDecode(contratistasResp.body);
+              if (list is List) {
+                for (final r in list) {
+                  if (r is Map && r['id_actividad'] != null) {
+                    actividadesConRendimientos[r['id_actividad'].toString()] = true;
+                  }
+                }
               }
             }
+            _cacheIdsConRendimientos = actividadesConRendimientos;
+            _cacheRendimientosAt = now;
+          } catch (_) {
+            // Si todo falla, mantener mapa vacío y continuar sin etiquetar
+            _cacheIdsConRendimientos = {};
+            _cacheRendimientosAt = now;
           }
         }
 
-        // Agregar información de rendimientos a cada actividad
+        // Guardar cache de actividades
+        _cacheActividades = actividades.map((a) => Map<String, dynamic>.from(a)).toList();
+        _cacheActividadesAt = now;
+
+        // Mezclar flag en las actividades a devolver
         for (var actividad in actividades) {
-          actividad['tiene_rendimientos_cache'] = actividadesConRendimientos[actividad['id'].toString()] ?? false;
+          actividad['tiene_rendimientos_cache'] = _cacheIdsConRendimientos![actividad['id'].toString()] ?? false;
         }
 
-        return actividades.cast<Map<String, dynamic>>();
-      } else {
-        throw Exception('Error al cargar actividades');
+        return actividades;
+      } catch (e) {
+        logError('❌ Error al cargar actividades con rendimientos optimizado: $e');
+        rethrow;
+      } finally {
+        _ongoingActividadesConRendOptimized = null;
       }
-    } catch (e) {
-      logError("❌ Error al cargar actividades con rendimientos optimizado: $e");
-      rethrow;
-    }
+    })();
+
+    return _ongoingActividadesConRendOptimized!;
   }
 
   // Método alternativo que usa endpoints existentes pero de manera más eficiente
@@ -3016,6 +3063,138 @@ class ApiService {
     } catch (e) {
       logError("❌ Error al obtener todos los rendimientos: $e");
       rethrow;
+    }
+  }
+
+  // Método para obtener indicadores de control de horas por colaborador
+  Future<List<Map<String, dynamic>>> getIndicadoresControlHoras({
+    String? fechaInicio,
+    String? fechaFin,
+    String? idColaborador,
+  }) async {
+    try {
+      // Construir URL con parámetros opcionales
+      String url = '$baseUrl/indicadores/control-horas/resumen-diario-colaborador';
+      List<String> params = [];
+      
+      if (fechaInicio != null) {
+        params.add('fecha_inicio=$fechaInicio');
+      }
+      if (fechaFin != null) {
+        params.add('fecha_fin=$fechaFin');
+      }
+      if (idColaborador != null) {
+        params.add('id_colaborador=$idColaborador');
+      }
+      
+      if (params.isNotEmpty) {
+        url += '?${params.join('&')}';
+      }
+
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse(url),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          return data.cast<Map<String, dynamic>>();
+        } else {
+          return [];
+        }
+      } else {
+        logError("❌ Error al obtener indicadores de control de horas: ${response.statusCode}");
+        return [];
+      }
+    } catch (e) {
+      logError("❌ Error al obtener indicadores de control de horas: $e");
+      return [];
+    }
+  }
+
+  // Método para obtener actividades de un colaborador específico
+  Future<List<Map<String, dynamic>>> getActividadesColaborador({
+    required String idColaborador,
+    String? fechaInicio,
+    String? fechaFin,
+  }) async {
+    try {
+      String url = '$baseUrl/indicadores/control-horas/actividades-colaborador';
+      List<String> params = ['id_colaborador=$idColaborador'];
+      
+      if (fechaInicio != null) {
+        params.add('fecha_inicio=$fechaInicio');
+      }
+      if (fechaFin != null) {
+        params.add('fecha_fin=$fechaFin');
+      }
+      
+      url += '?${params.join('&')}';
+
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse(url),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          return data.cast<Map<String, dynamic>>();
+        } else {
+          return [];
+        }
+      } else {
+        logError("❌ Error al obtener actividades del colaborador: ${response.statusCode}");
+        return [];
+      }
+    } catch (e) {
+      logError("❌ Error al obtener actividades del colaborador: $e");
+      return [];
+    }
+  }
+
+  // ================= INDICADORES: CONTROL DE RENDIMIENTOS =================
+  Future<List<Map<String, dynamic>>> getIndicadoresControlRendimientos({
+    String? fechaInicio,
+    String? fechaFin,
+    String? idTipoRendimiento,
+    String? idLabor,
+    String? idCeco,
+    String? idTrabajador,
+  }) async {
+    try {
+      String url = '$baseUrl/indicadores/control-horas/resumen-rendimientos';
+      final params = <String>[];
+      if (fechaInicio != null) params.add('fecha_inicio=$fechaInicio');
+      if (fechaFin != null) params.add('fecha_fin=$fechaFin');
+      if (idTipoRendimiento != null) params.add('id_tiporendimiento=$idTipoRendimiento');
+      if (idLabor != null) params.add('id_labor=$idLabor');
+      if (idCeco != null) params.add('id_ceco=$idCeco');
+      if (idTrabajador != null) params.add('id_trabajador=$idTrabajador');
+      if (params.isNotEmpty) url += '?'+params.join('&');
+
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse(url),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        return [];
+      }
+      logError('❌ Error indicador control rendimientos: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      logError('❌ Error indicador control rendimientos: $e');
+      return [];
     }
   }
 
