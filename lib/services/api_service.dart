@@ -37,6 +37,13 @@ class ApiService {
   DateTime? _cacheActividadesAt;
   final Duration _cacheTTL = Duration(minutes: 2);
   Future<List<Map<String, dynamic>>>? _ongoingActividadesConRendOptimized;
+  
+  void _invalidateActividadesRendimientosCache() {
+    _cacheIdsConRendimientos = null;
+    _cacheActividades = null;
+    _cacheRendimientosAt = null;
+    _cacheActividadesAt = null;
+  }
 
   /// 🔹 Método para manejar token expirado
   Future<void> manejarTokenExpirado() async {
@@ -452,6 +459,8 @@ class ApiService {
     });
 
     if (response.statusCode == 201) {
+      // Invalida cache para que las actividades reflejen el nuevo estado de rendimientos
+      _invalidateActividadesRendimientosCache();
       return true;
     } else {
       logError("❌ Error en la API: ${response.body}");
@@ -470,6 +479,7 @@ class ApiService {
     });
 
     if (response.statusCode == 200) {
+      _invalidateActividadesRendimientosCache();
       return true;
     } else {
       logError("❌ Error en la API: ${response.body}");
@@ -487,6 +497,7 @@ class ApiService {
     });
 
     if (response.statusCode == 200) {
+      _invalidateActividadesRendimientosCache();
       return true;
     } else {
       logError("❌ Error en la API: ${response.body}");
@@ -1744,6 +1755,8 @@ class ApiService {
       if (response.statusCode != 201) {
         throw Exception('Error al crear rendimiento grupal: ${response.body}');
       }
+      // Invalida cache para que la actividad refleje el nuevo estado
+      _invalidateActividadesRendimientosCache();
     } catch (e) {
       throw Exception('Error al crear rendimiento grupal: $e');
     }
@@ -1832,7 +1845,7 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getRendimientosGrupales(int idActividad) async {
+  Future<List<Map<String, dynamic>>> getRendimientosGrupalesPorActividad(int idActividad) async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/rendimientos_grupales?actividad_id=$idActividad'),
@@ -2887,6 +2900,31 @@ class ApiService {
           collectIds(data);
           _cacheIdsConRendimientos = actividadesConRendimientos;
           _cacheRendimientosAt = now;
+
+          // Paso adicional: para actividades que aún no aparecen con rendimientos,
+          // consultar rendimientos grupales específicos (minimiza llamadas)
+          for (final actividad in actividades) {
+            final id = actividad['id'].toString();
+            if (!actividadesConRendimientos.containsKey(id)) {
+              try {
+                final respGrupal = await http.get(
+                  Uri.parse('$baseUrl/rendimientos/$id'),
+                  headers: headers,
+                );
+                if (respGrupal.statusCode == 200 && respGrupal.body.isNotEmpty) {
+                  final dataGrupal = jsonDecode(respGrupal.body);
+                  if (dataGrupal is Map && dataGrupal['rendimientos'] is List) {
+                    final list = dataGrupal['rendimientos'] as List;
+                    if (list.isNotEmpty) {
+                      actividadesConRendimientos[id] = true;
+                    }
+                  }
+                }
+              } catch (_) {
+                // Silencioso; continuamos con siguiente actividad
+              }
+            }
+          }
         } else {
           // Fallback barato: consultar solo rendimientos individuales (2 endpoints) en paralelo
           try {
@@ -3159,6 +3197,136 @@ class ApiService {
   }
 
   // ================= INDICADORES: CONTROL DE RENDIMIENTOS =================
+  
+  // 1. Rendimientos Individuales (propios y contratistas)
+  Future<List<Map<String, dynamic>>> getRendimientosIndividuales({
+    String? fechaInicio,
+    String? fechaFin,
+    String? idTipoRendimiento,
+    String? idLabor,
+    String? idCeco,
+    String? idTrabajador,
+    String? idUnidad,
+    String? tipoMo,
+  }) async {
+    try {
+      String url = '$baseUrl/indicadores/control-rendimientos/individuales';
+      final params = <String>[];
+      if (fechaInicio != null) params.add('fecha_inicio=$fechaInicio');
+      if (fechaFin != null) params.add('fecha_fin=$fechaFin');
+      if (idTipoRendimiento != null) params.add('id_tiporendimiento=$idTipoRendimiento');
+      if (idLabor != null) params.add('id_labor=$idLabor');
+      if (idCeco != null) params.add('id_ceco=$idCeco');
+      if (idTrabajador != null) params.add('id_trabajador=$idTrabajador');
+      if (idUnidad != null) params.add('id_unidad=$idUnidad');
+      if (tipoMo != null) params.add('tipo_mo=$tipoMo');
+      if (params.isNotEmpty) url += '?'+params.join('&');
+
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse(url),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        return [];
+      }
+      logError('❌ Error rendimientos individuales: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      logError('❌ Error rendimientos individuales: $e');
+      return [];
+    }
+  }
+
+  // 2. Rendimientos Grupales (contratistas)
+  Future<List<Map<String, dynamic>>> getRendimientosGrupales({
+    String? fechaInicio,
+    String? fechaFin,
+    String? idTipoRendimiento,
+    String? idLabor,
+    String? idCeco,
+    String? idUnidad,
+    String? grupoMo,
+  }) async {
+    try {
+      String url = '$baseUrl/indicadores/control-rendimientos/grupales';
+      final params = <String>[];
+      if (fechaInicio != null) params.add('fecha_inicio=$fechaInicio');
+      if (fechaFin != null) params.add('fecha_fin=$fechaFin');
+      if (idTipoRendimiento != null) params.add('id_tiporendimiento=$idTipoRendimiento');
+      if (idLabor != null) params.add('id_labor=$idLabor');
+      if (idCeco != null) params.add('id_ceco=$idCeco');
+      if (idUnidad != null) params.add('id_unidad=$idUnidad');
+      if (grupoMo != null) params.add('grupo_mo=$grupoMo');
+      if (params.isNotEmpty) url += '?'+params.join('&');
+
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse(url),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        return [];
+      }
+      logError('❌ Error rendimientos grupales: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      logError('❌ Error rendimientos grupales: $e');
+      return [];
+    }
+  }
+
+  // 3. Resumen Agregado de todos los tipos
+  Future<List<Map<String, dynamic>>> getResumenRendimientos({
+    String? fechaInicio,
+    String? fechaFin,
+    String? idTipoRendimiento,
+    String? idLabor,
+    String? idCeco,
+    String? idUnidad,
+    String? tipoMo,
+  }) async {
+    try {
+      String url = '$baseUrl/indicadores/control-rendimientos/resumen';
+      final params = <String>[];
+      if (fechaInicio != null) params.add('fecha_inicio=$fechaInicio');
+      if (fechaFin != null) params.add('fecha_fin=$fechaFin');
+      if (idTipoRendimiento != null) params.add('id_tiporendimiento=$idTipoRendimiento');
+      if (idLabor != null) params.add('id_labor=$idLabor');
+      if (idCeco != null) params.add('id_ceco=$idCeco');
+      if (idUnidad != null) params.add('id_unidad=$idUnidad');
+      if (tipoMo != null) params.add('tipo_mo=$tipoMo');
+      if (params.isNotEmpty) url += '?'+params.join('&');
+
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse(url),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        return [];
+      }
+      logError('❌ Error resumen rendimientos: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      logError('❌ Error resumen rendimientos: $e');
+      return [];
+    }
+  }
+
+  // Método legacy (mantener por compatibilidad)
   Future<List<Map<String, dynamic>>> getIndicadoresControlRendimientos({
     String? fechaInicio,
     String? fechaFin,

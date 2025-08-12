@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import 'package:dropdown_search/dropdown_search.dart';
 
 class IndicadoresPage extends StatefulWidget {
   const IndicadoresPage({Key? key}) : super(key: key);
@@ -14,42 +15,72 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
   final ApiService _apiService = ApiService();
   
   // Variables para filtros
-  DateTime? _fechaInicio;
-  DateTime? _fechaFin;
   String? _colaboradorSeleccionado;
   List<Map<String, dynamic>> _colaboradores = [];
   
   // Variables para datos
   bool _isLoading = false;
   List<Map<String, dynamic>> _indicadoresControlHoras = [];
-  List<Map<String, dynamic>> _indicadoresRendimientos = [];
-  bool _isLoadingRend = false;
+  
+  // Switch para mostrar solo diferencias en Control de Horas
+  bool _mostrarSoloDiferencias = true;
 
+  // ================= CONTROL RENDIMIENTOS =================
+  // Variables para datos de rendimientos
+  bool _isLoadingRend = false;
+  List<Map<String, dynamic>> _rendimientosIndividuales = [];
+  List<Map<String, dynamic>> _rendimientosGrupales = [];
+  List<Map<String, dynamic>> _resumenRendimientos = [];
+  
   // Filtros Control Rendimientos
-  DateTime? _rendFechaInicio;
-  DateTime? _rendFechaFin;
-  String? _rendTipoRendimiento; // id_tiporendimiento
+  String? _rendTrabajador; // id_trabajador
+  String? _rendTipoRendimiento; // tipo de rendimiento (Individual/Grupal)
+  String? _rendTipoMo; // tipo_mo (Propio/Contratista)
   String? _rendLabor; // id_labor
   String? _rendCeco; // id_ceco
-  String? _rendTrabajador; // id_trabajador
-  List<Map<String, dynamic>> _tiposRend = [];
+  String? _rendUnidad; // id_unidad
+  String? _rendGrupoMo; // grupo_mo (para grupales)
+  
+  // Listas para filtros
+  List<Map<String, dynamic>> _trabajadores = [];
   List<Map<String, dynamic>> _labores = [];
   List<Map<String, dynamic>> _cecos = [];
-  List<Map<String, dynamic>> _trabajadores = [];
+  List<Map<String, dynamic>> _unidades = [];
+  List<Map<String, dynamic>> _gruposMo = [];
   
   // Variables para actividades expandibles
   String? _colaboradorExpandido;
   List<Map<String, dynamic>> _actividadesColaborador = [];
   bool _isLoadingActividades = false;
+  
+  // Variables para rendimientos expandibles
+  String? _trabajadorExpandido;
+  List<Map<String, dynamic>> _rendimientosDetalle = [];
+  bool _isLoadingRendimientosDetalle = false;
+  
+  // Variables para el nuevo sistema de agrupación multi-nivel
+  String? _grupoExpandido; // Para el primer nivel (dia-labor-tipo_mo)
+  String? _cecoExpandido; // Para el segundo nivel (CECO)
+  List<Map<String, dynamic>> _rendimientosPorCeco = [];
+  List<Map<String, dynamic>> _rendimientosPorDetalleCeco = [];
+  bool _isLoadingRendimientosPorCeco = false;
+  bool _isLoadingRendimientosPorDetalleCeco = false;
+  
+  // Variables para el sistema de agrupación multi-nivel de rendimientos grupales
+  String? _grupoGrupalExpandido; // Para el primer nivel (dia-labor-tipo_mo) de grupales
+  String? _cecoGrupalExpandido; // Para el segundo nivel (CECO) de grupales
+  List<Map<String, dynamic>> _rendimientosGrupalesPorCeco = [];
+  List<Map<String, dynamic>> _rendimientosGrupalesPorDetalleCeco = [];
+  bool _isLoadingRendimientosGrupalesPorCeco = false;
+  bool _isLoadingRendimientosGrupalesPorDetalleCeco = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _cargarColaboradores();
-    _cargarIndicadoresControlHoras();
-    _cargarOpcionesRendimientos();
-    _cargarIndicadoresRendimientos();
+    _cargarIndicadores();
+    _cargarDatosControlRendimientos();
   }
 
   @override
@@ -65,145 +96,607 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
         _colaboradores = colaboradores;
       });
     } catch (e) {
-      print('Error al cargar colaboradores: $e');
+      // Error silencioso
     }
   }
 
-  Future<void> _cargarIndicadoresControlHoras() async {
+  Future<void> _cargarIndicadores() async {
+    try {
+      final indicadores = await _apiService.getIndicadoresControlHoras();
+      setState(() {
+        _indicadoresControlHoras = indicadores;
+      });
+    } catch (e) {
+      // Error silencioso
+    }
+  }
+
+  List<Map<String, dynamic>> _agruparRendimientosPorTrabajadorYDia() {
+    Map<String, Map<String, dynamic>> grupos = {};
+    
+    // Combinar datos del resumen, individuales y grupales
+    List<Map<String, dynamic>> todosLosRendimientos = [];
+    todosLosRendimientos.addAll(_resumenRendimientos);
+    
+    for (var rendimiento in todosLosRendimientos) {
+      final fecha = rendimiento['fecha']?.toString() ?? '';
+      final tipoMo = rendimiento['tipo_mo']?.toString() ?? '';
+      final labor = rendimiento['labor']?.toString() ?? '';
+      final nombreCeco = rendimiento['nombre_ceco']?.toString() ?? '';
+      final totalRendimiento = rendimiento['total_rendimiento'] ?? 0.0;
+      final totalTrabajadoresIndividuales = rendimiento['total_trabajadores_individuales'] ?? 0;
+      final totalGrupos = rendimiento['total_grupos'] ?? 0;
+      final totalCantidadIndividuales = rendimiento['total_cantidad_individuales'] ?? 0;
+      final totalCantidadGrupales = rendimiento['total_cantidad_grupales'] ?? 0;
+      
+      // Crear clave única por fecha, tipo_mo, labor y CECO
+      String clave = '$fecha-$tipoMo-$labor-$nombreCeco';
+      
+      if (grupos.containsKey(clave)) {
+        // Sumar rendimientos del mismo tipo en el mismo día
+        grupos[clave]!['total_rendimiento'] = (grupos[clave]!['total_rendimiento'] ?? 0.0) + totalRendimiento;
+        grupos[clave]!['total_trabajadores_individuales'] = (grupos[clave]!['total_trabajadores_individuales'] ?? 0) + totalTrabajadoresIndividuales;
+        grupos[clave]!['total_grupos'] = (grupos[clave]!['total_grupos'] ?? 0) + totalGrupos;
+        grupos[clave]!['total_cantidad_individuales'] = (grupos[clave]!['total_cantidad_individuales'] ?? 0) + totalCantidadIndividuales;
+        grupos[clave]!['total_cantidad_grupales'] = (grupos[clave]!['total_cantidad_grupales'] ?? 0) + totalCantidadGrupales;
+      } else {
+        grupos[clave] = {
+          'fecha': fecha,
+          'tipo_mo': tipoMo,
+          'labor': labor,
+          'nombre_ceco': nombreCeco,
+          'total_rendimiento': totalRendimiento,
+          'total_trabajadores_individuales': totalTrabajadoresIndividuales,
+          'total_grupos': totalGrupos,
+          'total_cantidad_individuales': totalCantidadIndividuales,
+          'total_cantidad_grupales': totalCantidadGrupales,
+          'tiene_individuales': totalTrabajadoresIndividuales > 0,
+          'tiene_grupales': totalGrupos > 0,
+        };
+      }
+    }
+    
+    return grupos.values.toList();
+  }
+
+  // Método para obtener labores que tienen datos en la vista
+  List<Map<String, dynamic>> _obtenerLaboresConDatos() {
+    Set<String> laboresSet = <String>{};
+    List<Map<String, dynamic>> laboresConDatos = [];
+    
+    // Obtener labores de rendimientos individuales
+    for (var rendimiento in _rendimientosIndividuales) {
+      final labor = rendimiento['labor']?.toString();
+      final idLabor = rendimiento['id_labor']?.toString();
+      if (labor != null && labor.isNotEmpty && !laboresSet.contains(labor)) {
+        laboresSet.add(labor);
+        laboresConDatos.add({
+          'id': idLabor,
+          'nombre': labor,
+        });
+      }
+    }
+    
+    // Obtener labores de rendimientos grupales
+    for (var rendimiento in _rendimientosGrupales) {
+      final labor = rendimiento['labor']?.toString();
+      final idLabor = rendimiento['id_labor']?.toString();
+      if (labor != null && labor.isNotEmpty && !laboresSet.contains(labor)) {
+        laboresSet.add(labor);
+        laboresConDatos.add({
+          'id': idLabor,
+          'nombre': labor,
+        });
+      }
+    }
+    
+    // Ordenar alfabéticamente por nombre
+    laboresConDatos.sort((a, b) => (a['nombre'] ?? '').compareTo(b['nombre'] ?? ''));
+    
+    return laboresConDatos;
+  }
+
+  // Nuevo método para agrupar rendimientos individuales por dia, labor y tipo_mo
+  List<Map<String, dynamic>> _agruparRendimientosIndividualesPorDiaLaborTipoMo() {
+    Map<String, Map<String, dynamic>> grupos = {};
+    
+    // Solo procesar rendimientos individuales
+    for (var rendimiento in _rendimientosIndividuales) {
+      final fecha = rendimiento['fecha']?.toString() ?? '';
+      final tipoMo = rendimiento['tipo_mo']?.toString() ?? '';
+      final labor = rendimiento['labor']?.toString() ?? '';
+      final rendimientoValor = rendimiento['rendimiento'] ?? 0.0;
+      final unidad = rendimiento['unidad']?.toString() ?? '';
+      
+      // Crear clave única por fecha, labor y tipo_mo
+      String clave = '$fecha-$labor-$tipoMo';
+      
+      if (grupos.containsKey(clave)) {
+        // Sumar rendimientos del mismo tipo en el mismo día y labor
+        grupos[clave]!['total_rendimiento'] = (grupos[clave]!['total_rendimiento'] ?? 0.0) + rendimientoValor;
+        grupos[clave]!['cantidad_trabajadores'] = (grupos[clave]!['cantidad_trabajadores'] ?? 0) + 1;
+      } else {
+        grupos[clave] = {
+          'fecha': fecha,
+          'labor': labor,
+          'tipo_mo': tipoMo,
+          'total_rendimiento': rendimientoValor,
+          'cantidad_trabajadores': 1,
+          'unidad': unidad,
+        };
+      }
+    }
+    
+    return grupos.values.toList();
+  }
+
+  // Nuevo método para agrupar rendimientos grupales por dia, labor y tipo_mo
+  List<Map<String, dynamic>> _agruparRendimientosGrupalesPorDiaLaborTipoMo() {
+    Map<String, Map<String, dynamic>> grupos = {};
+    
+    // Solo procesar rendimientos grupales
+    for (var rendimiento in _rendimientosGrupales) {
+      final fecha = rendimiento['fecha']?.toString() ?? '';
+      final tipoMo = rendimiento['tipo_mo']?.toString() ?? '';
+      final labor = rendimiento['labor']?.toString() ?? '';
+      final rendimientoValor = rendimiento['rendimiento'] ?? 0.0;
+      final unidad = rendimiento['unidad']?.toString() ?? '';
+      final cantidadTrab = rendimiento['cantidad_trab'] ?? 0;
+      
+      // Crear clave única por fecha, labor y tipo_mo
+      String clave = '$fecha-$labor-$tipoMo';
+      
+      if (grupos.containsKey(clave)) {
+        // Sumar rendimientos del mismo tipo en el mismo día y labor
+        grupos[clave]!['total_rendimiento'] = (grupos[clave]!['total_rendimiento'] ?? 0.0) + rendimientoValor;
+        grupos[clave]!['total_cantidad_trabajadores'] = (grupos[clave]!['total_cantidad_trabajadores'] ?? 0) + cantidadTrab;
+        grupos[clave]!['cantidad_grupos'] = (grupos[clave]!['cantidad_grupos'] ?? 0) + 1;
+      } else {
+        grupos[clave] = {
+          'fecha': fecha,
+          'labor': labor,
+          'tipo_mo': tipoMo,
+          'total_rendimiento': rendimientoValor,
+          'total_cantidad_trabajadores': cantidadTrab,
+          'cantidad_grupos': 1,
+          'unidad': unidad,
+        };
+      }
+    }
+    
+    return grupos.values.toList();
+  }
+
+  Future<void> _cargarRendimientosDetalle(String fechaEspecifica, String tipoMo, String labor, String nombreCeco) async {
     setState(() {
-      _isLoading = true;
+      _isLoadingRendimientosDetalle = true;
     });
 
     try {
-      String? fechaInicio;
-      String? fechaFin;
-      String? idColaborador;
+      DateTime fecha = _parseHttpDate(fechaEspecifica) ?? DateTime.now();
+      String fechaFormateada = DateFormat('yyyy-MM-dd').format(fecha);
 
-      if (_fechaInicio != null) {
-        fechaInicio = DateFormat('yyyy-MM-dd').format(_fechaInicio!);
-      }
-      if (_fechaFin != null) {
-        fechaFin = DateFormat('yyyy-MM-dd').format(_fechaFin!);
-      }
-      if (_colaboradorSeleccionado != null) {
-        idColaborador = _colaboradorSeleccionado;
-      }
+      // Filtrar rendimientos individuales
+      List<Map<String, dynamic>> individualesFiltrados = _rendimientosIndividuales.where((rendimiento) {
+        bool mismaFecha = false;
+        try {
+          DateTime rendimientoFecha = _parseHttpDate(rendimiento['fecha']?.toString() ?? '') ?? DateTime.now();
+          mismaFecha = rendimientoFecha.day == fecha.day &&
+                      rendimientoFecha.month == fecha.month &&
+                      rendimientoFecha.year == fecha.year;
+        } catch (e) {
+          print('Error parsing fecha in rendimiento individual: ${rendimiento['fecha']}');
+        }
+        
+        final mismoTipoMo = rendimiento['tipo_mo']?.toString() == tipoMo;
+        final mismaLabor = rendimiento['labor']?.toString() == labor;
+        final mismoCeco = rendimiento['nombre_ceco']?.toString() == nombreCeco;
+        
+        return mismaFecha && mismoTipoMo && mismaLabor && mismoCeco;
+      }).toList();
 
-      final indicadores = await _apiService.getIndicadoresControlHoras(
-        fechaInicio: fechaInicio,
-        fechaFin: fechaFin,
-        idColaborador: idColaborador,
-      );
+      // Filtrar rendimientos grupales
+      List<Map<String, dynamic>> grupalesFiltrados = _rendimientosGrupales.where((rendimiento) {
+        bool mismaFecha = false;
+        try {
+          DateTime rendimientoFecha = _parseHttpDate(rendimiento['fecha']?.toString() ?? '') ?? DateTime.now();
+          mismaFecha = rendimientoFecha.day == fecha.day &&
+                      rendimientoFecha.month == fecha.month &&
+                      rendimientoFecha.year == fecha.year;
+        } catch (e) {
+          print('Error parsing fecha in rendimiento grupal: ${rendimiento['fecha']}');
+        }
+        
+        final mismoTipoMo = rendimiento['tipo_mo']?.toString() == tipoMo;
+        final mismaLabor = rendimiento['labor']?.toString() == labor;
+        final mismoCeco = rendimiento['nombre_ceco']?.toString() == nombreCeco;
+        
+        return mismaFecha && mismoTipoMo && mismaLabor && mismoCeco;
+      }).toList();
+      
+      // Combinar resultados
+      List<Map<String, dynamic>> rendimientosDetalle = [];
+      rendimientosDetalle.addAll(individualesFiltrados);
+      rendimientosDetalle.addAll(grupalesFiltrados);
 
       setState(() {
-        _indicadoresControlHoras = indicadores;
-        _isLoading = false;
+        _rendimientosDetalle = rendimientosDetalle;
+        _isLoadingRendimientosDetalle = false;
       });
     } catch (e) {
       setState(() {
-        _isLoading = false;
+        _isLoadingRendimientosDetalle = false;
       });
-      print('Error al cargar indicadores: $e');
+      print('Error al cargar detalle de rendimientos: $e');
+    }
+  }
+
+  // Nuevo método para cargar rendimientos agrupados por CECO
+  Future<void> _cargarRendimientosPorCeco(String fechaEspecifica, String tipoMo, String labor) async {
+    setState(() {
+      _isLoadingRendimientosPorCeco = true;
+    });
+
+    try {
+      List<Map<String, dynamic>> rendimientosFiltrados = _rendimientosIndividuales.where((rendimiento) {
+        DateTime? fecha = _parseHttpDate(rendimiento['fecha']?.toString() ?? '');
+        if (fecha == null) return false;
+        
+        String fechaFormateada = DateFormat('yyyy-MM-dd').format(fecha);
+        return fechaFormateada == fechaEspecifica &&
+               rendimiento['tipo_mo']?.toString() == tipoMo &&
+               rendimiento['labor']?.toString() == labor;
+      }).toList();
+
+      // Agrupar por CECO
+      Map<String, Map<String, dynamic>> grupos = {};
+      for (var rendimientoItem in rendimientosFiltrados) {
+        String nombreCeco = rendimientoItem['nombre_ceco']?.toString() ?? 'Sin CECO';
+        String detalleCeco = rendimientoItem['detalle_ceco']?.toString() ?? '';
+        String grupoMo = rendimientoItem['grupo_mo']?.toString() ?? '';
+        String unidad = rendimientoItem['unidad']?.toString() ?? '';
+        
+        String key = '$nombreCeco|$detalleCeco';
+        
+        if (!grupos.containsKey(key)) {
+          grupos[key] = {
+            'nombre_ceco': nombreCeco,
+            'detalle_ceco': detalleCeco,
+            'grupo_mo': grupoMo,
+            'unidad': unidad,
+            'total_rendimiento': 0.0,
+            'cantidad_trabajadores': 0,
+          };
+        }
+        
+        double rendimientoValor = 0.0;
+        if (rendimientoItem['rendimiento'] is num) {
+          rendimientoValor = (rendimientoItem['rendimiento'] as num).toDouble();
+        } else if (rendimientoItem['rendimiento'] is String) {
+          rendimientoValor = double.tryParse(rendimientoItem['rendimiento']) ?? 0.0;
+        }
+        
+        grupos[key]!['total_rendimiento'] = (grupos[key]!['total_rendimiento'] as double) + rendimientoValor;
+        grupos[key]!['cantidad_trabajadores'] = (grupos[key]!['cantidad_trabajadores'] as int) + 1;
+      }
+
+      setState(() {
+        _rendimientosPorCeco = grupos.values.toList();
+        _isLoadingRendimientosPorCeco = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingRendimientosPorCeco = false;
+      });
+    }
+  }
+
+  // Nuevo método para cargar rendimientos por detalle_ceco
+  Future<void> _cargarRendimientosPorDetalleCeco(String fechaEspecifica, String tipoMo, String labor, String nombreCeco, String detalleCeco) async {
+    setState(() {
+      _isLoadingRendimientosPorDetalleCeco = true;
+    });
+
+    try {
+      List<Map<String, dynamic>> trabajadores = _rendimientosIndividuales.where((rendimiento) {
+        DateTime? fecha = _parseHttpDate(rendimiento['fecha']?.toString() ?? '');
+        if (fecha == null) return false;
+        
+        String fechaFormateada = DateFormat('yyyy-MM-dd').format(fecha);
+        return fechaFormateada == fechaEspecifica &&
+               rendimiento['tipo_mo']?.toString() == tipoMo &&
+               rendimiento['labor']?.toString() == labor &&
+               rendimiento['nombre_ceco']?.toString() == nombreCeco &&
+               rendimiento['detalle_ceco']?.toString() == detalleCeco;
+      }).toList();
+
+      setState(() {
+        _rendimientosPorDetalleCeco = trabajadores;
+        _isLoadingRendimientosPorDetalleCeco = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingRendimientosPorDetalleCeco = false;
+      });
+    }
+  }
+
+  // Nuevo método para cargar rendimientos grupales agrupados por CECO
+  Future<void> _cargarRendimientosGrupalesPorCeco(String fechaEspecifica, String tipoMo, String labor) async {
+    setState(() {
+      _isLoadingRendimientosGrupalesPorCeco = true;
+    });
+
+    try {
+      List<Map<String, dynamic>> rendimientosFiltrados = _rendimientosGrupales.where((rendimiento) {
+        DateTime? fecha = _parseHttpDate(rendimiento['fecha']?.toString() ?? '');
+        if (fecha == null) return false;
+        
+        String fechaFormateada = DateFormat('yyyy-MM-dd').format(fecha);
+        return fechaFormateada == fechaEspecifica &&
+               rendimiento['tipo_mo']?.toString() == tipoMo &&
+               rendimiento['labor']?.toString() == labor;
+      }).toList();
+
+      // Agrupar por CECO
+      Map<String, Map<String, dynamic>> grupos = {};
+      for (var rendimientoItem in rendimientosFiltrados) {
+        String nombreCeco = rendimientoItem['nombre_ceco']?.toString() ?? 'Sin CECO';
+        String detalleCeco = rendimientoItem['detalle_ceco']?.toString() ?? '';
+        String grupoMo = rendimientoItem['grupo_mo']?.toString() ?? '';
+        String unidad = rendimientoItem['unidad']?.toString() ?? '';
+        
+        String key = '$nombreCeco|$detalleCeco';
+        
+        if (!grupos.containsKey(key)) {
+          grupos[key] = {
+            'nombre_ceco': nombreCeco,
+            'detalle_ceco': detalleCeco,
+            'grupo_mo': grupoMo,
+            'unidad': unidad,
+            'total_rendimiento': 0.0,
+            'cantidad_grupos': 0,
+            'total_cantidad_trabajadores': 0,
+          };
+        }
+        
+        double rendimientoValor = 0.0;
+        if (rendimientoItem['rendimiento'] is num) {
+          rendimientoValor = (rendimientoItem['rendimiento'] as num).toDouble();
+        } else if (rendimientoItem['rendimiento'] is String) {
+          rendimientoValor = double.tryParse(rendimientoItem['rendimiento']) ?? 0.0;
+        }
+        
+        int cantidadTrab = 0;
+        if (rendimientoItem['cantidad_trab'] is num) {
+          cantidadTrab = (rendimientoItem['cantidad_trab'] as num).toInt();
+        } else if (rendimientoItem['cantidad_trab'] is String) {
+          cantidadTrab = int.tryParse(rendimientoItem['cantidad_trab']) ?? 0;
+        }
+        
+        grupos[key]!['total_rendimiento'] = (grupos[key]!['total_rendimiento'] as double) + rendimientoValor;
+        grupos[key]!['cantidad_grupos'] = (grupos[key]!['cantidad_grupos'] as int) + 1;
+        grupos[key]!['total_cantidad_trabajadores'] = (grupos[key]!['total_cantidad_trabajadores'] as int) + cantidadTrab;
+      }
+
+      setState(() {
+        _rendimientosGrupalesPorCeco = grupos.values.toList();
+        _isLoadingRendimientosGrupalesPorCeco = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingRendimientosGrupalesPorCeco = false;
+      });
+    }
+  }
+
+  // Nuevo método para cargar rendimientos grupales por detalle_ceco
+  Future<void> _cargarRendimientosGrupalesPorDetalleCeco(String fechaEspecifica, String tipoMo, String labor, String nombreCeco, String detalleCeco) async {
+    setState(() {
+      _isLoadingRendimientosGrupalesPorDetalleCeco = true;
+    });
+
+    try {
+      List<Map<String, dynamic>> grupos = _rendimientosGrupales.where((rendimiento) {
+        DateTime? fecha = _parseHttpDate(rendimiento['fecha']?.toString() ?? '');
+        if (fecha == null) return false;
+        
+        String fechaFormateada = DateFormat('yyyy-MM-dd').format(fecha);
+        return fechaFormateada == fechaEspecifica &&
+               rendimiento['tipo_mo']?.toString() == tipoMo &&
+               rendimiento['labor']?.toString() == labor &&
+               rendimiento['nombre_ceco']?.toString() == nombreCeco &&
+               rendimiento['detalle_ceco']?.toString() == detalleCeco;
+      }).toList();
+
+      setState(() {
+        _rendimientosGrupalesPorDetalleCeco = grupos;
+        _isLoadingRendimientosGrupalesPorDetalleCeco = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingRendimientosGrupalesPorDetalleCeco = false;
+      });
     }
   }
 
   Future<void> _cargarActividadesColaborador(String idColaborador, String fechaEspecifica) async {
-    setState(() {
-      _isLoadingActividades = true;
-    });
-
     try {
-      // Parse the HTTP date format to get the specific date
-      DateTime fecha = _parseHttpDate(fechaEspecifica);
+      DateTime? fecha = _parseHttpDate(fechaEspecifica);
+      if (fecha == null) return;
+      
       String fechaFormateada = DateFormat('yyyy-MM-dd').format(fecha);
-
+      
       final actividades = await _apiService.getActividadesColaborador(
         idColaborador: idColaborador,
         fechaInicio: fechaFormateada,
         fechaFin: fechaFormateada,
       );
-
+      
       setState(() {
         _actividadesColaborador = actividades;
-        _isLoadingActividades = false;
       });
     } catch (e) {
-      setState(() {
-        _isLoadingActividades = false;
-      });
-      print('Error al cargar actividades del colaborador: $e');
+      // Error silencioso
     }
   }
 
-  // -------- Control Rendimientos --------
-  Future<void> _cargarOpcionesRendimientos() async {
+  // Métodos de búsqueda
+
+
+
+
+  // ================= CONTROL RENDIMIENTOS =================
+  
+  Future<void> _cargarDatosControlRendimientos() async {
+    await Future.wait([
+      _cargarLabores(),
+      _cargarCecos(),
+      _cargarUnidades(),
+      _cargarGruposMo(),
+      _cargarResumenRendimientos(),
+      _cargarRendimientosIndividuales(),
+      _cargarRendimientosGrupales(),
+    ]);
+  }
+
+  Future<void> _cargarLabores() async {
     try {
-      final tipos = await _apiService.getTipoRendimientos();
       final labores = await _apiService.getLabores();
-      final trabajadores = await _apiService.getColaboradores();
-      // Para CECOs podemos no cargar todos por ahora; backend filtra por sucursal
       setState(() {
-        _tiposRend = tipos;
         _labores = labores;
-        _trabajadores = trabajadores;
       });
     } catch (e) {
-      print('Error al cargar opciones de rendimientos: $e');
+      print('Error al cargar labores: $e');
     }
   }
 
-  Future<void> _cargarIndicadoresRendimientos() async {
-    setState(() => _isLoadingRend = true);
+  Future<void> _cargarCecos() async {
     try {
-      String? fi = _rendFechaInicio != null ? DateFormat('yyyy-MM-dd').format(_rendFechaInicio!) : null;
-      String? ff = _rendFechaFin != null ? DateFormat('yyyy-MM-dd').format(_rendFechaFin!) : null;
-      final data = await _apiService.getIndicadoresControlRendimientos(
-        fechaInicio: fi,
-        fechaFin: ff,
-        idTipoRendimiento: _rendTipoRendimiento,
+      final cecos = await _apiService.getCecosAdministrativos();
+      setState(() {
+        _cecos = cecos;
+      });
+    } catch (e) {
+      print('Error al cargar CECOs: $e');
+    }
+  }
+
+  Future<void> _cargarUnidades() async {
+    try {
+      final unidades = await _apiService.getUnidades();
+      setState(() {
+        _unidades = unidades;
+      });
+    } catch (e) {
+      print('Error al cargar unidades: $e');
+    }
+  }
+
+  Future<void> _cargarGruposMo() async {
+    try {
+      // Cargar grupos de mano de obra desde rendimientos grupales
+      final rendimientosGrupales = await _apiService.getRendimientosGrupales(
+        fechaInicio: null,
+        fechaFin: null,
+        idTipoRendimiento: null,
+        idLabor: null,
+        idCeco: null,
+        idUnidad: null,
+        grupoMo: null,
+      );
+      final grupos = <Map<String, dynamic>>[];
+      final gruposSet = <String>{};
+      
+      for (var rendimiento in rendimientosGrupales) {
+        final grupoMo = rendimiento['grupo_mo']?.toString();
+        if (grupoMo != null && grupoMo.isNotEmpty && !gruposSet.contains(grupoMo)) {
+          gruposSet.add(grupoMo);
+          grupos.add({
+            'id': grupoMo,
+            'nombre': grupoMo,
+          });
+        }
+      }
+      
+      setState(() {
+        _gruposMo = grupos;
+      });
+    } catch (e) {
+      // Error silencioso
+    }
+  }
+
+  Future<void> _cargarResumenRendimientos() async {
+    try {
+      final resumen = await _apiService.getResumenRendimientos(
+        fechaInicio: null,
+        fechaFin: null,
+        idTipoRendimiento: null,
         idLabor: _rendLabor,
         idCeco: _rendCeco,
-        idTrabajador: _rendTrabajador,
+        idUnidad: _rendUnidad,
+        tipoMo: _rendTipoMo,
       );
+      
       setState(() {
-        _indicadoresRendimientos = data;
-        _isLoadingRend = false;
+        _resumenRendimientos = resumen;
       });
     } catch (e) {
-      setState(() => _isLoadingRend = false);
-      print('Error al cargar indicador de rendimientos: $e');
+      // Error silencioso
     }
   }
 
-  Future<void> _seleccionarFechaInicio() async {
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: _fechaInicio ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-    );
-    if (fecha != null) {
+  Future<void> _cargarRendimientosIndividuales() async {
+    try {
+      final individuales = await _apiService.getRendimientosIndividuales(
+        fechaInicio: null,
+        fechaFin: null,
+        idTipoRendimiento: null,
+        idLabor: _rendLabor,
+        idCeco: null,
+        idTrabajador: null,
+        idUnidad: null,
+        tipoMo: null,
+      );
+      
       setState(() {
-        _fechaInicio = fecha;
+        _rendimientosIndividuales = individuales;
       });
-      _cargarIndicadoresControlHoras();
+    } catch (e) {
+      // Error silencioso
     }
   }
 
-  Future<void> _seleccionarFechaFin() async {
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: _fechaFin ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-    );
-    if (fecha != null) {
+  Future<void> _cargarRendimientosGrupales() async {
+    try {
+      final grupales = await _apiService.getRendimientosGrupales(
+        fechaInicio: null,
+        fechaFin: null,
+        idTipoRendimiento: null,
+        idLabor: _rendLabor,
+        idCeco: null,
+        idUnidad: null,
+        grupoMo: null,
+      );
+      
       setState(() {
-        _fechaFin = fecha;
+        _rendimientosGrupales = grupales;
       });
-      _cargarIndicadoresControlHoras();
+    } catch (e) {
+      // Error silencioso
     }
   }
+
+  Future<void> _actualizarRendimientos() async {
+    await Future.wait([
+      _cargarResumenRendimientos(),
+      _cargarRendimientosIndividuales(),
+      _cargarRendimientosGrupales(),
+    ]);
+  }
+
+
 
   Color _obtenerColorEstado(String estado) {
     switch (estado.toUpperCase()) {
@@ -231,38 +724,11 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
     }
   }
 
-  DateTime _parseHttpDate(String dateString) {
+  DateTime? _parseHttpDate(String dateString) {
     try {
-      // Handle HTTP date format: "Thu, 07 Aug 2025 00:00:00 GMT"
-      if (dateString.contains('GMT')) {
-        // Parse the specific format: "Thu, 07 Aug 2025 00:00:00 GMT"
-        // Extract day, month, year from the string
-        List<String> parts = dateString.split(' ');
-        if (parts.length >= 4) {
-          String day = parts[1];
-          String month = parts[2];
-          String year = parts[3];
-          
-          // Convert month name to number
-          Map<String, String> months = {
-            'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
-            'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
-            'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
-          };
-          
-          String monthNumber = months[month] ?? '01';
-          
-          // Create ISO format string
-          String isoDate = '$year-$monthNumber-${day.padLeft(2, '0')}T00:00:00Z';
-          return DateTime.parse(isoDate);
-        }
-      }
-      // Try standard parsing for other formats
       return DateTime.parse(dateString);
     } catch (e) {
-      print('Error parsing date: $dateString - $e');
-      // If parsing fails, return current date
-      return DateTime.now();
+      return null;
     }
   }
 
@@ -314,6 +780,65 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
     return fixed.endsWith('.00') ? fixed.substring(0, fixed.length - 3) : fixed;
   }
 
+  String _getRendimientoDisplayValue(Map<String, dynamic> rendimiento) {
+    // Para rendimientos grupales, mostrar cantidad de trabajadores si no hay total_rendimiento
+    if (rendimiento['tipo_rendimiento']?.toString().toLowerCase().contains('grupal') == true) {
+      final totalRendimiento = rendimiento['total_rendimiento'];
+      final cantidadTrabajadores = rendimiento['cantidad_trabajadores'] ?? rendimiento['total_trabajadores'];
+      
+      if (totalRendimiento != null && totalRendimiento != 0) {
+        return _formatNumber(totalRendimiento);
+      } else if (cantidadTrabajadores != null && cantidadTrabajadores > 0) {
+        return '${cantidadTrabajadores} personas';
+      } else {
+        return 'Sin datos';
+      }
+    }
+    
+    // Para rendimientos individuales, mostrar el total_rendimiento
+    return _formatNumber(rendimiento['total_rendimiento'] ?? 0);
+  }
+
+  List<Map<String, dynamic>> _getIndicadoresControlHorasFiltrados() {
+    List<Map<String, dynamic>> filtrados = _indicadoresControlHoras;
+
+    // Filtrar por colaborador si está seleccionado
+    if (_colaboradorSeleccionado != null) {
+      filtrados = filtrados.where((indicador) {
+        return indicador['id_colaborador']?.toString() == _colaboradorSeleccionado;
+      }).toList();
+    }
+
+    // Filtrar por diferencias si el switch está activado
+    if (_mostrarSoloDiferencias) {
+      filtrados = filtrados.where((indicador) {
+        try {
+          double horasTrabajadas = 0.0;
+          double horasEsperadas = 0.0;
+
+          if (indicador['horas_trabajadas'] is num) {
+            horasTrabajadas = (indicador['horas_trabajadas'] as num).toDouble();
+          } else if (indicador['horas_trabajadas'] is String) {
+            horasTrabajadas = double.tryParse(indicador['horas_trabajadas']) ?? 0.0;
+          }
+
+          if (indicador['horas_esperadas'] is num) {
+            horasEsperadas = (indicador['horas_esperadas'] as num).toDouble();
+          } else if (indicador['horas_esperadas'] is String) {
+            horasEsperadas = double.tryParse(indicador['horas_esperadas']) ?? 0.0;
+          }
+
+          double diferencia = horasTrabajadas - horasEsperadas;
+          return diferencia != 0;
+        } catch (e) {
+          return false;
+        }
+      }).toList();
+    }
+
+    return filtrados;
+  }
+
   Widget _buildControlHorasTab() {
     return Column(
       children: [
@@ -323,93 +848,94 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Dropdown con búsqueda integrada
+              DropdownSearch<Map<String, dynamic>>(
+                items: [
+                  {'id': null, 'nombre': 'Todos los colaboradores', 'apellido_paterno': '', 'apellido_materno': ''},
+                  ..._colaboradores,
+                ],
+                itemAsString: (item) {
+                  if (item['id'] == null) return 'Todos los colaboradores';
+                  return '${item['nombre'] ?? ''} ${item['apellido_paterno'] ?? ''} ${item['apellido_materno'] ?? ''}'.trim();
+                },
+                selectedItem: _colaboradorSeleccionado != null
+                    ? _colaboradores.where((c) => c['id'] == _colaboradorSeleccionado).isNotEmpty
+                        ? _colaboradores.firstWhere((c) => c['id'] == _colaboradorSeleccionado)
+                        : null
+                    : {'id': null, 'nombre': 'Todos los colaboradores', 'apellido_paterno': '', 'apellido_materno': ''},
+                onChanged: (value) {
+                  setState(() {
+                    _colaboradorSeleccionado = value?['id'];
+                  });
+                  _cargarIndicadores();
+                },
+                dropdownDecoratorProps: DropDownDecoratorProps(
+                  dropdownSearchDecoration: InputDecoration(
+                    labelText: 'Colaborador',
+                    prefixIcon: Icon(Icons.search, color: Colors.green),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                popupProps: PopupProps.menu(
+                  showSearchBox: true,
+                  searchFieldProps: TextFieldProps(
+                    decoration: InputDecoration(
+                      hintText: "Buscar colaborador...",
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: 12),
+              // Switch para mostrar solo diferencias
               Row(
                 children: [
+                  Icon(Icons.filter_list, color: Colors.green, size: 20),
+                  SizedBox(width: 8),
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _seleccionarFechaInicio,
-                      icon: Icon(Icons.calendar_today),
-                      label: Text(
-                        _fechaInicio != null
-                            ? DateFormat('dd/MM/yyyy').format(_fechaInicio!)
-                            : 'Fecha Inicio',
+                    child: Text(
+                      'Mostrar solo colaboradores con diferencias',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _seleccionarFechaFin,
-                      icon: Icon(Icons.calendar_today),
-                      label: Text(
-                        _fechaFin != null
-                            ? DateFormat('dd/MM/yyyy').format(_fechaFin!)
-                            : 'Fecha Fin',
-                      ),
-                    ),
+                  Switch(
+                    value: _mostrarSoloDiferencias,
+                    onChanged: (value) {
+                      setState(() {
+                        _mostrarSoloDiferencias = value;
+                      });
+                    },
+                    activeColor: Colors.green,
                   ),
                 ],
               ),
               SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: _colaboradorSeleccionado,
-                decoration: InputDecoration(
-                  labelText: 'Colaborador',
-                  border: OutlineInputBorder(),
-                ),
-                isExpanded: true,
-                items: [
-                  DropdownMenuItem<String>(
-                    value: null,
-                    child: Text('Todos los colaboradores'),
-                  ),
-                  ..._colaboradores.map((colaborador) {
-                    final nombreCompleto = '${colaborador['nombre'] ?? ''} ${colaborador['apellido_paterno'] ?? ''} ${colaborador['apellido_materno'] ?? ''}'.trim();
-                    return DropdownMenuItem<String>(
-                      value: colaborador['id'],
-                      child: Text(
-                        nombreCompleto.isNotEmpty ? nombreCompleto : 'Sin nombre',
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                        style: TextStyle(fontSize: 14),
-                      ),
-                    );
-                  }).toList(),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _colaboradorSeleccionado = value;
-                  });
-                  _cargarIndicadoresControlHoras();
-                },
-              ),
-              SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: _cargarIndicadoresControlHoras,
-                      icon: Icon(Icons.refresh),
-                      label: Text('Actualizar'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                      ),
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _colaboradorSeleccionado = null;
+                        });
+                        _cargarIndicadores();
+                      },
+                      icon: Icon(Icons.clear),
+                      label: Text('Limpiar'),
                     ),
                   ),
                   SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        setState(() {
-                          _fechaInicio = null;
-                          _fechaFin = null;
-                          _colaboradorSeleccionado = null;
-                        });
-                        _cargarIndicadoresControlHoras();
+                        _cargarIndicadores();
                       },
-                      icon: Icon(Icons.clear),
-                      label: Text('Limpiar'),
+                      icon: Icon(Icons.refresh),
+                      label: Text('Actualizar'),
                     ),
                   ),
                 ],
@@ -421,7 +947,7 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
         Expanded(
           child: _isLoading
               ? Center(child: CircularProgressIndicator())
-              : _indicadoresControlHoras.isEmpty
+              : _getIndicadoresControlHorasFiltrados().isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -433,7 +959,9 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
                           ),
                           SizedBox(height: 16),
                           Text(
-                            'No hay datos disponibles',
+                            _mostrarSoloDiferencias 
+                                ? 'No hay colaboradores con diferencias' 
+                                : 'No hay datos disponibles',
                             style: TextStyle(
                               fontSize: 18,
                               color: Colors.grey[600],
@@ -441,7 +969,9 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
                           ),
                           SizedBox(height: 8),
                           Text(
-                            'Ajusta los filtros o selecciona otro rango de fechas',
+                            _mostrarSoloDiferencias
+                                ? 'Todos los colaboradores tienen horas exactas'
+                                : 'Ajusta los filtros o selecciona otro rango de fechas',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey[500],
@@ -453,9 +983,9 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
                     )
                   : ListView.builder(
                       padding: EdgeInsets.all(16),
-                      itemCount: _indicadoresControlHoras.length,
+                      itemCount: _getIndicadoresControlHorasFiltrados().length,
                       itemBuilder: (context, index) {
-                        final indicador = _indicadoresControlHoras[index];
+                        final indicador = _getIndicadoresControlHorasFiltrados()[index];
                         final isExpanded = _colaboradorExpandido == indicador['id_colaborador'];
                         
                         return Column(
@@ -507,8 +1037,9 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
                                                   ),
                                                 ),
                                                 Text(
-                                                  DateFormat('EEEE, dd/MM/yyyy', 'es_ES')
-                                                      .format(_parseHttpDate(indicador['fecha'])),
+                                                  DateFormat('EEEE, dd/MM/yyyy', 'es_ES').format(
+                                                    _parseHttpDate(indicador['fecha']) ?? DateTime.now()
+                                                  ),
                                                   style: TextStyle(
                                                     fontSize: 14,
                                                     color: Colors.grey[600],
@@ -789,120 +1320,64 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
           padding: EdgeInsets.all(16),
           child: Column(
             children: [
+              // Filtros en filas
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final f = await showDatePicker(
-                          context: context,
-                          initialDate: _rendFechaInicio ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2030),
-                        );
-                        if (f != null) {
-                          setState(() => _rendFechaInicio = f);
-                          _cargarIndicadoresRendimientos();
-                        }
-                      },
-                      icon: Icon(Icons.calendar_today),
-                      label: Text(_rendFechaInicio != null
-                          ? DateFormat('dd/MM/yyyy').format(_rendFechaInicio!)
-                          : 'Fecha Inicio'),
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final f = await showDatePicker(
-                          context: context,
-                          initialDate: _rendFechaFin ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2030),
-                        );
-                        if (f != null) {
-                          setState(() => _rendFechaFin = f);
-                          _cargarIndicadoresRendimientos();
-                        }
-                      },
-                      icon: Icon(Icons.calendar_today),
-                      label: Text(_rendFechaFin != null
-                          ? DateFormat('dd/MM/yyyy').format(_rendFechaFin!)
-                          : 'Fecha Fin'),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _rendTipoRendimiento,
-                      decoration: InputDecoration(labelText: 'Tipo de rendimiento', border: OutlineInputBorder()),
-                      isExpanded: true,
+                    child: DropdownSearch<Map<String, dynamic>>(
                       items: [
-                        DropdownMenuItem<String>(value: null, child: Text('Todos')),
-                        ..._tiposRend.map((t) => DropdownMenuItem<String>(
-                              value: t['id']?.toString(),
-                              child: Text(
-                                t['tipo']?.toString() ?? '',
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            )),
+                        {'id': null, 'nombre': 'Todas'},
+                        ..._obtenerLaboresConDatos(),
                       ],
-                      onChanged: (v) {
-                        setState(() => _rendTipoRendimiento = v);
-                        _cargarIndicadoresRendimientos();
+                      itemAsString: (item) => item['nombre'] ?? 'Todas',
+                      selectedItem: _rendLabor != null
+                          ? _obtenerLaboresConDatos().where((l) => l['id']?.toString() == _rendLabor).isNotEmpty
+                              ? _obtenerLaboresConDatos().firstWhere((l) => l['id']?.toString() == _rendLabor)
+                              : null
+                          : {'id': null, 'nombre': 'Todas'},
+                      onChanged: (value) {
+                        setState(() {
+                          _rendLabor = value?['id']?.toString();
+                        });
+                        _actualizarRendimientos();
                       },
+                      dropdownDecoratorProps: DropDownDecoratorProps(
+                        dropdownSearchDecoration: InputDecoration(
+                          labelText: 'Labor',
+                          prefixIcon: Icon(Icons.work, color: Colors.orange),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
                     ),
                   ),
-                  SizedBox(width: 12),
+                  SizedBox(width: 8),
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _rendLabor,
-                      decoration: InputDecoration(labelText: 'Labor', border: OutlineInputBorder()),
-                      isExpanded: true,
+                    child: DropdownSearch<Map<String, dynamic>>(
                       items: [
-                        DropdownMenuItem<String>(value: null, child: Text('Todas')),
-                        ..._labores.map((l) => DropdownMenuItem<String>(
-                              value: l['id']?.toString(),
-                              child: Text(
-                                l['nombre']?.toString() ?? '',
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            )),
+                        {'id': null, 'nombre': 'Todos'},
+                        {'id': 'Individual', 'nombre': 'Individual'},
+                        {'id': 'Grupal', 'nombre': 'Grupal'},
                       ],
-                      onChanged: (v) {
-                        setState(() => _rendLabor = v);
-                        _cargarIndicadoresRendimientos();
+                      itemAsString: (item) => item['nombre'] ?? 'Todos',
+                      selectedItem: _rendTipoRendimiento != null
+                          ? {'id': _rendTipoRendimiento, 'nombre': _rendTipoRendimiento}
+                          : {'id': null, 'nombre': 'Todos'},
+                      onChanged: (value) {
+                        setState(() {
+                          _rendTipoRendimiento = value?['id']?.toString();
+                        });
+                        _actualizarRendimientos();
                       },
+                      dropdownDecoratorProps: DropDownDecoratorProps(
+                        dropdownSearchDecoration: InputDecoration(
+                          labelText: 'Tipo Rendimiento',
+                          prefixIcon: Icon(Icons.category, color: Colors.blue),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
                     ),
                   ),
                 ],
-              ),
-              SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: _rendTrabajador,
-                decoration: InputDecoration(labelText: 'Trabajador', border: OutlineInputBorder()),
-                isExpanded: true,
-                items: [
-                  DropdownMenuItem<String>(value: null, child: Text('Todos')),
-                  ..._trabajadores.map((t) {
-                    final nombre = '${t['nombre'] ?? ''} ${t['apellido_paterno'] ?? ''} ${t['apellido_materno'] ?? ''}'.trim();
-                    return DropdownMenuItem<String>(
-                      value: t['id']?.toString(),
-                      child: Text(nombre.isNotEmpty ? nombre : 'Sin nombre', overflow: TextOverflow.ellipsis, maxLines: 1),
-                    );
-                  }),
-                ],
-                onChanged: (v) {
-                  setState(() => _rendTrabajador = v);
-                  _cargarIndicadoresRendimientos();
-                },
               ),
               SizedBox(height: 12),
               Row(
@@ -911,17 +1386,24 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
                     child: OutlinedButton.icon(
                       onPressed: () {
                         setState(() {
-                          _rendFechaInicio = null;
-                          _rendFechaFin = null;
+                          _rendTrabajador = null;
                           _rendTipoRendimiento = null;
                           _rendLabor = null;
-                          _rendCeco = null;
-                          _rendTrabajador = null;
                         });
-                        _cargarIndicadoresRendimientos();
+                        _actualizarRendimientos();
                       },
                       icon: Icon(Icons.clear),
                       label: Text('Limpiar'),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        _actualizarRendimientos();
+                      },
+                      icon: Icon(Icons.refresh),
+                      label: Text('Actualizar'),
                     ),
                   ),
                 ],
@@ -932,7 +1414,7 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
         Expanded(
           child: _isLoadingRend
               ? Center(child: CircularProgressIndicator())
-              : _indicadoresRendimientos.isEmpty
+              : _agruparRendimientosIndividualesPorDiaLaborTipoMo().isEmpty && _agruparRendimientosGrupalesPorDiaLaborTipoMo().isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -943,116 +1425,730 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
                         ],
                       ),
                     )
-                  : ListView.builder(
+                  : ListView(
                       padding: EdgeInsets.all(16),
-                      itemCount: _indicadoresRendimientos.length,
-                      itemBuilder: (context, index) {
-                        final item = _indicadoresRendimientos[index];
-                        final fecha = _parseHttpDate(item['fecha']?.toString() ?? DateTime.now().toString());
-                        return Card(
-                          margin: EdgeInsets.only(bottom: 12),
-                          elevation: 2,
-                          child: Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Sección de Rendimientos Individuales
+                        if (_agruparRendimientosIndividualesPorDiaLaborTipoMo().isNotEmpty && 
+                            (_rendTipoRendimiento == null || _rendTipoRendimiento == 'Individual')) ...[
+                          Container(
+                            margin: EdgeInsets.only(bottom: 16),
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                            ),
+                            child: Row(
                               children: [
-                                Row(
-                                  children: [
-                                    Icon(Icons.calendar_today, color: Colors.green),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        DateFormat('EEEE, dd/MM/yyyy', 'es_ES').format(fecha),
-                                        style: TextStyle(fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: (item['tipo_mo']?.toString().toUpperCase() == 'PROPIO') ? Colors.blue : Colors.deepPurple,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        item['tipo_mo']?.toString() ?? 'N/A',
-                                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                      ),
-                                    ),
-                                  ],
+                                Icon(Icons.person, color: Colors.blue, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Rendimientos Individuales',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue,
+                                  ),
                                 ),
-                                SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Expanded(child: _buildMetricCard('Total Rendimiento', _formatNumber(item['total_rendimiento']), Icons.speed, Colors.green)),
-                                    SizedBox(width: 12),
-                                    Expanded(child: _buildMetricCard('Trabajadores', '${item['total_trabajadores'] ?? 0}', Icons.groups, Colors.orange)),
-                                  ],
-                                ),
-                                SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Icon(Icons.label_important_outline, color: Colors.purple),
-                                    SizedBox(width: 8),
-                                    Text(item['tipo_rendimiento']?.toString() ?? 'Tipo rendimiento'),
-                                  ],
-                                ),
-                                SizedBox(height: 8),
-                                if (item.containsKey('trabajador'))
-                                  Row(
-                                    children: [
-                                      Icon(Icons.person_outline, color: Colors.green),
-                                      SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'Trabajador: ' + (item['trabajador']?.toString() ?? 'N/A'),
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                SizedBox(height: 8),
-                                if (item.containsKey('labor'))
-                                  Row(
-                                    children: [
-                                      Icon(Icons.work_outline, color: Colors.indigo),
-                                      SizedBox(width: 8),
-                                      Expanded(child: Text('Labor: ' + (item['labor']?.toString() ?? 'N/A'))),
-                                    ],
-                                  ),
-                                if (item.containsKey('unidad'))
-                                  SizedBox(height: 6),
-                                if (item.containsKey('unidad'))
-                                  Row(
-                                    children: [
-                                      Icon(Icons.straighten, color: Colors.blueGrey),
-                                      SizedBox(width: 8),
-                                      Expanded(child: Text('Unidad: ' + (item['unidad']?.toString() ?? 'N/A'))),
-                                    ],
-                                  ),
-                                if (item.containsKey('nombre_ceco') || item.containsKey('detalle_ceco'))
-                                  SizedBox(height: 6),
-                                if (item.containsKey('nombre_ceco') || item.containsKey('detalle_ceco'))
-                                  Row(
-                                    children: [
-                                      Icon(Icons.folder_open, color: Colors.amber),
-                                      SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'CECO: ' +
-                                              ((item['nombre_ceco']?.toString() ?? 'N/A') +
-                                                  (item['detalle_ceco'] != null ? ' - ${item['detalle_ceco']}' : '')),
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 2,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
                               ],
                             ),
                           ),
-                        );
-                      },
+                          ..._agruparRendimientosIndividualesPorDiaLaborTipoMo().map((item) {
+                            final fecha = _parseHttpDate(item['fecha']?.toString() ?? DateTime.now().toString());
+                            final clave = 'IND-${item['fecha']}-${item['labor']}-${item['tipo_mo']}';
+                            final isExpanded = _grupoExpandido == clave;
+                            
+                            return Column(
+                              children: [
+                                InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      if (isExpanded) {
+                                        _grupoExpandido = null;
+                                        _rendimientosPorCeco = [];
+                                        _cecoExpandido = null;
+                                        _rendimientosPorDetalleCeco = [];
+                                      } else {
+                                        _grupoExpandido = clave;
+                                        _cargarRendimientosPorCeco(
+                                          item['fecha'],
+                                          item['tipo_mo'],
+                                          item['labor'],
+                                        );
+                                      }
+                                    });
+                                  },
+                                  child: Card(
+                                    margin: EdgeInsets.only(bottom: 12),
+                                    elevation: 2,
+                                    child: Padding(
+                                      padding: EdgeInsets.all(16),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              CircleAvatar(
+                                                backgroundColor: (item['tipo_mo']?.toString().toUpperCase() == 'PROPIO') ? Colors.blue : Colors.deepPurple,
+                                                child: Icon(
+                                                  Icons.person,
+                                                  color: Colors.white,
+                                                  size: 20,
+                                                ),
+                                              ),
+                                              SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      item['labor']?.toString() ?? 'Sin labor',
+                                                      style: TextStyle(
+                                                        fontSize: 16,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      DateFormat('EEEE, dd/MM/yyyy', 'es_ES').format(fecha!),
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: Colors.grey[600],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Container(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 4,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: (item['tipo_mo']?.toString().toUpperCase() == 'PROPIO') ? Colors.blue : Colors.deepPurple,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: Text(
+                                                  item['tipo_mo']?.toString() ?? 'N/A',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          SizedBox(height: 12),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: _buildMetricCard(
+                                                  'Total Rendimiento',
+                                                  '${_formatNumber(item['total_rendimiento'])} ${item['unidad'] ?? ''}',
+                                                  Icons.speed,
+                                                  Colors.green,
+                                                ),
+                                              ),
+                                              SizedBox(width: 8),
+                                              Expanded(
+                                                child: _buildMetricCard(
+                                                  'Trabajadores',
+                                                  '${item['cantidad_trabajadores'] ?? 0}',
+                                                  Icons.person,
+                                                  Colors.blue,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Primer nivel expandible: Rendimientos por CECO (Individuales)
+                                if (isExpanded) ...[
+                                  Container(
+                                    margin: EdgeInsets.only(top: 8, left: 16, right: 16),
+                                    child: Column(
+                                      children: [
+                                        if (_isLoadingRendimientosPorCeco)
+                                          Center(child: CircularProgressIndicator())
+                                        else if (_rendimientosPorCeco.isEmpty)
+                                          Center(
+                                            child: Text(
+                                              'No hay rendimientos por CECO disponibles',
+                                              style: TextStyle(color: Colors.grey[600]),
+                                            ),
+                                          )
+                                        else
+                                          ..._rendimientosPorCeco.map((cecoItem) {
+                                            final claveCeco = 'IND-${cecoItem['nombre_ceco']}-${cecoItem['detalle_ceco']}';
+                                            final isCecoExpanded = _cecoExpandido == claveCeco;
+                                            
+                                            return Column(
+                                              children: [
+                                                InkWell(
+                                                  onTap: () {
+                                                    setState(() {
+                                                      if (isCecoExpanded) {
+                                                        _cecoExpandido = null;
+                                                        _rendimientosPorDetalleCeco = [];
+                                                      } else {
+                                                        _cecoExpandido = claveCeco;
+                                                        _cargarRendimientosPorDetalleCeco(
+                                                          item['fecha'],
+                                                          item['tipo_mo'],
+                                                          item['labor'],
+                                                          cecoItem['nombre_ceco'],
+                                                          cecoItem['detalle_ceco'],
+                                                        );
+                                                      }
+                                                    });
+                                                  },
+                                                  child: Card(
+                                                    margin: EdgeInsets.only(bottom: 8),
+                                                    elevation: 1,
+                                                    child: Padding(
+                                                      padding: EdgeInsets.all(12),
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          Row(
+                                                            children: [
+                                                              Icon(Icons.folder, color: Colors.amber, size: 20),
+                                                              SizedBox(width: 8),
+                                                              Expanded(
+                                                                child: Column(
+                                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                                  children: [
+                                                                    Text(
+                                                                      cecoItem['nombre_ceco']?.toString() ?? 'Sin CECO',
+                                                                      style: TextStyle(
+                                                                        fontSize: 14,
+                                                                        fontWeight: FontWeight.bold,
+                                                                      ),
+                                                                    ),
+                                                                    if (cecoItem['detalle_ceco']?.toString().isNotEmpty == true)
+                                                                      Text(
+                                                                        cecoItem['detalle_ceco']?.toString() ?? '',
+                                                                        style: TextStyle(
+                                                                          fontSize: 12,
+                                                                          color: Colors.grey[600],
+                                                                        ),
+                                                                      ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                              Container(
+                                                                padding: EdgeInsets.symmetric(
+                                                                  horizontal: 8,
+                                                                  vertical: 4,
+                                                                ),
+                                                                decoration: BoxDecoration(
+                                                                  color: Colors.green,
+                                                                  borderRadius: BorderRadius.circular(12),
+                                                                ),
+                                                                child: Text(
+                                                                  '${_formatNumber(cecoItem['total_rendimiento'])} ${cecoItem['unidad'] ?? ''}',
+                                                                  style: TextStyle(
+                                                                    color: Colors.white,
+                                                                    fontSize: 12,
+                                                                    fontWeight: FontWeight.bold,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          SizedBox(height: 8),
+                                                          Row(
+                                                            children: [
+                                                              Expanded(
+                                                                child: _buildMetricCard(
+                                                                  'Trabajadores',
+                                                                  '${cecoItem['cantidad_trabajadores'] ?? 0}',
+                                                                  Icons.person,
+                                                                  Colors.blue,
+                                                                ),
+                                                              ),
+                                                              SizedBox(width: 8),
+                                                              if (cecoItem['grupo_mo']?.toString().isNotEmpty == true)
+                                                                Expanded(
+                                                                  child: _buildMetricCard(
+                                                                    'Grupo MO',
+                                                                    cecoItem['grupo_mo']?.toString() ?? '',
+                                                                    Icons.group,
+                                                                    Colors.purple,
+                                                                  ),
+                                                                ),
+                                                            ],
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Segundo nivel expandible: Trabajadores por detalle_ceco (Individuales)
+                                                if (isCecoExpanded) ...[
+                                                  Container(
+                                                    margin: EdgeInsets.only(top: 4, left: 16, right: 16),
+                                                    child: Column(
+                                                      children: [
+                                                        if (_isLoadingRendimientosPorDetalleCeco)
+                                                          Center(child: CircularProgressIndicator())
+                                                        else if (_rendimientosPorDetalleCeco.isEmpty)
+                                                          Center(
+                                                            child: Text(
+                                                              'No hay trabajadores disponibles',
+                                                              style: TextStyle(color: Colors.grey[600]),
+                                                            ),
+                                                          )
+                                                        else
+                                                          ..._rendimientosPorDetalleCeco.map((trabajadorItem) {
+                                                            return Card(
+                                                              margin: EdgeInsets.only(bottom: 4),
+                                                              elevation: 0.5,
+                                                              child: Padding(
+                                                                padding: EdgeInsets.all(8),
+                                                                child: Row(
+                                                                  children: [
+                                                                    Icon(Icons.person_outline, color: Colors.indigo, size: 16),
+                                                                    SizedBox(width: 8),
+                                                                    Expanded(
+                                                                      child: Text(
+                                                                        trabajadorItem['trabajador']?.toString() ?? 'Sin nombre',
+                                                                        style: TextStyle(
+                                                                          fontSize: 12,
+                                                                          fontWeight: FontWeight.w500,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    Container(
+                                                                      padding: EdgeInsets.symmetric(
+                                                                        horizontal: 6,
+                                                                        vertical: 2,
+                                                                      ),
+                                                                      decoration: BoxDecoration(
+                                                                        color: Colors.green.withOpacity(0.2),
+                                                                        borderRadius: BorderRadius.circular(8),
+                                                                        border: Border.all(color: Colors.green.withOpacity(0.5)),
+                                                                      ),
+                                                                      child: Text(
+                                                                        '${_formatNumber(trabajadorItem['rendimiento'])} ${trabajadorItem['unidad'] ?? ''}',
+                                                                        style: TextStyle(
+                                                                          color: Colors.green[700],
+                                                                          fontSize: 11,
+                                                                          fontWeight: FontWeight.bold,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            );
+                                                          }).toList(),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            );
+                                          }).toList(),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            );
+                          }).toList(),
+                        ],
+                        
+                        // Sección de Rendimientos Grupales
+                        if (_agruparRendimientosGrupalesPorDiaLaborTipoMo().isNotEmpty && 
+                            (_rendTipoRendimiento == null || _rendTipoRendimiento == 'Grupal')) ...[
+                          SizedBox(height: 16),
+                          Container(
+                            margin: EdgeInsets.only(bottom: 16),
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.groups, color: Colors.orange, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Rendimientos Grupales',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ..._agruparRendimientosGrupalesPorDiaLaborTipoMo().map((item) {
+                            final fecha = _parseHttpDate(item['fecha']?.toString() ?? DateTime.now().toString());
+                            final clave = 'GRUPAL-${item['fecha']}-${item['labor']}-${item['tipo_mo']}';
+                            final isExpanded = _grupoGrupalExpandido == clave;
+                            
+                            return Column(
+                              children: [
+                                InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      if (isExpanded) {
+                                        _grupoGrupalExpandido = null;
+                                        _rendimientosGrupalesPorCeco = [];
+                                        _cecoGrupalExpandido = null;
+                                        _rendimientosGrupalesPorDetalleCeco = [];
+                                      } else {
+                                        _grupoGrupalExpandido = clave;
+                                        _cargarRendimientosGrupalesPorCeco(
+                                          item['fecha'],
+                                          item['tipo_mo'],
+                                          item['labor'],
+                                        );
+                                      }
+                                    });
+                                  },
+                                  child: Card(
+                                    margin: EdgeInsets.only(bottom: 12),
+                                    elevation: 2,
+                                    child: Padding(
+                                      padding: EdgeInsets.all(16),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              CircleAvatar(
+                                                backgroundColor: (item['tipo_mo']?.toString().toUpperCase() == 'PROPIO') ? Colors.blue : Colors.deepPurple,
+                                                child: Icon(
+                                                  Icons.groups,
+                                                  color: Colors.white,
+                                                  size: 20,
+                                                ),
+                                              ),
+                                              SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      item['labor']?.toString() ?? 'Sin labor',
+                                                      style: TextStyle(
+                                                        fontSize: 16,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      DateFormat('EEEE, dd/MM/yyyy', 'es_ES').format(fecha!),
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: Colors.grey[600],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Container(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 4,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: (item['tipo_mo']?.toString().toUpperCase() == 'PROPIO') ? Colors.blue : Colors.deepPurple,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: Text(
+                                                  item['tipo_mo']?.toString() ?? 'N/A',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          SizedBox(height: 12),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: _buildMetricCard(
+                                                  'Total Rendimiento',
+                                                  '${_formatNumber(item['total_rendimiento'])} ${item['unidad'] ?? ''}',
+                                                  Icons.speed,
+                                                  Colors.green,
+                                                ),
+                                              ),
+                                              SizedBox(width: 8),
+                                              Expanded(
+                                                child: _buildMetricCard(
+                                                  'Grupos',
+                                                  '${item['cantidad_grupos'] ?? 0}',
+                                                  Icons.groups,
+                                                  Colors.orange,
+                                                ),
+                                              ),
+                                              SizedBox(width: 8),
+                                              Expanded(
+                                                child: _buildMetricCard(
+                                                  'Trabajadores',
+                                                  '${item['total_cantidad_trabajadores'] ?? 0}',
+                                                  Icons.person,
+                                                  Colors.blue,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Primer nivel expandible: Rendimientos por CECO (Grupales)
+                                if (isExpanded) ...[
+                                  Container(
+                                    margin: EdgeInsets.only(top: 8, left: 16, right: 16),
+                                    child: Column(
+                                      children: [
+                                        if (_isLoadingRendimientosGrupalesPorCeco)
+                                          Center(child: CircularProgressIndicator())
+                                        else if (_rendimientosGrupalesPorCeco.isEmpty)
+                                          Center(
+                                            child: Text(
+                                              'No hay rendimientos grupales por CECO disponibles',
+                                              style: TextStyle(color: Colors.grey[600]),
+                                            ),
+                                          )
+                                        else
+                                          ..._rendimientosGrupalesPorCeco.map((cecoItem) {
+                                            final claveCeco = 'GRUPAL-${cecoItem['nombre_ceco']}-${cecoItem['detalle_ceco']}';
+                                            final isCecoExpanded = _cecoGrupalExpandido == claveCeco;
+                                            
+                                            return Column(
+                                              children: [
+                                                InkWell(
+                                                  onTap: () {
+                                                    setState(() {
+                                                      if (isCecoExpanded) {
+                                                        _cecoGrupalExpandido = null;
+                                                        _rendimientosGrupalesPorDetalleCeco = [];
+                                                      } else {
+                                                        _cecoGrupalExpandido = claveCeco;
+                                                        _cargarRendimientosGrupalesPorDetalleCeco(
+                                                          item['fecha'],
+                                                          item['tipo_mo'],
+                                                          item['labor'],
+                                                          cecoItem['nombre_ceco'],
+                                                          cecoItem['detalle_ceco'],
+                                                        );
+                                                      }
+                                                    });
+                                                  },
+                                                  child: Card(
+                                                    margin: EdgeInsets.only(bottom: 8),
+                                                    elevation: 1,
+                                                    child: Padding(
+                                                      padding: EdgeInsets.all(12),
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          Row(
+                                                            children: [
+                                                              Icon(Icons.folder, color: Colors.amber, size: 20),
+                                                              SizedBox(width: 8),
+                                                              Expanded(
+                                                                child: Column(
+                                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                                  children: [
+                                                                    Text(
+                                                                      cecoItem['nombre_ceco']?.toString() ?? 'Sin CECO',
+                                                                      style: TextStyle(
+                                                                        fontSize: 14,
+                                                                        fontWeight: FontWeight.bold,
+                                                                      ),
+                                                                    ),
+                                                                    if (cecoItem['detalle_ceco']?.toString().isNotEmpty == true)
+                                                                      Text(
+                                                                        cecoItem['detalle_ceco']?.toString() ?? '',
+                                                                        style: TextStyle(
+                                                                          fontSize: 12,
+                                                                          color: Colors.grey[600],
+                                                                        ),
+                                                                      ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                              Container(
+                                                                padding: EdgeInsets.symmetric(
+                                                                  horizontal: 8,
+                                                                  vertical: 4,
+                                                                ),
+                                                                decoration: BoxDecoration(
+                                                                  color: Colors.green,
+                                                                  borderRadius: BorderRadius.circular(12),
+                                                                ),
+                                                                child: Text(
+                                                                  '${_formatNumber(cecoItem['total_rendimiento'])} ${cecoItem['unidad'] ?? ''}',
+                                                                  style: TextStyle(
+                                                                    color: Colors.white,
+                                                                    fontSize: 12,
+                                                                    fontWeight: FontWeight.bold,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          SizedBox(height: 8),
+                                                          Row(
+                                                            children: [
+                                                              Expanded(
+                                                                child: _buildMetricCard(
+                                                                  'Grupos',
+                                                                  '${cecoItem['cantidad_grupos'] ?? 0}',
+                                                                  Icons.groups,
+                                                                  Colors.orange,
+                                                                ),
+                                                              ),
+                                                              SizedBox(width: 8),
+                                                              Expanded(
+                                                                child: _buildMetricCard(
+                                                                  'Trabajadores',
+                                                                  '${cecoItem['total_cantidad_trabajadores'] ?? 0}',
+                                                                  Icons.person,
+                                                                  Colors.blue,
+                                                                ),
+                                                              ),
+                                                              SizedBox(width: 8),
+                                                              if (cecoItem['grupo_mo']?.toString().isNotEmpty == true)
+                                                                Expanded(
+                                                                  child: _buildMetricCard(
+                                                                    'Grupo MO',
+                                                                    cecoItem['grupo_mo']?.toString() ?? '',
+                                                                    Icons.group,
+                                                                    Colors.purple,
+                                                                  ),
+                                                                ),
+                                                            ],
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Segundo nivel expandible: Grupos de trabajadores por detalle_ceco (Grupales)
+                                                if (isCecoExpanded) ...[
+                                                  Container(
+                                                    margin: EdgeInsets.only(top: 4, left: 16, right: 16),
+                                                    child: Column(
+                                                      children: [
+                                                        if (_isLoadingRendimientosGrupalesPorDetalleCeco)
+                                                          Center(child: CircularProgressIndicator())
+                                                        else if (_rendimientosGrupalesPorDetalleCeco.isEmpty)
+                                                          Center(
+                                                            child: Text(
+                                                              'No hay grupos de trabajadores disponibles',
+                                                              style: TextStyle(color: Colors.grey[600]),
+                                                            ),
+                                                          )
+                                                        else
+                                                          ..._rendimientosGrupalesPorDetalleCeco.map((grupoItem) {
+                                                            return Card(
+                                                              margin: EdgeInsets.only(bottom: 4),
+                                                              elevation: 0.5,
+                                                              child: Padding(
+                                                                padding: EdgeInsets.all(8),
+                                                                child: Row(
+                                                                  children: [
+                                                                    Icon(Icons.group_outlined, color: Colors.orange, size: 16),
+                                                                    SizedBox(width: 8),
+                                                                    Expanded(
+                                                                      child: Column(
+                                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                                        children: [
+                                                                          Text(
+                                                                            grupoItem['grupo_mo']?.toString() ?? 'Sin grupo',
+                                                                            style: TextStyle(
+                                                                              fontSize: 12,
+                                                                              fontWeight: FontWeight.w500,
+                                                                            ),
+                                                                          ),
+                                                                          Text(
+                                                                            '${grupoItem['cantidad_trab'] ?? 0} trabajadores',
+                                                                            style: TextStyle(
+                                                                              fontSize: 10,
+                                                                              color: Colors.grey[600],
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                      ),
+                                                                    ),
+                                                                    Container(
+                                                                      padding: EdgeInsets.symmetric(
+                                                                        horizontal: 6,
+                                                                        vertical: 2,
+                                                                      ),
+                                                                      decoration: BoxDecoration(
+                                                                        color: Colors.orange.withOpacity(0.2),
+                                                                        borderRadius: BorderRadius.circular(8),
+                                                                        border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                                                                      ),
+                                                                      child: Text(
+                                                                        '${_formatNumber(grupoItem['rendimiento'])} ${grupoItem['unidad'] ?? ''}',
+                                                                        style: TextStyle(
+                                                                          color: Colors.orange[700],
+                                                                          fontSize: 11,
+                                                                          fontWeight: FontWeight.bold,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    SizedBox(width: 8),
+                                                                    Container(
+                                                                      padding: EdgeInsets.symmetric(
+                                                                        horizontal: 6,
+                                                                        vertical: 2,
+                                                                      ),
+                                                                      decoration: BoxDecoration(
+                                                                        color: Colors.purple.withOpacity(0.2),
+                                                                        borderRadius: BorderRadius.circular(8),
+                                                                        border: Border.all(color: Colors.purple.withOpacity(0.5)),
+                                                                      ),
+                                                                      child: Text(
+                                                                        '${_formatearPorcentaje(grupoItem['porcentaje_contratista'])}',
+                                                                        style: TextStyle(
+                                                                          color: Colors.purple[700],
+                                                                          fontSize: 11,
+                                                                          fontWeight: FontWeight.bold,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            );
+                                                          }).toList(),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            );
+                                          }).toList(),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            );
+                          }).toList(),
+                        ],
+                      ],
                     ),
         ),
       ],
@@ -1100,5 +2196,36 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
         ],
       ),
     );
+  }
+
+  // Método para formatear porcentajes (0.35 -> 35%, 0.5 -> 50%, etc.)
+  String _formatearPorcentaje(dynamic valor) {
+    if (valor == null) return '';
+    
+    try {
+      double numero = 0.0;
+      if (valor is num) {
+        numero = valor.toDouble();
+      } else if (valor is String) {
+        numero = double.tryParse(valor) ?? 0.0;
+      } else {
+        return valor.toString();
+      }
+      
+      // Si el número es menor a 1, asumimos que es un decimal y lo convertimos a porcentaje
+      if (numero < 1 && numero > 0) {
+        return '${(numero * 100).toStringAsFixed(0)}%';
+      }
+      // Si ya es un número mayor a 1, asumimos que ya es un porcentaje
+      else if (numero >= 1) {
+        return '${numero.toStringAsFixed(0)}%';
+      }
+      // Si es 0, retornamos 0%
+      else {
+        return '0%';
+      }
+    } catch (e) {
+      return valor.toString();
+    }
   }
 }

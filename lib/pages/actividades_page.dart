@@ -38,6 +38,7 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
 
   List<dynamic> todasActividades = [];
   List<dynamic> actividadesFiltradas = [];
+  final Set<String> _actividadesVerificadas = {};
 
   final Color primaryColor = Colors.green;
   final Color secondaryColor = Colors.white;
@@ -444,6 +445,27 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
   }
 
   Widget _buildActividadCard(dynamic actividad) {
+    // Verificación perezosa: si aún no detectamos rendimientos, consultar una sola vez por actividad
+    final String actividadId = actividad['id'].toString();
+    if (!_tieneRendimientos(actividad) && !_actividadesVerificadas.contains(actividadId)) {
+      _actividadesVerificadas.add(actividadId);
+      Future.microtask(() async {
+        try {
+          final datos = await ApiService().getRendimientos(idActividad: actividadId);
+          if (mounted && datos is Map && datos['rendimientos'] is List && (datos['rendimientos'] as List).isNotEmpty) {
+            setState(() {
+              // Marcar tanto en lista total como en filtrada
+              actividad['tiene_rendimientos_cache'] = true;
+              final i1 = todasActividades.indexWhere((a) => a['id'].toString() == actividadId);
+              if (i1 >= 0) todasActividades[i1]['tiene_rendimientos_cache'] = true;
+              final i2 = actividadesFiltradas.indexWhere((a) => a['id'].toString() == actividadId);
+              if (i2 >= 0) actividadesFiltradas[i2]['tiene_rendimientos_cache'] = true;
+            });
+          }
+        } catch (_) {}
+      });
+    }
+
     final estadoData = getEstadoActividad(actividad['id_estadoactividad']);
     final String estadoNombre = estadoData['nombre'];
     final Color estadoColor = estadoData['color'];
@@ -467,7 +489,8 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
         );
         // Solo actualizar si se realizó alguna acción en rendimientos
         if (resultado == true) {
-          _refreshActividades();
+          // Refrescar lista para recalcular el chip
+          await _refreshActividades();
         }
       },
       child: Card(
@@ -660,8 +683,13 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
   }
 
   bool _tieneRendimientos(Map<String, dynamic> actividad) {
-    // Verificar si la actividad tiene rendimientos usando el campo cache
-    return actividad['tiene_rendimientos_cache'] == true;
+    // 1) cache precomputado
+    if (actividad['tiene_rendimientos_cache'] == true) return true;
+    // 2) datos grupales embebidos (cuando se cargó desde detalle)
+    if (actividad['rendimientos'] is List && (actividad['rendimientos'] as List).isNotEmpty) return true;
+    // 3) indicadores de existencia
+    if (actividad['tiene_rend_individual'] == true || actividad['tiene_rend_grupal'] == true) return true;
+    return false;
   }
 
   String obtenerNombreCeco(Map<String, dynamic> actividad) {
