@@ -96,9 +96,14 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
       // Procesar fechas
       for (var actividad in actividadesProcesadas) {
         try {
-          DateTime fechaOriginal = DateTime.parse(actividad['fecha']);
-          actividad['fecha_mostrada'] = DateFormat("dd/MM/yyyy").format(fechaOriginal);
-          actividad['fecha_datetime'] = fechaOriginal;
+          DateTime? fechaOriginal = _parseHttpDate(actividad['fecha']);
+          if (fechaOriginal != null) {
+            actividad['fecha_mostrada'] = DateFormat("dd/MM/yyyy").format(fechaOriginal);
+            actividad['fecha_datetime'] = fechaOriginal;
+          } else {
+            actividad['fecha_mostrada'] = "Fecha inválida";
+            actividad['fecha_datetime'] = DateTime(1970, 1, 1);
+          }
         } catch (e) {
           actividad['fecha_mostrada'] = "Fecha inválida";
           actividad['fecha_datetime'] = DateTime(1970, 1, 1);
@@ -723,6 +728,45 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
       // Puedes agregar más casos si tienes otros tipos
     }
     return nombreCeco;
+  }
+
+  DateTime? _parseHttpDate(String dateString) {
+    try {
+      // Manejar formato HTTP específico: "Thu, 07 Aug 2025 00:00:00 GMT"
+      if (dateString.contains(',') && dateString.contains('GMT')) {
+        // Parsear formato HTTP
+        final parts = dateString.split(', ');
+        if (parts.length >= 2) {
+          final datePart = parts[1];
+          final timePart = datePart.split(' ');
+          if (timePart.length >= 4) {
+            final day = int.parse(timePart[0]);
+            final monthStr = timePart[1];
+            final year = int.parse(timePart[2]);
+            final timeStr = timePart[3];
+            
+            // Mapear nombres de meses a números
+            final months = {
+              'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+              'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+            };
+            
+            final month = months[monthStr] ?? 1;
+            final timeParts = timeStr.split(':');
+            final hour = int.parse(timeParts[0]);
+            final minute = int.parse(timeParts[1]);
+            final second = int.parse(timeParts[2]);
+            
+            return DateTime(year, month, day, hour, minute, second);
+          }
+        }
+      }
+      
+      // Intentar parsear como DateTime estándar
+      return DateTime.parse(dateString);
+    } catch (e) {
+      return null;
+    }
   }
 }
 

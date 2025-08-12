@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:provider/provider.dart';
 import 'actividades_page.dart';
 import 'rendimientos_page.dart';
 import 'contratistas_page.dart';
@@ -14,6 +15,7 @@ import 'cambiar_clave_page.dart';
 import 'cambiar_sucursal_page.dart';
 import '../widgets/layout/app_bar.dart';
 import '../services/api_service.dart';
+import '../providers/theme_provider.dart';
 import 'usuarios_page.dart';
 import 'info_page.dart';
 
@@ -502,6 +504,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           },
                           color: Colors.purple,
                         ),
+
                         _buildDrawerItem(
                           icon: Icons.logout,
                           title: "Cerrar Sesión",
@@ -537,13 +540,39 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.person, color: Colors.green, size: 40),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.person, color: Colors.green, size: 40),
+              ),
+              Consumer<ThemeProvider>(
+                builder: (context, themeProvider, child) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      onPressed: () {
+                        themeProvider.toggleTheme();
+                      },
+                      tooltip: themeProvider.isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
           SizedBox(height: 16),
           Text(
@@ -620,6 +649,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       ),
     );
   }
+
+
 
   Widget _buildBottomNavigationBar() {
     return Container(

@@ -96,18 +96,28 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
         _colaboradores = colaboradores;
       });
     } catch (e) {
-      // Error silencioso
+      setState(() {
+        _colaboradores = [];
+      });
     }
   }
 
   Future<void> _cargarIndicadores() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
     try {
       final indicadores = await _apiService.getIndicadoresControlHoras();
       setState(() {
         _indicadoresControlHoras = indicadores;
+        _isLoading = false;
       });
     } catch (e) {
-      // Error silencioso
+      setState(() {
+        _isLoading = false;
+        _indicadoresControlHoras = [];
+      });
     }
   }
 
@@ -521,9 +531,19 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
   }
 
   Future<void> _cargarActividadesColaborador(String idColaborador, String fechaEspecifica) async {
+    setState(() {
+      _isLoadingActividades = true;
+    });
+    
     try {
       DateTime? fecha = _parseHttpDate(fechaEspecifica);
-      if (fecha == null) return;
+      if (fecha == null) {
+        setState(() {
+          _isLoadingActividades = false;
+          _actividadesColaborador = [];
+        });
+        return;
+      }
       
       String fechaFormateada = DateFormat('yyyy-MM-dd').format(fecha);
       
@@ -535,9 +555,13 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
       
       setState(() {
         _actividadesColaborador = actividades;
+        _isLoadingActividades = false;
       });
     } catch (e) {
-      // Error silencioso
+      setState(() {
+        _isLoadingActividades = false;
+        _actividadesColaborador = [];
+      });
     }
   }
 
@@ -726,6 +750,37 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
 
   DateTime? _parseHttpDate(String dateString) {
     try {
+      // Manejar formato HTTP específico: "Thu, 07 Aug 2025 00:00:00 GMT"
+      if (dateString.contains(',') && dateString.contains('GMT')) {
+        // Parsear formato HTTP
+        final parts = dateString.split(', ');
+        if (parts.length >= 2) {
+          final datePart = parts[1];
+          final timePart = datePart.split(' ');
+          if (timePart.length >= 4) {
+            final day = int.parse(timePart[0]);
+            final monthStr = timePart[1];
+            final year = int.parse(timePart[2]);
+            final timeStr = timePart[3];
+            
+            // Mapear nombres de meses a números
+            final months = {
+              'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+              'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+            };
+            
+            final month = months[monthStr] ?? 1;
+            final timeParts = timeStr.split(':');
+            final hour = int.parse(timeParts[0]);
+            final minute = int.parse(timeParts[1]);
+            final second = int.parse(timeParts[2]);
+            
+            return DateTime(year, month, day, hour, minute, second);
+          }
+        }
+      }
+      
+      // Intentar parsear como DateTime estándar
       return DateTime.parse(dateString);
     } catch (e) {
       return null;
@@ -1257,7 +1312,7 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
                                               ),
                                               SizedBox(height: 4),
                                               Text(
-                                                'Fecha: ${DateFormat('EEEE, dd/MM/yyyy', 'es_ES').format(DateTime.parse(actividad['fecha']))}',
+                                                'Fecha: ${DateFormat('EEEE, dd/MM/yyyy', 'es_ES').format(_parseHttpDate(actividad['fecha']) ?? DateTime.now())}',
                                                 style: TextStyle(
                                                   fontSize: 12,
                                                   color: Colors.grey[500],
