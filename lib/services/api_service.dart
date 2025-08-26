@@ -85,6 +85,41 @@ class ApiService {
     }
   }
 
+  /// 🔹 Método para verificar y manejar token expirado al inicio de la app
+  Future<bool> verificarTokenAlInicio() async {
+    try {
+      final token = await getToken();
+      if (token == null) {
+        return false;
+      }
+
+      // Verificar si el token es válido haciendo una petición simple
+      final response = await http.get(
+        Uri.parse('$baseUrl/usuarios/sucursal-activa'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 401) {
+        await manejarTokenExpirado();
+        return false;
+      }
+
+      return response.statusCode == 200;
+    } catch (e) {
+      logError('Error al verificar token al inicio: $e');
+      // Si hay error de conexión, no cerrar sesión automáticamente
+      if (e.toString().contains('SocketException') || 
+          e.toString().contains('Connection refused') ||
+          e.toString().contains('Network is unreachable')) {
+        return true; // Mantener la sesión si es error de red
+      }
+      
+      // Para otros errores, asumir que el token no es válido
+      await manejarTokenExpirado();
+      return false;
+    }
+  }
+
   // Método para obtener el token almacenado en SharedPreferences
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -120,12 +155,12 @@ class ApiService {
   }
 
   Future<http.Response> _manejarRespuesta(http.Response response) async {
-    // Solo manejar errores específicos de token expirado en el body
-    if (response.statusCode != 401 && 
-        response.body.isNotEmpty && 
-        (response.body.toLowerCase().contains('token has expired') ||
-         response.body.toLowerCase().contains('token expired') ||
-         response.body.toLowerCase().contains('unauthorized'))) {
+    // Manejar errores de token expirado
+    if (response.statusCode == 401 || 
+        (response.body.isNotEmpty && 
+         (response.body.toLowerCase().contains('token has expired') ||
+          response.body.toLowerCase().contains('token expired') ||
+          response.body.toLowerCase().contains('unauthorized')))) {
       await manejarTokenExpirado();
       throw Exception('Sesión expirada. Por favor, inicia sesión nuevamente.');
     }

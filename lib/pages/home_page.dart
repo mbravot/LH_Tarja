@@ -18,6 +18,7 @@ import '../services/api_service.dart';
 import '../providers/theme_provider.dart';
 import 'usuarios_page.dart';
 import 'info_page.dart';
+import '../widgets/token_checker.dart';
 
 // 🔧 Sistema de logging condicional
 void logDebug(String message) {
@@ -269,91 +270,93 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     String titulo = (_selectedIndex == 0) ? "Actividades" : "Indicadores";
 
-    return Stack(
-      children: [
-        Scaffold(
-          appBar: CustomAppBar(
-            title: titulo,
-            actions: [
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.person, color: Colors.white, size: 16),
-                        SizedBox(width: 4),
-                        Text(
-                          userName,
-                          style: TextStyle(color: Colors.white, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                    GestureDetector(
-                      onTap: () => _seleccionarSucursal(context),
-                      child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.location_on, color: Colors.white70, size: 14),
-                        SizedBox(width: 4),
-                        Text(
-                          userSucursal,
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                        ),
-                          Icon(Icons.arrow_drop_down, color: Colors.white70, size: 18),
-                      ],
+    return TokenChecker(
+      child: Stack(
+        children: [
+          Scaffold(
+            appBar: CustomAppBar(
+              title: titulo,
+              actions: [
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.person, color: Colors.white, size: 16),
+                          SizedBox(width: 4),
+                          Text(
+                            userName,
+                            style: TextStyle(color: Colors.white, fontSize: 14),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              RotationTransition(
-                turns: Tween(begin: 0.0, end: 1.0).animate(_animationController),
-                child: IconButton(
-                  icon: Icon(Icons.refresh, color: Colors.white),
-                  onPressed: () async {
-                    await _recargarPagina();
-                    await _cargarSucursalesDisponibles();
-                  },
-                ),
-              ),
-            ],
-          ),
-          drawer: _buildDrawer(),
-          body: Column(
-            children: [
-              Expanded(
-                child: _selectedIndex == 0
-                    ? ActividadesPage(
-                        key: _actividadesKey,
-                      )
-                    : IndicadoresPage(
-                        key: _indicadoresKey,
+                      GestureDetector(
+                        onTap: () => _seleccionarSucursal(context),
+                        child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.location_on, color: Colors.white70, size: 14),
+                          SizedBox(width: 4),
+                          Text(
+                            userSucursal,
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
+                          ),
+                            Icon(Icons.arrow_drop_down, color: Colors.white70, size: 18),
+                        ],
+                        ),
                       ),
-              ),
-            ],
+                    ],
+                  ),
+                ),
+                RotationTransition(
+                  turns: Tween(begin: 0.0, end: 1.0).animate(_animationController),
+                  child: IconButton(
+                    icon: Icon(Icons.refresh, color: Colors.white),
+                    onPressed: () async {
+                      await _recargarPagina();
+                      await _cargarSucursalesDisponibles();
+                    },
+                  ),
+                ),
+              ],
+            ),
+            drawer: _buildDrawer(),
+            body: Column(
+              children: [
+                Expanded(
+                  child: _selectedIndex == 0
+                      ? ActividadesPage(
+                          key: _actividadesKey,
+                        )
+                      : IndicadoresPage(
+                          key: _indicadoresKey,
+                        ),
+                ),
+              ],
+            ),
+            bottomNavigationBar: _buildBottomNavigationBar(),
           ),
-          bottomNavigationBar: _buildBottomNavigationBar(),
-        ),
-        if (_isLoading)
-          Container(
-            color: Colors.black54,
-            child: Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+          if (_isLoading)
+            Container(
+              color: Colors.black54,
+              child: Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 

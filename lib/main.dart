@@ -12,7 +12,16 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final String? token = prefs.getString('access_token');
   
-  final startPage = token == null ? LoginPage() : HomePage();
+  Widget startPage;
+  
+  if (token == null) {
+    startPage = LoginPage();
+  } else {
+    // Verificar si el token es válido
+    final apiService = ApiService();
+    final tokenValido = await apiService.verificarTokenAlInicio();
+    startPage = tokenValido ? HomePage() : LoginPage();
+  }
 
   runApp(
     ChangeNotifierProvider(

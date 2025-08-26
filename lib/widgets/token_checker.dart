@@ -43,11 +43,11 @@ class _TokenCheckerState extends State<TokenChecker> {
       final token = prefs.getString('access_token');
 
       if (token != null && token.isNotEmpty) {
-        // Verificar si el token es válido haciendo una petición al servidor
+        // Verificar si el token es válido usando el nuevo método
         try {
-          await ApiService().getSucursales(); // Usar un endpoint simple para verificar
+          final tokenValido = await ApiService().verificarTokenAlInicio();
           setState(() {
-            _hasValidToken = true;
+            _hasValidToken = tokenValido;
             _isChecking = false;
           });
         } catch (e) {
