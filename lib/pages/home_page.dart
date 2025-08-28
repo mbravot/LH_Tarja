@@ -19,6 +19,7 @@ import '../providers/theme_provider.dart';
 import 'usuarios_page.dart';
 import 'info_page.dart';
 import '../widgets/token_checker.dart';
+import 'actividades_multiples_page.dart';
 
 // 🔧 Sistema de logging condicional
 void logDebug(String message) {
@@ -402,6 +403,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             Navigator.push(
                               context,
                               MaterialPageRoute(builder: (context) => UsuariosPage()),
+                            );
+                          },
+                          color: Colors.green,
+                        ),
+                        _buildDrawerItem(
+                          icon: Icons.assignment_add,
+                          title: "Actividades Múltiples",
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => ActividadesMultiplesPage()),
                             );
                           },
                           color: Colors.green,

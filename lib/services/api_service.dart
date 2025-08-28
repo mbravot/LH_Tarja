@@ -446,6 +446,26 @@ class ApiService {
     }
   }
 
+  // Metodo para editar una actividad múltiple
+  Future<Map<String, dynamic>> editarActividadMultiple(
+      dynamic actividadId, Map<String, dynamic> datos) async {
+    final response = await _makeRequest(() async {
+      return await http.put(
+        Uri.parse('$baseUrl/actividades_multiples/$actividadId'),
+        headers: await _getHeaders(),
+        body: jsonEncode(datos),
+      );
+    });
+
+    print("🔍 Respuesta de editar actividad múltiple: ${response.statusCode} - ${response.body}");
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      return {"error": "No se pudo actualizar la actividad múltiple: ${response.body}"};
+    }
+  }
+
   // Obtener rendimientos por ID de actividad
   Future<Map<String, dynamic>> getRendimientos({String? idActividad}) async {
     try {
@@ -1708,6 +1728,300 @@ class ApiService {
     } else {
       final error = jsonDecode(response.body);
       throw Exception(error['error'] ?? 'Error al obtener los cuarteles por actividad, especie y variedad');
+    }
+  }
+
+  /// Obtiene todos los cuarteles disponibles para una actividad
+  Future<List<Map<String, dynamic>>> getCuartelesPorActividad(String idActividad) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null) throw Exception('No se encontró el token');
+    final response = await http.get(
+      Uri.parse('$baseUrl/opciones/cuarteles/actividad/$idActividad'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Error al obtener los cuarteles por actividad');
+    }
+  }
+
+  /// Obtiene los CECOs productivos disponibles para un cuartel específico
+  Future<List<Map<String, dynamic>>> getCecosProductivosPorCuartel(String idActividad, String idCuartel) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null) throw Exception('No se encontró el token');
+    final response = await http.get(
+      Uri.parse('$baseUrl/opciones/cecos/productivos/cuartel/$idActividad/$idCuartel'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Error al obtener los CECOs productivos por cuartel');
+    }
+  }
+
+  /// Obtiene las variedades disponibles para un cuartel específico
+  Future<List<Map<String, dynamic>>> getVariedadesPorCuartel(String idActividad, String idCuartel) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null) throw Exception('No se encontró el token');
+    final response = await http.get(
+      Uri.parse('$baseUrl/opciones/variedades/cuartel/$idActividad/$idCuartel'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Error al obtener las variedades por cuartel');
+    }
+  }
+
+  /// Obtiene las especies disponibles para un cuartel específico
+  Future<List<Map<String, dynamic>>> getEspeciesPorCuartel(String idActividad, String idCuartel) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null) throw Exception('No se encontró el token');
+    final response = await http.get(
+      Uri.parse('$baseUrl/opciones/especies/cuartel/$idActividad/$idCuartel'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Error al obtener las especies por cuartel');
+    }
+  }
+
+  /// Obtiene todos los equipos de riego disponibles para una actividad
+  Future<List<Map<String, dynamic>>> getEquiposRiegoPorActividad(String idActividad) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null) throw Exception('No se encontró el token');
+    final response = await http.get(
+      Uri.parse('$baseUrl/opciones/equipos_riego/actividad/$idActividad'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Error al obtener los equipos de riego por actividad');
+    }
+  }
+
+  /// Obtiene todos los sectores de riego disponibles
+  Future<List<Map<String, dynamic>>> getSectoresRiego() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null) throw Exception('No se encontró el token');
+    final response = await http.get(
+      Uri.parse('$baseUrl/opciones/sectoresriego/'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Error al obtener los sectores de riego');
+    }
+  }
+
+  /// Obtiene los sectores de riego disponibles para una actividad múltiple
+  Future<List<Map<String, dynamic>>> getSectoresRiegoPorActividad(String idActividad) async {
+    try {
+      print("🔍 Intentando obtener sectores de riego para actividad múltiple: $idActividad");
+      print("🔍 URL del endpoint: $baseUrl/actividades_multiples/sectores-riego");
+      
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      if (token == null) throw Exception('No se encontró el token');
+      
+      print("🔍 Token obtenido: ${token.substring(0, 20)}...");
+      
+      // Intentar primero con el nuevo endpoint específico para actividades múltiples
+      try {
+        final response = await http.get(
+          Uri.parse('$baseUrl/actividades_multiples/sectores-riego'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        );
+        
+        print("🔍 Status code de la respuesta: ${response.statusCode}");
+        print("🔍 Body de la respuesta: ${response.body}");
+        
+        if (response.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(response.body);
+          print("✅ Sectores de riego obtenidos del nuevo endpoint: ${data.length}");
+          for (var sector in data) {
+            print("  - ${sector['nombre_sector']} (ID: ${sector['id_sectorriego']})");
+          }
+          return data.cast<Map<String, dynamic>>();
+        } else {
+          print("❌ Nuevo endpoint falló, intentando con endpoint alternativo...");
+          throw Exception('Endpoint no disponible');
+        }
+      } catch (e) {
+        print("❌ Error con nuevo endpoint: $e");
+        print("🔄 Intentando con endpoint alternativo...");
+        
+        // Si el nuevo endpoint falla, usar el endpoint existente como fallback
+        final response = await http.get(
+          Uri.parse('$baseUrl/opciones/sectoresriego/'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        );
+        
+        print("🔍 Status code del endpoint alternativo: ${response.statusCode}");
+        print("🔍 Body del endpoint alternativo: ${response.body}");
+        
+        if (response.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(response.body);
+          print("✅ Sectores de riego obtenidos del endpoint alternativo: ${data.length}");
+          for (var sector in data) {
+            print("  - ${sector['nombre']} (ID: ${sector['id']})");
+          }
+          return data.cast<Map<String, dynamic>>();
+        } else {
+          final error = jsonDecode(response.body);
+          print("❌ Error del servidor: ${error['error'] ?? 'Error desconocido'}");
+          throw Exception(error['error'] ?? 'Error al obtener los sectores de riego');
+        }
+      }
+    } catch (e) {
+      print("❌ Error al obtener sectores de riego: $e");
+      throw Exception('Error al obtener los sectores de riego por actividad: $e');
+    }
+  }
+
+  /// Crea un CECO de riego para una actividad múltiple usando el nuevo endpoint
+  Future<Map<String, dynamic>> crearCecoRiegoMultiple(Map<String, dynamic> cecoData) async {
+    try {
+      print("🔍 Creando CECO de riego para actividad múltiple: ${cecoData['id_actividad']}");
+      
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      if (token == null) throw Exception('No se encontró el token');
+      
+      // Usar el nuevo endpoint específico para actividades múltiples
+      final response = await http.post(
+        Uri.parse('$baseUrl/actividades_multiples/ceco-riego'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(cecoData),
+      );
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final result = jsonDecode(response.body);
+        print("✅ CECO de riego creado exitosamente: ${result['message']}");
+        return result;
+      } else {
+        final error = jsonDecode(response.body);
+        print("❌ Error del servidor: ${error['error'] ?? 'Error desconocido'}");
+        throw Exception(error['error'] ?? 'Error al crear el CECO de riego');
+      }
+    } catch (e) {
+      print("❌ Error al crear CECO de riego: $e");
+      throw Exception('Error al crear el CECO de riego: $e');
+    }
+  }
+
+  /// Obtiene los CECOs de riego disponibles para un sector específico
+  Future<List<Map<String, dynamic>>> getCecosRiegoPorSector(String idActividad, String idSector) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null) throw Exception('No se encontró el token');
+    final response = await http.get(
+      Uri.parse('$baseUrl/opciones/cecos/riego/sector/$idActividad/$idSector'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Error al obtener los CECOs de riego por sector');
+    }
+  }
+
+  /// Obtiene las casetas disponibles para un sector específico
+  Future<List<Map<String, dynamic>>> getCasetasPorSector(String idActividad, String idSector) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null) throw Exception('No se encontró el token');
+    final response = await http.get(
+      Uri.parse('$baseUrl/opciones/casetas/sector/$idActividad/$idSector'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Error al obtener las casetas por sector');
+    }
+  }
+
+  /// Obtiene los equipos de riego disponibles para un sector específico
+  Future<List<Map<String, dynamic>>> getEquiposRiegoPorSector(String idActividad, String idSector) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('access_token');
+    if (token == null) throw Exception('No se encontró el token');
+    final response = await http.get(
+      Uri.parse('$baseUrl/opciones/equipos_riego/sector/$idActividad/$idSector'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? 'Error al obtener los equipos de riego por sector');
     }
   }
 
@@ -3397,6 +3711,526 @@ class ApiService {
       return [];
     } catch (e) {
       logError('❌ Error indicador control rendimientos: $e');
+      return [];
+    }
+  }
+
+  // ===== ACTIVIDADES MÚLTIPLES =====
+  
+  /// 🔹 Obtener actividades múltiples del usuario autenticado
+  Future<List<Map<String, dynamic>>> getActividadesMultiples() async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/actividades_multiples/'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        return [];
+      }
+      logError('❌ Error obtener actividades múltiples: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      logError('❌ Error obtener actividades múltiples: $e');
+      return [];
+    }
+  }
+
+  /// 🔹 Crear nueva actividad múltiple
+  Future<Map<String, dynamic>> crearActividadMultiple(Map<String, dynamic> datos) async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.post(
+          Uri.parse('$baseUrl/actividades_multiples/'),
+          headers: await _getHeaders(),
+          body: jsonEncode(datos),
+        );
+      });
+
+      if (response.statusCode == 201) {
+        final responseData = jsonDecode(response.body);
+        logInfo('✅ Actividad múltiple creada exitosamente');
+        return {
+          'success': true,
+          'id_actividad': responseData['id_actividad']?.toString() ?? '',
+          'data': responseData,
+        };
+      }
+      
+      // Manejar errores específicos
+      final errorData = jsonDecode(response.body);
+      final errorMessage = errorData['error'] ?? errorData['detail'] ?? 'Error al crear actividad múltiple';
+      logError('❌ Error crear actividad múltiple: ${response.statusCode} - $errorMessage');
+      return {'success': false, 'error': errorMessage};
+    } catch (e) {
+      logError('❌ Error crear actividad múltiple: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// 🔹 Eliminar actividad múltiple
+  Future<bool> eliminarActividadMultiple(dynamic actividadId) async {
+    try {
+      print("🔍 Intentando eliminar actividad múltiple con ID: $actividadId");
+      print("🔍 Tipo de ID: ${actividadId.runtimeType}");
+      print("🔍 URL del endpoint: $baseUrl/actividades_multiples/$actividadId");
+      
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      if (token == null) throw Exception('No se encontró el token');
+      
+      print("🔍 Token obtenido: ${token.substring(0, 20)}...");
+      
+      final response = await http.delete(
+        Uri.parse('$baseUrl/actividades_multiples/$actividadId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print("🔍 Status code de la respuesta: ${response.statusCode}");
+      print("🔍 Body de la respuesta: ${response.body}");
+
+      if (response.statusCode == 200) {
+        print("✅ Actividad múltiple eliminada exitosamente");
+        return true;
+      } else {
+        final errorBody = response.body;
+        print("❌ Error eliminar actividad múltiple: ${response.statusCode} - $errorBody");
+        return false;
+      }
+    } catch (e) {
+      print("❌ Error eliminar actividad múltiple: $e");
+      return false;
+    }
+  }
+
+  /// 🔹 Obtener tipos CECO para actividades múltiples
+  Future<List<Map<String, dynamic>>> getTiposCeco() async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/tipos_ceco/'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        return [];
+      }
+      logError('❌ Error obtener tipos CECO: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      logError('❌ Error obtener tipos CECO: $e');
+      return [];
+    }
+  }
+
+  /// 🔹 Obtener cuarteles productivos disponibles para actividades múltiples
+  Future<List<Map<String, dynamic>>> getCuartelesProductivosPorActividad(String idActividad) async {
+    try {
+      print("🔍 Intentando obtener cuarteles productivos para actividad múltiple: $idActividad");
+      print("🔍 URL del endpoint: $baseUrl/actividades_multiples/cuarteles-productivos");
+      
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      if (token == null) throw Exception('No se encontró el token');
+      
+      print("🔍 Token obtenido: ${token.substring(0, 20)}...");
+      
+      // Intentar primero con el nuevo endpoint específico para actividades múltiples
+      try {
+        final response = await http.get(
+          Uri.parse('$baseUrl/actividades_multiples/cuarteles-productivos'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        );
+        
+        print("🔍 Status code de la respuesta: ${response.statusCode}");
+        print("🔍 Body de la respuesta: ${response.body}");
+        
+        if (response.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(response.body);
+          print("✅ Cuarteles productivos obtenidos del nuevo endpoint: ${data.length}");
+          for (var cuartel in data) {
+            print("  - ${cuartel['nombre_cuartel']} (ID: ${cuartel['id_cuartel']})");
+          }
+          return data.cast<Map<String, dynamic>>();
+        } else {
+          print("❌ Nuevo endpoint falló, intentando con endpoint alternativo...");
+          throw Exception('Endpoint no disponible');
+        }
+      } catch (e) {
+        print("❌ Error con nuevo endpoint: $e");
+        print("🔄 Intentando con endpoint alternativo...");
+        
+        // Si el nuevo endpoint falla, usar el endpoint existente como fallback
+        final response = await http.get(
+          Uri.parse('$baseUrl/opciones/cuarteles/actividad/$idActividad'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        );
+        
+        print("🔍 Status code del endpoint alternativo: ${response.statusCode}");
+        print("🔍 Body del endpoint alternativo: ${response.body}");
+        
+        if (response.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(response.body);
+          print("✅ Cuarteles productivos obtenidos del endpoint alternativo: ${data.length}");
+          for (var cuartel in data) {
+            print("  - ${cuartel['nombre']} (ID: ${cuartel['id']})");
+          }
+          return data.cast<Map<String, dynamic>>();
+        } else {
+          final error = jsonDecode(response.body);
+          print("❌ Error del servidor: ${error['error'] ?? 'Error desconocido'}");
+          throw Exception(error['error'] ?? 'Error al obtener los cuarteles productivos');
+        }
+      }
+    } catch (e) {
+      print("❌ Error al obtener cuarteles productivos: $e");
+      throw Exception('Error al obtener los cuarteles productivos por actividad: $e');
+    }
+  }
+
+  /// 🔹 Crear un CECO productivo para una actividad múltiple (cuartel individual)
+  Future<Map<String, dynamic>> crearCecoProductivoMultiple(Map<String, dynamic> cecoData) async {
+    try {
+      print("🔍 Creando CECO productivo para actividad múltiple: ${cecoData['id_actividad']}");
+      
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      if (token == null) throw Exception('No se encontró el token');
+      
+      // Usar el nuevo endpoint específico para actividades múltiples
+      final response = await http.post(
+        Uri.parse('$baseUrl/actividades_multiples/ceco-productivo'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(cecoData),
+      );
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final result = jsonDecode(response.body);
+        print("✅ CECO productivo creado exitosamente: ${result['message']}");
+        return result;
+      } else {
+        final error = jsonDecode(response.body);
+        print("❌ Error del servidor: ${error['error'] ?? 'Error desconocido'}");
+        throw Exception(error['error'] ?? 'Error al crear el CECO productivo');
+      }
+    } catch (e) {
+      print("❌ Error al crear CECO productivo: $e");
+      throw Exception('Error al crear el CECO productivo: $e');
+    }
+  }
+
+  /// 🔹 Crear múltiples CECOs productivos para una actividad múltiple (múltiples cuarteles)
+  Future<Map<String, dynamic>> crearCecoProductivoMultipleBulk(Map<String, dynamic> cecoData) async {
+    try {
+      print("🔍 Creando múltiples CECOs productivos para actividad múltiple: ${cecoData['id_actividad']}");
+      
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      if (token == null) throw Exception('No se encontró el token');
+      
+      // Usar el nuevo endpoint específico para actividades múltiples
+      final response = await http.post(
+        Uri.parse('$baseUrl/actividades_multiples/ceco-productivo-multiple'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(cecoData),
+      );
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final result = jsonDecode(response.body);
+        print("✅ Múltiples CECOs productivos creados exitosamente: ${result['message']}");
+        return result;
+      } else {
+        final error = jsonDecode(response.body);
+        print("❌ Error del servidor: ${error['error'] ?? 'Error desconocido'}");
+        throw Exception(error['error'] ?? 'Error al crear los CECOs productivos');
+      }
+    } catch (e) {
+      print("❌ Error al crear múltiples CECOs productivos: $e");
+      throw Exception('Error al crear los CECOs productivos: $e');
+    }
+  }
+
+  /// 🔹 Crear múltiples CECOs de riego para una actividad múltiple (múltiples sectores)
+  Future<Map<String, dynamic>> crearCecoRiegoMultipleBulk(Map<String, dynamic> cecoData) async {
+    try {
+      print("🔍 Creando múltiples CECOs de riego para actividad múltiple: ${cecoData['id_actividad']}");
+      
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      if (token == null) throw Exception('No se encontró el token');
+      
+      // Usar el nuevo endpoint específico para actividades múltiples
+      final response = await http.post(
+        Uri.parse('$baseUrl/actividades_multiples/ceco-riego-multiple'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(cecoData),
+      );
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final result = jsonDecode(response.body);
+        print("✅ Múltiples CECOs de riego creados exitosamente: ${result['message']}");
+        return result;
+      } else {
+        final error = jsonDecode(response.body);
+        print("❌ Error del servidor: ${error['error'] ?? 'Error desconocido'}");
+        throw Exception(error['error'] ?? 'Error al crear los CECOs de riego');
+      }
+    } catch (e) {
+      print("❌ Error al crear múltiples CECOs de riego: $e");
+      throw Exception('Error al crear los CECOs de riego: $e');
+    }
+  }
+
+  /// 🔹 Obtener CECOs productivos asociados a una actividad múltiple
+  Future<List<Map<String, dynamic>>> getCecosProductivosMultiple(String idActividad) async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/actividades_multiples/ceco-productivo/$idActividad'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        return [];
+      }
+      logError('❌ Error obtener CECOs productivos múltiples: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      logError('❌ Error obtener CECOs productivos múltiples: $e');
+      return [];
+    }
+  }
+
+  /// 🔹 Obtener CECOs de riego asociados a una actividad múltiple
+  Future<List<Map<String, dynamic>>> getCecosRiegoMultiple(String idActividad) async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/actividades_multiples/ceco-riego/$idActividad'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        return [];
+      }
+      logError('❌ Error obtener CECOs de riego múltiples: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      logError('❌ Error obtener CECOs de riego múltiples: $e');
+      return [];
+    }
+  }
+
+  /// 🔹 Obtener actividades múltiples con CECOs asociados
+  Future<List<Map<String, dynamic>>> getActividadesMultiplesConCecos() async {
+    try {
+      // Obtener actividades múltiples
+      final actividades = await getActividadesMultiples();
+      
+      // Para cada actividad, obtener sus CECOs asociados
+      for (var actividad in actividades) {
+        final idActividad = actividad['id'].toString();
+        
+        // Obtener CECOs productivos
+        final cecosProductivos = await getCecosProductivosMultiple(idActividad);
+        actividad['cecos_productivos'] = cecosProductivos;
+        
+        // Obtener CECOs de riego
+        final cecosRiego = await getCecosRiegoMultiple(idActividad);
+        actividad['cecos_riego'] = cecosRiego;
+      }
+      
+      return actividades;
+    } catch (e) {
+      logError('❌ Error obtener actividades múltiples con CECOs: $e');
+      return [];
+    }
+  }
+
+  // ===== ENDPOINTS PARA RENDIMIENTOS MÚLTIPLES =====
+
+  /// 🔹 Obtener rendimientos múltiples de una actividad específica
+  Future<List<Map<String, dynamic>>> getRendimientosMultiples(String idActividad) async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/rendimiento_multiple/actividad/$idActividad'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        return [];
+      }
+      logError('❌ Error obtener rendimientos múltiples: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      logError('❌ Error obtener rendimientos múltiples: $e');
+      return [];
+    }
+  }
+
+  /// 🔹 Obtener todos los rendimientos múltiples del usuario
+  Future<List<Map<String, dynamic>>> getAllRendimientosMultiples() async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/rendimiento_multiple/'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        return [];
+      }
+      logError('❌ Error obtener todos los rendimientos múltiples: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      logError('❌ Error obtener todos los rendimientos múltiples: $e');
+      return [];
+    }
+  }
+
+  /// 🔹 Crear un nuevo rendimiento múltiple
+  Future<Map<String, dynamic>> crearRendimientoMultiple(Map<String, dynamic> datos) async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.post(
+          Uri.parse('$baseUrl/rendimiento_multiple/'),
+          headers: await _getHeaders(),
+          body: jsonEncode(datos),
+        );
+      });
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body);
+      } else {
+        final error = jsonDecode(response.body);
+        throw Exception(error['error'] ?? 'Error al crear rendimiento múltiple');
+      }
+    } catch (e) {
+      logError('❌ Error crear rendimiento múltiple: $e');
+      throw Exception('Error al crear rendimiento múltiple: $e');
+    }
+  }
+
+  /// 🔹 Editar un rendimiento múltiple existente
+  Future<Map<String, dynamic>> editarRendimientoMultiple(String id, Map<String, dynamic> datos) async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.put(
+          Uri.parse('$baseUrl/rendimiento_multiple/$id'),
+          headers: await _getHeaders(),
+          body: jsonEncode(datos),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        final error = jsonDecode(response.body);
+        throw Exception(error['error'] ?? 'Error al editar rendimiento múltiple');
+      }
+    } catch (e) {
+      logError('❌ Error editar rendimiento múltiple: $e');
+      throw Exception('Error al editar rendimiento múltiple: $e');
+    }
+  }
+
+  /// 🔹 Eliminar un rendimiento múltiple
+  Future<bool> eliminarRendimientoMultiple(String id) async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.delete(
+          Uri.parse('$baseUrl/rendimiento_multiple/$id'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {
+      logError('❌ Error eliminar rendimiento múltiple: $e');
+      return false;
+    }
+  }
+
+  /// 🔹 Obtener colaboradores para rendimientos múltiples
+  Future<List<Map<String, dynamic>>> getColaboradoresRendimientoMultiple() async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/rendimiento_multiple/colaboradores'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        return [];
+      }
+      logError('❌ Error obtener colaboradores rendimiento múltiple: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      logError('❌ Error obtener colaboradores rendimiento múltiple: $e');
+      return [];
+    }
+  }
+
+  /// 🔹 Obtener bonos para rendimientos múltiples
+  Future<List<Map<String, dynamic>>> getBonosRendimientoMultiple() async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/rendimiento_multiple/bonos'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) return data.cast<Map<String, dynamic>>();
+        return [];
+      }
+      logError('❌ Error obtener bonos rendimiento múltiple: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      logError('❌ Error obtener bonos rendimiento múltiple: $e');
       return [];
     }
   }

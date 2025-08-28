@@ -1,5 +1,5 @@
 name: app_lh_tarja
-description: "A new Flutter project."
+description: "Aplicación móvil para gestión de rendimientos y actividades de LH Tarja. Permite administrar trabajadores, contratistas, actividades y generar reportes de rendimiento."
 
 publish_to: 'none'
 
