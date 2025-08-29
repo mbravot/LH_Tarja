@@ -76,7 +76,14 @@ class _CreateActividadMultiplePageState extends State<CreateActividadMultiplePag
       setState(() {
         labores = List<Map<String, dynamic>>.from(data['labores'] ?? []);
         unidades = List<Map<String, dynamic>>.from(data['unidades'] ?? []);
-        tipoCecos = List<Map<String, dynamic>>.from(data['tipoCecos'] ?? []);
+        
+        // Filtrar solo los tipos de CECO permitidos para actividades múltiples
+        final todosTipoCecos = List<Map<String, dynamic>>.from(data['tipoCecos'] ?? []);
+        tipoCecos = todosTipoCecos.where((ceco) {
+          final id = ceco['id'].toString();
+          return id == '2' || id == '5'; // Solo Productivo (2) y Riego (5)
+        }).toList();
+        
         // Seleccionar automáticamente el CECO Productivo (id = 2)
         selectedTipoCeco = '2';
         _isLoading = false;

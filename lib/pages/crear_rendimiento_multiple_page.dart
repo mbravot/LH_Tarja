@@ -22,14 +22,11 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
   String _error = '';
   
   List<Map<String, dynamic>> colaboradores = [];
-  List<Map<String, dynamic>> bonos = [];
   List<Map<String, dynamic>> cecosDisponibles = [];
   
   String? selectedColaborador;
-  String? selectedBono;
-  String? selectedCeco;
-  final TextEditingController cantidadController = TextEditingController();
-  final TextEditingController observacionesController = TextEditingController();
+  List<String> selectedCecos = [];
+  Map<String, TextEditingController> rendimientoControllers = {};
 
   @override
   void initState() {
@@ -44,16 +41,14 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
         _error = '';
       });
 
-      // Cargar colaboradores y bonos específicos para rendimientos múltiples
+      // Cargar colaboradores específicos para rendimientos múltiples
       final listaColaboradores = await _apiService.getColaboradoresRendimientoMultiple();
-      final listaBonos = await _apiService.getBonosRendimientoMultiple();
       
-      // Cargar CECOs disponibles según el tipo de actividad
+      // Cargar CECOs disponibles usando el nuevo endpoint
       await _cargarCecosDisponibles();
 
       setState(() {
         colaboradores = List<Map<String, dynamic>>.from(listaColaboradores);
-        bonos = List<Map<String, dynamic>>.from(listaBonos);
         _isLoading = false;
       });
     } catch (e) {
@@ -68,17 +63,11 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
     try {
       final idActividad = widget.actividad['id'].toString();
       
-      // Obtener CECOs según el tipo de actividad
-      switch ((widget.actividad['nombre_tipoceco'] ?? '').toString().toUpperCase()) {
-        case 'PRODUCTIVO':
-          final cecosProductivos = await _apiService.getCecosProductivosMultiple(idActividad);
-          cecosDisponibles = cecosProductivos;
-          break;
-        case 'RIEGO':
-          final cecosRiego = await _apiService.getCecosRiegoMultiple(idActividad);
-          cecosDisponibles = cecosRiego;
-          break;
-      }
+      // Usar el nuevo endpoint para obtener CECOs de la actividad
+      final cecos = await _apiService.getCecosActividadMultiple(idActividad);
+      setState(() {
+        cecosDisponibles = List<Map<String, dynamic>>.from(cecos);
+      });
     } catch (e) {
       print("❌ Error al cargar CECOs disponibles: $e");
     }
@@ -86,46 +75,94 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
 
   Future<void> _guardarRendimiento() async {
     if (!_formKey.currentState!.validate()) return;
-    if (selectedColaborador == null || selectedCeco == null) {
+    if (selectedColaborador == null || selectedCecos.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Por favor, selecciona un colaborador y un CECO'),
+          content: Text('Por favor, selecciona un colaborador y al menos un CECO'),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
+    // Validar que todos los CECOs seleccionados tengan rendimiento
+    for (String cecoId in selectedCecos) {
+      final controller = rendimientoControllers[cecoId];
+      if (controller == null || controller.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Por favor, ingresa el rendimiento para todos los CECOs seleccionados'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      if (double.tryParse(controller.text) == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Por favor, ingresa un número válido para todos los rendimientos'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
+
     try {
       setState(() => _isLoading = true);
 
-      final datos = {
-        'id_actividad': widget.actividad['id'],
-        'id_colaborador': selectedColaborador,
-        'id_ceco': selectedCeco,
-        'cantidad': double.tryParse(cantidadController.text) ?? 0.0,
-        'observaciones': observacionesController.text.trim(),
-        if (selectedBono != null) 'id_bono': selectedBono,
-      };
+      // Crear un rendimiento por cada CECO seleccionado
+      List<Map<String, dynamic>> rendimientos = [];
+      
+      for (String cecoId in selectedCecos) {
+        final controller = rendimientoControllers[cecoId];
+        if (controller != null) {
+          rendimientos.add({
+            'id_actividad': widget.actividad['id'],
+            'id_colaborador': selectedColaborador,
+            'id_ceco': cecoId, // Campo individual en la BD
+            'rendimiento': double.tryParse(controller.text) ?? 0.0,
+            'hora_inicio': widget.actividad['hora_inicio'],
+            'hora_fin': widget.actividad['hora_fin'],
+          });
+        }
+      }
 
-      final resultado = await _apiService.crearRendimientoMultiple(datos);
+      // Crear cada rendimiento individualmente
+      bool todosExitosos = true;
+      String errorMessage = '';
 
-      if (resultado['success'] == true) {
+      for (Map<String, dynamic> rendimiento in rendimientos) {
+        try {
+          final resultado = await _apiService.crearRendimientoMultiple(rendimiento);
+          if (resultado['success'] != true) {
+            todosExitosos = false;
+            errorMessage = resultado['error'] ?? 'Error desconocido';
+            break;
+          }
+        } catch (e) {
+          todosExitosos = false;
+          errorMessage = e.toString();
+          break;
+        }
+      }
+
+      if (todosExitosos) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Rendimiento múltiple creado exitosamente'),
+            content: Text('${rendimientos.length} rendimientos creados exitosamente'),
             backgroundColor: Colors.green,
           ),
         );
         Navigator.pop(context, true);
       } else {
-        throw Exception(resultado['error'] ?? 'Error desconocido');
+        throw Exception(errorMessage);
       }
     } catch (e) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al crear rendimiento múltiple: $e'),
+          content: Text('Error al crear rendimientos múltiples: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -177,22 +214,8 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
                         _buildColaboradorDropdown(),
                         SizedBox(height: 16),
                         
-                        // CECO
-                        _buildCecoDropdown(),
-                        SizedBox(height: 16),
-                        
-                        // Cantidad
-                        _buildCantidadField(),
-                        SizedBox(height: 16),
-                        
-                        // Bono (opcional)
-                        if (bonos.isNotEmpty) ...[
-                          _buildBonoDropdown(),
-                          SizedBox(height: 16),
-                        ],
-                        
-                        // Observaciones
-                        _buildObservacionesField(),
+                        // CECOs (selección múltiple)
+                        _buildCecosMultiSelect(),
                         SizedBox(height: 24),
                         
                         // Botón guardar
@@ -207,7 +230,7 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
                             ),
                           ),
                           child: Text(
-                            'Crear Rendimiento Múltiple',
+                            'Crear Rendimientos Múltiples',
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -332,12 +355,12 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
     );
   }
 
-  Widget _buildCecoDropdown() {
+  Widget _buildCecosMultiSelect() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'CECO *',
+          'CECOs y Rendimientos *',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -345,123 +368,93 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
           ),
         ),
         SizedBox(height: 8),
-        DropdownSearch<Map<String, dynamic>>(
-          selectedItem: cecosDisponibles.firstWhereOrNull((item) => item['id'].toString() == selectedCeco),
-          items: cecosDisponibles,
-          itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
-          onChanged: (Map<String, dynamic>? newValue) {
-            setState(() {
-              selectedCeco = newValue?['id']?.toString();
-            });
-          },
-          validator: (value) {
-            if (value == null) return 'Por favor selecciona un CECO';
-            return null;
-          },
-          dropdownButtonProps: DropdownButtonProps(icon: Icon(Icons.arrow_drop_down)),
-          dropdownDecoratorProps: DropDownDecoratorProps(
-            dropdownSearchDecoration: InputDecoration(
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[400]!),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            children: [
+              if (cecosDisponibles.isEmpty)
+                Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'No hay CECOs disponibles para esta actividad',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                )
+              else
+                ...cecosDisponibles.map((ceco) {
+                  final cecoId = ceco['id_ceco'].toString();
+                  final isSelected = selectedCecos.contains(cecoId);
+                  
+                  return Column(
+                    children: [
+                      CheckboxListTile(
+                        title: Text(ceco['nombre_ceco'] ?? 'Sin nombre'),
+                        subtitle: Text('Tipo: ${ceco['tipo_ceco'] ?? 'Sin tipo'}'),
+                        value: isSelected,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            if (value == true) {
+                              selectedCecos.add(cecoId);
+                              // Crear controller para este CECO si no existe
+                              if (!rendimientoControllers.containsKey(cecoId)) {
+                                rendimientoControllers[cecoId] = TextEditingController();
+                              }
+                            } else {
+                              selectedCecos.remove(cecoId);
+                              // Limpiar controller cuando se deselecciona
+                              rendimientoControllers.remove(cecoId);
+                            }
+                          });
+                        },
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      ),
+                      // Campo de rendimiento para este CECO
+                      if (isSelected)
+                        Padding(
+                          padding: EdgeInsets.only(left: 48, right: 16, bottom: 8),
+                          child: TextFormField(
+                            controller: rendimientoControllers[cecoId],
+                            keyboardType: TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(
+                              labelText: 'Rendimiento para ${ceco['nombre_ceco']}',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              hintText: 'Ingresa el rendimiento',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Por favor ingresa un rendimiento';
+                              }
+                              if (double.tryParse(value) == null) {
+                                return 'Por favor ingresa un número válido';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                    ],
+                  );
+                }).toList(),
+            ],
+          ),
+        ),
+        if (selectedCecos.isNotEmpty) ...[
+          SizedBox(height: 8),
+          Text(
+            'CECOs seleccionados: ${selectedCecos.length}',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
             ),
           ),
-        ),
+        ],
       ],
     );
   }
 
-  Widget _buildCantidadField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Cantidad *',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[700],
-          ),
-        ),
-        SizedBox(height: 8),
-        TextFormField(
-          controller: cantidadController,
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            hintText: 'Ingresa la cantidad',
-          ),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Por favor ingresa una cantidad';
-            }
-            if (double.tryParse(value) == null) {
-              return 'Por favor ingresa un número válido';
-            }
-            return null;
-          },
-        ),
-      ],
-    );
-  }
 
-  Widget _buildBonoDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Bono (opcional)',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[700],
-          ),
-        ),
-        SizedBox(height: 8),
-        DropdownSearch<Map<String, dynamic>>(
-          selectedItem: bonos.firstWhereOrNull((item) => item['id'].toString() == selectedBono),
-          items: bonos,
-          itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
-          onChanged: (Map<String, dynamic>? newValue) {
-            setState(() {
-              selectedBono = newValue?['id']?.toString();
-            });
-          },
-          dropdownButtonProps: DropdownButtonProps(icon: Icon(Icons.arrow_drop_down)),
-          dropdownDecoratorProps: DropDownDecoratorProps(
-            dropdownSearchDecoration: InputDecoration(
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildObservacionesField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Observaciones',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[700],
-          ),
-        ),
-        SizedBox(height: 8),
-        TextFormField(
-          controller: observacionesController,
-          maxLines: 3,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            hintText: 'Ingresa observaciones (opcional)',
-          ),
-        ),
-      ],
-    );
-  }
 }

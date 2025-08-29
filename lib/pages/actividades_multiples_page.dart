@@ -120,8 +120,8 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
 
   Future<void> _cargarActividades() async {
     try {
-      // Temporalmente usar el método original para ver si los CECOs ya vienen incluidos
-      final actividades = await ApiService().getActividadesMultiples();
+      // Usar el método actualizado que incluye CECOs y rendimientos múltiples
+      final actividades = await ApiService().getActividadesMultiplesConCecos();
       if (!mounted) return;
 
       // Debug: Imprimir información de las actividades cargadas
@@ -131,13 +131,9 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
         print("  - Labor: ${actividad['nombre_labor']}");
         print("  - Fecha: ${actividad['fecha']}");
         print("  - CECOs productivos: ${actividad['cecos_productivos']?.length ?? 0}");
-        if (actividad['cecos_productivos'] != null && actividad['cecos_productivos'].isNotEmpty) {
-          print("    CECOs productivos encontrados:");
-          for (var ceco in actividad['cecos_productivos']) {
-            print("      - ID: ${ceco['id']}, Nombre: ${ceco['nombre']}");
-          }
-        }
         print("  - CECOs de riego: ${actividad['cecos_riego']?.length ?? 0}");
+        print("  - Rendimientos múltiples: ${actividad['rendimientos_multiples']?.length ?? 0}");
+        print("  - Tiene rendimientos múltiples: ${actividad['tiene_rendimientos_multiples']}");
         print("  - Nombre CECO calculado: ${obtenerNombreCeco(actividad)}");
       }
 
@@ -665,6 +661,9 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
     if (actividad['rendimientos'] is List && (actividad['rendimientos'] as List).isNotEmpty) return true;
     // 3) indicadores de existencia
     if (actividad['tiene_rend_individual'] == true || actividad['tiene_rend_grupal'] == true) return true;
+    // 4) rendimientos múltiples específicos
+    if (actividad['tiene_rendimientos_multiples'] == true) return true;
+    if (actividad['rendimientos_multiples'] is List && (actividad['rendimientos_multiples'] as List).isNotEmpty) return true;
     return false;
   }
 

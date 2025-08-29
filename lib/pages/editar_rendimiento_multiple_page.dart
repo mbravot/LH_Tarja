@@ -26,13 +26,11 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
   String _error = '';
   
   List<Map<String, dynamic>> colaboradores = [];
-  List<Map<String, dynamic>> bonos = [];
   List<Map<String, dynamic>> cecosDisponibles = [];
   
   String? selectedColaborador;
-  String? selectedBono;
   String? selectedCeco;
-  final TextEditingController cantidadController = TextEditingController();
+  final TextEditingController rendimientoController = TextEditingController();
   final TextEditingController observacionesController = TextEditingController();
 
   @override
@@ -49,16 +47,14 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
         _error = '';
       });
 
-      // Cargar colaboradores y bonos específicos para rendimientos múltiples
+      // Cargar colaboradores específicos para rendimientos múltiples
       final listaColaboradores = await _apiService.getColaboradoresRendimientoMultiple();
-      final listaBonos = await _apiService.getBonosRendimientoMultiple();
       
-      // Cargar CECOs disponibles según el tipo de actividad
+      // Cargar CECOs disponibles usando el nuevo endpoint
       await _cargarCecosDisponibles();
 
       setState(() {
         colaboradores = List<Map<String, dynamic>>.from(listaColaboradores);
-        bonos = List<Map<String, dynamic>>.from(listaBonos);
         _isLoading = false;
       });
     } catch (e) {
@@ -72,9 +68,9 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
   void _cargarDatosRendimiento() {
     // Cargar datos del rendimiento existente
     selectedColaborador = widget.rendimiento['id_colaborador']?.toString();
-    selectedBono = widget.rendimiento['id_bono']?.toString();
     selectedCeco = widget.rendimiento['id_ceco']?.toString();
-    cantidadController.text = widget.rendimiento['cantidad']?.toString() ?? '';
+    rendimientoController.text = widget.rendimiento['rendimiento']?.toString() ?? 
+                                 widget.rendimiento['cantidad']?.toString() ?? '';
     observacionesController.text = widget.rendimiento['observaciones']?.toString() ?? '';
   }
 
@@ -82,17 +78,11 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
     try {
       final idActividad = widget.actividad['id'].toString();
       
-      // Obtener CECOs según el tipo de actividad
-      switch ((widget.actividad['nombre_tipoceco'] ?? '').toString().toUpperCase()) {
-        case 'PRODUCTIVO':
-          final cecosProductivos = await _apiService.getCecosProductivosMultiple(idActividad);
-          cecosDisponibles = cecosProductivos;
-          break;
-        case 'RIEGO':
-          final cecosRiego = await _apiService.getCecosRiegoMultiple(idActividad);
-          cecosDisponibles = cecosRiego;
-          break;
-      }
+      // Usar el nuevo endpoint para obtener CECOs de la actividad
+      final cecos = await _apiService.getCecosActividadMultiple(idActividad);
+      setState(() {
+        cecosDisponibles = List<Map<String, dynamic>>.from(cecos);
+      });
     } catch (e) {
       print("❌ Error al cargar CECOs disponibles: $e");
     }
@@ -116,18 +106,14 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
       final datos = {
         'id_actividad': widget.actividad['id'],
         'id_colaborador': selectedColaborador,
+        'rendimiento': double.tryParse(rendimientoController.text) ?? 0.0,
         'id_ceco': selectedCeco,
-        'cantidad': double.tryParse(cantidadController.text) ?? 0.0,
         'observaciones': observacionesController.text.trim(),
       };
 
-      if (selectedBono != null) {
-        datos['id_bono'] = selectedBono;
-      }
-
       final resultado = await _apiService.editarRendimientoMultiple(
         widget.rendimiento['id'].toString(),
-        datos,
+        datos
       );
 
       if (resultado['success'] == true) {
@@ -139,22 +125,16 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
         );
         Navigator.pop(context, true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(resultado['message'] ?? 'Error al actualizar el rendimiento múltiple'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        throw Exception(resultado['error'] ?? 'Error desconocido');
       }
     } catch (e) {
+      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al actualizar el rendimiento múltiple: $e'),
+          content: Text('Error al actualizar rendimiento múltiple: $e'),
           backgroundColor: Colors.red,
         ),
       );
-    } finally {
-      setState(() => _isLoading = false);
     }
   }
 
@@ -166,114 +146,122 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
       ),
-      body: FutureBuilder(
-        future: Future.delayed(Duration(milliseconds: 100)),
-        builder: (context, snapshot) {
-          if (_isLoading) {
-            return Center(child: CircularProgressIndicator());
-          }
-
-          if (_error.isNotEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error, size: 64, color: Colors.red),
-                  SizedBox(height: 16),
-                  Text(
-                    'Error al cargar datos',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 8),
-                  Text(_error),
-                  SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _cargarDatos,
-                    child: Text('Reintentar'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return SingleChildScrollView(
-            padding: EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Información de la actividad
-                  _buildActividadInfo(),
-                  SizedBox(height: 24),
-
-                  // Colaborador
-                  _buildColaboradorDropdown(),
-                  SizedBox(height: 16),
-
-                  // CECO
-                  _buildCecoDropdown(),
-                  SizedBox(height: 16),
-
-                  // Cantidad
-                  _buildCantidadField(),
-                  SizedBox(height: 16),
-
-                  // Bono (opcional)
-                  _buildBonoDropdown(),
-                  SizedBox(height: 16),
-
-                  // Observaciones (opcional)
-                  _buildObservacionesField(),
-                  SizedBox(height: 24),
-
-                  // Botón guardar
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _guardarCambios,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 16),
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(primaryColor)))
+          : _error.isNotEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, size: 48, color: Colors.red),
+                      SizedBox(height: 16),
+                      Text(_error, textAlign: TextAlign.center),
+                      SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _cargarDatos,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: Text('Reintentar'),
                       ),
-                      child: _isLoading
-                          ? CircularProgressIndicator(color: Colors.white)
-                          : Text(
-                              'Guardar Cambios',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: EdgeInsets.all(16),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Información de la actividad
+                        _buildActividadInfo(),
+                        SizedBox(height: 24),
+                        
+                        // Colaborador
+                        _buildColaboradorDropdown(),
+                        SizedBox(height: 16),
+                        
+                        // CECO
+                        _buildCecoDropdown(),
+                        SizedBox(height: 16),
+                        
+                        // Rendimiento
+                        _buildRendimientoField(),
+                        SizedBox(height: 16),
+                        
+                        // Observaciones
+                        _buildObservacionesField(),
+                        SizedBox(height: 24),
+                        
+                        // Botón guardar
+                        ElevatedButton(
+                          onPressed: _guardarCambios,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
+                          ),
+                          child: Text(
+                            'Actualizar Rendimiento Múltiple',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+                ),
     );
   }
 
   Widget _buildActividadInfo() {
     return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Información de la Actividad',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: primaryColor,
-              ),
+            Row(
+              children: [
+                Icon(Icons.work, color: primaryColor, size: 24),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    widget.actividad['nombre_labor'] ?? 'Sin labor',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'MÚLTIPLE',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                  ),
+                ),
+              ],
             ),
             SizedBox(height: 12),
-            _buildInfoRow('Labor', widget.actividad['nombre_labor'] ?? 'Sin nombre'),
-            _buildInfoRow('Sucursal', widget.actividad['nombre_sucursal'] ?? 'Sin sucursal'),
             _buildInfoRow('Fecha', widget.actividad['fecha'] ?? 'Sin fecha'),
-            _buildInfoRow('Tipo CECO', widget.actividad['nombre_tipoceco'] ?? 'Sin tipo'),
+            _buildInfoRow('Unidad', widget.actividad['nombre_unidad'] ?? 'Sin unidad'),
+            _buildInfoRow('Tipo CECO', widget.actividad['nombre_tipoceco'] ?? 'Sin tipo CECO'),
           ],
         ),
       ),
@@ -282,25 +270,21 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: 2),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              '$label:',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[600],
-              ),
+          Text(
+            '$label: ',
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[600],
             ),
           ),
           Expanded(
             child: Text(
               value,
               style: TextStyle(
-                fontWeight: FontWeight.w400,
+                color: Colors.black87,
               ),
             ),
           ),
@@ -323,29 +307,24 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
         ),
         SizedBox(height: 8),
         DropdownSearch<Map<String, dynamic>>(
-          selectedItem: colaboradores.firstWhereOrNull(
-            (c) => c['id'].toString() == selectedColaborador,
-          ),
+          selectedItem: colaboradores.firstWhereOrNull((item) => item['id'].toString() == selectedColaborador),
           items: colaboradores,
-          itemAsString: (item) => item['nombre'] ?? 'Sin nombre',
-          onChanged: (value) {
+          itemAsString: (Map<String, dynamic> item) => 
+              '${item['nombre']} ${item['apellido_paterno'] ?? ''} ${item['apellido_materno'] ?? ''}'.trim(),
+          onChanged: (Map<String, dynamic>? newValue) {
             setState(() {
-              selectedColaborador = value?['id'].toString();
+              selectedColaborador = newValue?['id']?.toString();
             });
           },
           validator: (value) {
-            if (selectedColaborador == null) {
-              return 'Por favor selecciona un colaborador';
-            }
+            if (value == null) return 'Por favor selecciona un colaborador';
             return null;
           },
-          dropdownButtonProps: DropdownButtonProps(
-            icon: Icon(Icons.arrow_drop_down),
-          ),
+          dropdownButtonProps: DropdownButtonProps(icon: Icon(Icons.arrow_drop_down)),
           dropdownDecoratorProps: DropDownDecoratorProps(
             dropdownSearchDecoration: InputDecoration(
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
           ),
         ),
@@ -367,29 +346,23 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
         ),
         SizedBox(height: 8),
         DropdownSearch<Map<String, dynamic>>(
-          selectedItem: cecosDisponibles.firstWhereOrNull(
-            (c) => c['id'].toString() == selectedCeco,
-          ),
+          selectedItem: cecosDisponibles.firstWhereOrNull((item) => item['id'].toString() == selectedCeco),
           items: cecosDisponibles,
-          itemAsString: (item) => item['nombre'] ?? 'Sin nombre',
-          onChanged: (value) {
+          itemAsString: (Map<String, dynamic> item) => item['nombre'] ?? '',
+          onChanged: (Map<String, dynamic>? newValue) {
             setState(() {
-              selectedCeco = value?['id'].toString();
+              selectedCeco = newValue?['id']?.toString();
             });
           },
           validator: (value) {
-            if (selectedCeco == null) {
-              return 'Por favor selecciona un CECO';
-            }
+            if (value == null) return 'Por favor selecciona un CECO';
             return null;
           },
-          dropdownButtonProps: DropdownButtonProps(
-            icon: Icon(Icons.arrow_drop_down),
-          ),
+          dropdownButtonProps: DropdownButtonProps(icon: Icon(Icons.arrow_drop_down)),
           dropdownDecoratorProps: DropDownDecoratorProps(
             dropdownSearchDecoration: InputDecoration(
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
           ),
         ),
@@ -397,12 +370,12 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
     );
   }
 
-  Widget _buildCantidadField() {
+  Widget _buildRendimientoField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Cantidad *',
+          'Rendimiento *',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -411,16 +384,16 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
         ),
         SizedBox(height: 8),
         TextFormField(
-          controller: cantidadController,
+          controller: rendimientoController,
           keyboardType: TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            hintText: 'Ingresa la cantidad',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            hintText: 'Ingresa el rendimiento',
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
-              return 'Por favor ingresa una cantidad';
+              return 'Por favor ingresa un rendimiento';
             }
             if (double.tryParse(value) == null) {
               return 'Por favor ingresa un número válido';
@@ -432,51 +405,12 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
     );
   }
 
-  Widget _buildBonoDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Bono (Opcional)',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[700],
-          ),
-        ),
-        SizedBox(height: 8),
-        DropdownSearch<Map<String, dynamic>>(
-          selectedItem: bonos.firstWhereOrNull(
-            (b) => b['id'].toString() == selectedBono,
-          ),
-          items: bonos,
-          itemAsString: (item) => item['nombre'] ?? 'Sin nombre',
-          onChanged: (value) {
-            setState(() {
-              selectedBono = value?['id'].toString();
-            });
-          },
-          dropdownButtonProps: DropdownButtonProps(
-            icon: Icon(Icons.arrow_drop_down),
-          ),
-          dropdownDecoratorProps: DropDownDecoratorProps(
-            dropdownSearchDecoration: InputDecoration(
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              hintText: 'Selecciona un bono (opcional)',
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildObservacionesField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Observaciones (Opcional)',
+          'Observaciones',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -488,9 +422,9 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
           controller: observacionesController,
           maxLines: 3,
           decoration: InputDecoration(
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            hintText: 'Ingresa observaciones adicionales',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            hintText: 'Ingresa observaciones (opcional)',
           ),
         ),
       ],

@@ -4052,13 +4052,13 @@ class ApiService {
     }
   }
 
-  /// 🔹 Obtener actividades múltiples con CECOs asociados
+  /// 🔹 Obtener actividades múltiples con CECOs y rendimientos asociados
   Future<List<Map<String, dynamic>>> getActividadesMultiplesConCecos() async {
     try {
       // Obtener actividades múltiples
       final actividades = await getActividadesMultiples();
       
-      // Para cada actividad, obtener sus CECOs asociados
+      // Para cada actividad, obtener sus CECOs y rendimientos asociados
       for (var actividad in actividades) {
         final idActividad = actividad['id'].toString();
         
@@ -4069,6 +4069,11 @@ class ApiService {
         // Obtener CECOs de riego
         final cecosRiego = await getCecosRiegoMultiple(idActividad);
         actividad['cecos_riego'] = cecosRiego;
+        
+        // Obtener rendimientos múltiples
+        final rendimientosMultiples = await getRendimientosMultiples(idActividad);
+        actividad['rendimientos_multiples'] = rendimientosMultiples;
+        actividad['tiene_rendimientos_multiples'] = rendimientosMultiples.isNotEmpty;
       }
       
       return actividades;
@@ -4129,6 +4134,8 @@ class ApiService {
   /// 🔹 Crear un nuevo rendimiento múltiple
   Future<Map<String, dynamic>> crearRendimientoMultiple(Map<String, dynamic> datos) async {
     try {
+      print('📤 Enviando datos para crear rendimientos múltiples: $datos');
+      
       final response = await _makeRequest(() async {
         return await http.post(
           Uri.parse('$baseUrl/rendimiento_multiple/'),
@@ -4137,15 +4144,17 @@ class ApiService {
         );
       });
 
+      print('📥 Respuesta del servidor: ${response.statusCode} - ${response.body}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         return jsonDecode(response.body);
       } else {
         final error = jsonDecode(response.body);
-        throw Exception(error['error'] ?? 'Error al crear rendimiento múltiple');
+        throw Exception(error['error'] ?? 'Error al crear rendimientos múltiples');
       }
     } catch (e) {
-      logError('❌ Error crear rendimiento múltiple: $e');
-      throw Exception('Error al crear rendimiento múltiple: $e');
+      logError('❌ Error crear rendimientos múltiples: $e');
+      throw Exception('Error al crear rendimientos múltiples: $e');
     }
   }
 
@@ -4232,6 +4241,27 @@ class ApiService {
     } catch (e) {
       logError('❌ Error obtener bonos rendimiento múltiple: $e');
       return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getCecosActividadMultiple(String idActividad) async {
+    try {
+      final response = await _makeRequest(() async {
+        return await http.get(
+          Uri.parse('$baseUrl/rendimiento_multiple/cecos-actividad/$idActividad'),
+          headers: await _getHeaders(),
+        );
+      });
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      } else {
+        throw Exception('Error al obtener CECOs de la actividad: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error en getCecosActividadMultiple: $e');
+      rethrow;
     }
   }
 
