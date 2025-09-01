@@ -162,7 +162,7 @@ class _LoginPageState extends State<LoginPage> {
                     child: Column(
                       children: [
                           const Text(
-                          "Bienvenido a XXXX",
+                          "Bienvenido a LH Tarja",
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,

@@ -5,38 +5,32 @@ import 'package:flutter/foundation.dart';
 
 // 🔧 Sistema de logging condicional
 void logDebug(String message) {
-  if (kDebugMode) {
-    print(message);
-  }
+  // Comentado para mejorar rendimiento
+  // print("🔍 $message");
 }
 
 void logError(String message) {
-  if (kDebugMode) {
-    print("❌ $message");
-  }
+  // Solo mostrar errores críticos en producción
+  // if (kDebugMode) {
+  //   print("❌ $message");
+  // }
 }
 
 void logInfo(String message) {
-  if (kDebugMode) {
-    print("ℹ️ $message");
-  }
+  // Comentado para mejorar rendimiento
+  // print("ℹ️ $message");
 }
 
 class AuthService {
-  //final String baseUrl = 'https://apilhtarja.lahornilla.cl/api';
-  final String baseUrl = 'http://192.168.1.37:5000/api';
+  final String baseUrl = 'https://apilhtarja-927498545444.us-central1.run.app/api';
+  //final String baseUrl = 'http://192.168.1.52:5000/api';
 
   Future<void> login(String usuario, String clave) async {
     try {
-      logDebug("🔄 Intentando login con URL: $baseUrl/auth/login");
-      logInfo("📤 Datos de login - Usuario: $usuario");
-
       final Map<String, String> body = {
         "usuario": usuario,
         "clave": clave,
       };
-
-      logDebug("📦 Body de la petición: ${jsonEncode(body)}");
 
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
@@ -47,26 +41,14 @@ class AuthService {
         body: jsonEncode(body),
       );
 
-      logDebug("📡 Código de respuesta: ${response.statusCode}");
-      logDebug("📝 Respuesta del servidor: ${response.body}");
+      // Log solo en caso de error para debugging
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
         final token = data['access_token'];
         final refreshToken = data['refresh_token'];
-        
-        // Construir el nombre del usuario (solo nombre, sin apellidos)
-        final nombre = data['nombre'] ?? '';
-        final usuario = data['usuario'] ?? '';
-        final nombreCompleto = nombre.trim().isNotEmpty ? nombre.trim() : usuario;
-        
-        // Debug: mostrar qué datos está devolviendo el backend
-        logDebug("🔍 Datos del backend:");
-        logDebug("  - nombre: '$nombre'");
-        logDebug("  - nombreCompleto: '$nombreCompleto'");
-        logDebug("  - Todos los datos: $data");
-        
+        final nombreUsuario = data['nombre'] ?? data['usuario']; // Usar nombre si está disponible, sino usuario
         final idSucursal = data['id_sucursal'];
         final nombreSucursal = data['sucursal_nombre'];
         final idRol = data['id_rol'];
@@ -77,14 +59,14 @@ class AuthService {
         if (refreshToken != null) {
           await prefs.setString('refresh_token', refreshToken);
         }
-        await prefs.setString('user_name', nombreCompleto);
+        await prefs.setString('user_name', nombreUsuario);
         await prefs.setString('id_sucursal', idSucursal.toString());
         await prefs.setString('user_sucursal', nombreSucursal);
         await prefs.setString('id_rol', idRol.toString());
         await prefs.setString('id_perfil', idPerfil.toString());
 
-        logInfo(
-            "✅ Login exitoso - Usuario: $nombreCompleto, Sucursal: $idSucursal ($nombreSucursal)");
+                // logInfo(
+        //   "✅ Login exitoso - Usuario: $nombreUsuario, Sucursal: $idSucursal ($nombreSucursal)");
       } else {
         logError("❌ Error en login - Código: ${response.statusCode}");
         logError("❌ Detalle del error: ${response.body}");
@@ -111,7 +93,7 @@ class AuthService {
         return false;
       }
 
-      logDebug("🔄 Intentando refresh token...");
+      // Intentando refresh token...
 
       final response = await http.post(
         Uri.parse("$baseUrl/auth/refresh"),
@@ -121,8 +103,7 @@ class AuthService {
         },
       );
 
-      logDebug("📡 Código de respuesta refresh: ${response.statusCode}");
-      logDebug("📝 Respuesta del servidor refresh: ${response.body}");
+      // Log solo en caso de error para debugging
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -132,11 +113,10 @@ class AuthService {
         if (data['refresh_token'] != null) {
           await prefs.setString('refresh_token', data['refresh_token']);
         }
-        if (data['nombre'] != null || data['usuario'] != null) {
-          final nombre = data['nombre'] ?? '';
-          final usuario = data['usuario'] ?? '';
-          final nombreCompleto = nombre.trim().isNotEmpty ? nombre.trim() : usuario;
-          await prefs.setString('user_name', nombreCompleto);
+        if (data['nombre'] != null) {
+          await prefs.setString('user_name', data['nombre']);
+        } else if (data['usuario'] != null) {
+          await prefs.setString('user_name', data['usuario']);
         }
         if (data['id_sucursal'] != null) {
           await prefs.setString('id_sucursal', data['id_sucursal'].toString());
@@ -151,7 +131,7 @@ class AuthService {
           await prefs.setString('id_perfil', data['id_perfil'].toString());
         }
 
-        logInfo("✅ Token refresh exitoso");
+        // logInfo("✅ Token refresh exitoso");
         return true;
       } else {
         logError("❌ Error en refresh token - Código: ${response.statusCode}");

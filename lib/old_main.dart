@@ -12,7 +12,7 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final String? token = prefs.getString('access_token');
   
-  Widget startPage = token != null ? HomePage() : LoginPage();
+  final startPage = token == null ? LoginPage() : HomePage();
 
   runApp(
     ChangeNotifierProvider(
@@ -39,4 +39,4 @@ class MyApp extends StatelessWidget {
       home: startPage,
     );
   }
-} 
+}

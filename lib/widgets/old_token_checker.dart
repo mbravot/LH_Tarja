@@ -7,17 +7,15 @@ import '../pages/home_page.dart';
 
 // Sistema de logging condicional
 void logInfo(String message) {
-  // Comentado para mejorar rendimiento
-  // if (const bool.fromEnvironment('dart.vm.product') == false) {
-  //   print("ℹ️ $message");
-  // }
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("ℹ️ $message");
+  }
 }
 
 void logError(String message) {
-  // Solo mostrar errores críticos en producción
-  // if (const bool.fromEnvironment('dart.vm.product') == false) {
-  //   print("❌ $message");
-  // }
+  if (const bool.fromEnvironment('dart.vm.product') == false) {
+    print("❌ $message");
+  }
 }
 
 class TokenChecker extends StatefulWidget {
@@ -45,12 +43,21 @@ class _TokenCheckerState extends State<TokenChecker> {
       final token = prefs.getString('access_token');
 
       if (token != null && token.isNotEmpty) {
-        // Para evitar que la app se cierre, asumimos que el token es válido si existe
-        // La verificación real se hará cuando el usuario intente usar la app
-        setState(() {
-          _hasValidToken = true;
-          _isChecking = false;
-        });
+        // Verificar si el token es válido haciendo una petición al servidor
+        try {
+          await ApiService().getSucursales(); // Usar un endpoint simple para verificar
+          setState(() {
+            _hasValidToken = true;
+            _isChecking = false;
+          });
+        } catch (e) {
+          logError('Error al verificar token: $e');
+          // Token inválido, redirigir al login
+          setState(() {
+            _hasValidToken = false;
+            _isChecking = false;
+          });
+        }
       } else {
         setState(() {
           _hasValidToken = false;
