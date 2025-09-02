@@ -1,4 +1,4 @@
-# 🚀 Guía de Instalación Rápida - APP_MOVIL_BASE
+# 🚀 Guía de Instalación Rápida - LH Tarjas
 
 ## ⚡ Instalación en 5 minutos
 
@@ -10,8 +10,8 @@
 
 ### 2. Clonar el Repositorio
 ```bash
-git clone https://github.com/mbravot/APP_MOVIL_BASE.git
-cd APP_MOVIL_BASE
+git clone https://github.com/mbravot/app_LH_Tarjas.git
+cd app_LH_Tarjas
 ```
 
 ### 3. Instalar Dependencias
@@ -20,9 +20,10 @@ flutter pub get
 ```
 
 ### 4. Configurar API
-Editar `lib/services/login_services.dart`:
+La aplicación está configurada para usar la API de producción:
 ```dart
-final String baseUrl = 'http://tu-servidor:puerto/api';
+// lib/services/login_services.dart y lib/services/api_service.dart
+final String baseUrl = 'https://apilhtarja-927498545444.us-central1.run.app/api';
 ```
 
 ### 5. Ejecutar la Aplicación
@@ -85,9 +86,15 @@ flutter pub get
 ```
 
 ### Error: "API connection failed"
-1. Verificar URL del servidor
-2. Verificar conectividad de red
+1. Verificar URL del servidor (ya configurada para producción)
+2. Verificar conectividad de internet
 3. Verificar que el servidor esté ejecutándose
+
+### Error: "Token expired"
+La aplicación maneja automáticamente la renovación de tokens, pero si persiste:
+1. Verificar que el refresh token esté válido
+2. Limpiar SharedPreferences si es necesario
+3. Revisar logs de la aplicación
 
 ## 📱 Configuración de Dispositivos
 
@@ -112,7 +119,7 @@ flutter pub get
 ### Variables de Entorno
 ```dart
 // lib/services/login_services.dart
-final String baseUrl = 'http://192.168.1.37:5000/api';
+final String baseUrl = 'https://apilhtarja-927498545444.us-central1.run.app/api';
 ```
 
 ### Credenciales de Prueba
@@ -122,6 +129,13 @@ final String baseUrl = 'http://192.168.1.37:5000/api';
   "clave": "password123"
 }
 ```
+
+### Configuración de Tokens
+La aplicación maneja automáticamente:
+- Almacenamiento de access_token y refresh_token
+- Renovación automática de tokens
+- Manejo de sesiones expiradas
+- Limpieza automática de datos al logout
 
 ## 📊 Comandos Útiles
 
@@ -156,13 +170,24 @@ flutter format .         # Formatear código
 ## 🎯 Estructura del Proyecto
 
 ```
-APP_MOVIL_BASE/
+app_LH_Tarjas/
 ├── lib/                    # Código fuente
 │   ├── main.dart          # Punto de entrada
-│   ├── pages/             # Páginas
+│   ├── pages/             # Páginas (44 archivos)
+│   │   ├── home_page.dart # Página principal
+│   │   ├── actividades_page.dart # Gestión de actividades
+│   │   ├── rendimientos_page.dart # Gestión de rendimientos
+│   │   ├── indicadores_page.dart # Indicadores
+│   │   ├── usuarios_page.dart # Gestión de usuarios
+│   │   ├── trabajadores_page.dart # Gestión de trabajadores
+│   │   ├── contratistas_page.dart # Gestión de contratistas
+│   │   └── ...            # Otras páginas especializadas
 │   ├── services/          # Servicios API
+│   │   ├── api_service.dart # Servicio principal (4315 líneas)
+│   │   └── login_services.dart # Autenticación
+│   ├── providers/         # Gestión de estado
 │   ├── widgets/           # Widgets reutilizables
-│   └── ...
+│   └── theme/             # Temas y estilos
 ├── assets/                # Recursos
 │   └── images/           # Imágenes
 ├── test/                  # Tests
@@ -176,7 +201,7 @@ APP_MOVIL_BASE/
 
 ### Logs de Debug
 ```dart
-// Los logs aparecen en la consola
+// Los logs están optimizados para producción
 logDebug("🔍 Datos del backend: $data");
 logInfo("ℹ️ Login exitoso");
 logError("❌ Error de conexión");
@@ -193,12 +218,21 @@ flutter run --profile    # Modo profile
 flutter run --trace-startup  # Trazar inicio
 ```
 
+### Manejo de Errores
+La aplicación incluye manejo automático de:
+- Tokens expirados
+- Errores de conexión
+- Respuestas HTML inesperadas
+- Timeouts de red
+- Errores de validación
+
 ## 📚 Recursos Adicionales
 
 ### Documentación
 - [Flutter Docs](https://docs.flutter.dev/)
 - [Dart Docs](https://dart.dev/guides)
 - [Material Design](https://material.io/design)
+- [DOCUMENTACION_TECNICA.md](DOCUMENTACION_TECNICA.md) - Documentación técnica completa
 
 ### Comunidad
 - [Flutter Community](https://flutter.dev/community)
@@ -214,15 +248,28 @@ flutter run --trace-startup  # Trazar inicio
 
 ### Problemas Comunes
 1. **App no inicia**: Verificar dependencias con `flutter pub get`
-2. **Errores de API**: Verificar URL y conectividad
+2. **Errores de API**: La URL ya está configurada para producción
 3. **Problemas de UI**: Usar Flutter Inspector
 4. **Errores de build**: Limpiar con `flutter clean`
+5. **Tokens expirados**: La app maneja esto automáticamente
 
 ### Contacto
-- Crear issue en [GitHub](https://github.com/mbravot/APP_MOVIL_BASE/issues)
+- Crear issue en [GitHub](https://github.com/mbravot/app_LH_Tarjas/issues)
 - Contactar al equipo de desarrollo
+- Revisar la documentación técnica completa
+
+### Funcionalidades Disponibles
+La aplicación incluye:
+- ✅ Sistema de autenticación completo
+- ✅ Gestión de actividades agrícolas
+- ✅ Sistema de rendimientos
+- ✅ Gestión de personal
+- ✅ Sistema de CECOs
+- ✅ Gestión de usuarios y permisos
+- ✅ Interfaz moderna y responsive
 
 ---
 
 **Tiempo estimado de instalación**: 5-10 minutos  
-**Última actualización**: Diciembre 2024 
+**Última actualización**: Diciembre 2024  
+**Estado**: Aplicación completamente funcional con todas las características implementadas 

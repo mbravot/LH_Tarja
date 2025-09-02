@@ -2,18 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Sistema de logging condicional
-void logInfo(String message) {
-  if (const bool.fromEnvironment('dart.vm.product') == false) {
-    print("ℹ️ $message");
-  }
-}
 
-void logError(String message) {
-  if (const bool.fromEnvironment('dart.vm.product') == false) {
-    print("❌ $message");
-  }
-}
 
 class CambiarSucursalPage extends StatefulWidget {
   @override

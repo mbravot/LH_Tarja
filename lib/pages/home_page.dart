@@ -29,12 +29,7 @@ void logDebug(String message) {
   // }
 }
 
-void logError(String message) {
-  // Solo mostrar errores críticos en producción
-  // if (kDebugMode) {
-  //   print("❌ $message");
-  // }
-}
+
 
 void logInfo(String message) {
   // Comentado para mejorar rendimiento
@@ -97,7 +92,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       // logInfo("🏠 Sucursal activa cargada: $userSucursal");
       _forzarRecargaPantallas();
     } catch (e) {
-      logError("❌ Error cargando datos de usuario: $e");
+      print("❌ Error cargando datos de usuario: $e");
       setState(() => _isLoading = false);
     }
   }
@@ -109,7 +104,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         _sucursalesDisponibles = sucursales;
       });
     } catch (e) {
-      logError("❌ Error al cargar sucursales disponibles: $e");
+      print("❌ Error al cargar sucursales disponibles: $e");
       // Si no se pueden cargar las sucursales, la app sigue funcionando
       setState(() {
         _sucursalesDisponibles = [];
@@ -249,7 +244,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     );
                   }
                 } catch (e) {
-                  logError('Error al cerrar sesión: $e');
+                  print('Error al cerrar sesión: $e');
                   // Si hay error, intentar cerrar sesión manualmente
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.clear();

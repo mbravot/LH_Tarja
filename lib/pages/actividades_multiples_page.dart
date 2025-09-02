@@ -16,12 +16,7 @@ void logInfo(String message) {
   // print("ℹ️ $message");
 }
 
-void logError(String message) {
-  // Solo mostrar errores críticos en producción
-  // if (const bool.fromEnvironment('dart.vm.product') == false) {
-  //   print("❌ $message");
-  // }
-}
+
 
 class ActividadesMultiplesPage extends StatefulWidget {
   const ActividadesMultiplesPage({Key? key}) : super(key: key);
@@ -73,7 +68,7 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
       final fecha = DateTime.parse(fechaOriginal);
       return DateFormat("EEEE d 'de' MMMM, y", 'es_ES').format(fecha);
     } catch (e) {
-      logError("❌ Error al formatear fecha: $e ($fechaOriginal)");
+      print("❌ Error al formatear fecha: $e ($fechaOriginal)");
       return fechaOriginal;
     }
   }
@@ -95,7 +90,7 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
       await _cargarInformacionUsuario();
       await _cargarActividades();
     } catch (e) {
-      logError('❌ Error al cargar datos: $e');
+      print('❌ Error al cargar datos: $e');
       _mostrarError('No se pudieron cargar los datos');
     } finally {
       if (mounted) {
@@ -115,7 +110,7 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
         'sucursal': sucursal,
       };
     } catch (e) {
-      logError('❌ Error al cargar información del usuario: $e');
+      print('❌ Error al cargar información del usuario: $e');
     }
   }
 
@@ -125,18 +120,7 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
       final actividades = await ApiService().getActividadesMultiplesConCecos();
       if (!mounted) return;
 
-      // Debug: Imprimir información de las actividades cargadas
-      print("🔍 Actividades múltiples cargadas: ${actividades.length}");
-      for (var actividad in actividades.take(3)) { // Solo las primeras 3 para debug
-        print("  - ID: ${actividad['id']} (tipo: ${actividad['id'].runtimeType})");
-        print("  - Labor: ${actividad['nombre_labor']}");
-        print("  - Fecha: ${actividad['fecha']}");
-        print("  - CECOs productivos: ${actividad['cecos_productivos']?.length ?? 0}");
-        print("  - CECOs de riego: ${actividad['cecos_riego']?.length ?? 0}");
-        print("  - Rendimientos múltiples: ${actividad['rendimientos_multiples']?.length ?? 0}");
-        print("  - Tiene rendimientos múltiples: ${actividad['tiene_rendimientos_multiples']}");
-        print("  - Nombre CECO calculado: ${obtenerNombreCeco(actividad)}");
-      }
+
 
       setState(() {
         todasActividades = actividades;
@@ -144,7 +128,7 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
         _futureActividades = Future.value(actividades);
       });
     } catch (e) {
-      logError('❌ Error al cargar actividades múltiples: $e');
+      print('❌ Error al cargar actividades múltiples: $e');
       _mostrarError('No se pudieron cargar las actividades múltiples');
     }
   }
@@ -159,8 +143,31 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
           final labor = actividad['nombre_labor']?.toString().toLowerCase() ?? '';
           final unidad = actividad['nombre_unidad']?.toString().toLowerCase() ?? '';
           final tipoCeco = actividad['nombre_tipoceco']?.toString().toLowerCase() ?? '';
-          final ceco = obtenerNombreCeco(actividad).toLowerCase();
-          return labor.contains(query) || unidad.contains(query) || tipoCeco.contains(query) || ceco.contains(query);
+          
+          // Buscar en todos los tipos de CECOs
+          bool tieneCecoEnQuery = false;
+          if (actividad['cecos_productivos'] != null && actividad['cecos_productivos'].isNotEmpty) {
+            tieneCecoEnQuery = (actividad['cecos_productivos'] as List).any((ceco) => 
+              (ceco['nombre']?.toString().toLowerCase() ?? '').contains(query));
+          }
+          if (!tieneCecoEnQuery && actividad['cecos_riego'] != null && actividad['cecos_riego'].isNotEmpty) {
+            tieneCecoEnQuery = (actividad['cecos_riego'] as List).any((ceco) => 
+              (ceco['nombre']?.toString().toLowerCase() ?? '').contains(query));
+          }
+          if (!tieneCecoEnQuery && actividad['cecos_maquinaria'] != null && actividad['cecos_maquinaria'].isNotEmpty) {
+            tieneCecoEnQuery = (actividad['cecos_maquinaria'] as List).any((ceco) => 
+              (ceco['nombre']?.toString().toLowerCase() ?? '').contains(query));
+          }
+          if (!tieneCecoEnQuery && actividad['cecos_inversion'] != null && actividad['cecos_inversion'].isNotEmpty) {
+            tieneCecoEnQuery = (actividad['cecos_inversion'] as List).any((ceco) => 
+              (ceco['nombre']?.toString().toLowerCase() ?? '').contains(query));
+          }
+          if (!tieneCecoEnQuery && actividad['cecos_administrativos'] != null && actividad['cecos_administrativos'].isNotEmpty) {
+            tieneCecoEnQuery = (actividad['cecos_administrativos'] as List).any((ceco) => 
+              (ceco['nombre']?.toString().toLowerCase() ?? '').contains(query));
+          }
+          
+          return labor.contains(query) || unidad.contains(query) || tipoCeco.contains(query) || tieneCecoEnQuery;
         }).toList();
       }
     });
@@ -539,7 +546,7 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
                ),
                _infoRow(
                  Icons.category,
-                 Colors.orange,
+                 Colors.purple,
                  'Tipo CECO: ${actividad['nombre_tipoceco'] ?? 'Sin tipo CECO'}',
                  trailing: Container(
                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -557,40 +564,39 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
                    ),
                  ),
                ),
-               // Sección de CECOs asociados
+               // Sección de CECOs organizada
                _buildCecosSection(actividad),
-               // Botones de acción
-               Row(
-                 mainAxisAlignment: MainAxisAlignment.end,
-                 children: [
-                   IconButton(
-                     icon: Icon(Icons.edit, color: Colors.green, size: 24),
-                     onPressed: () async {
-                       final resultado = await Navigator.push(
-                         context,
-                         MaterialPageRoute(
-                           builder: (context) => EditarActividadMultiplePage(
-                             actividad: actividad,
-                           ),
-                         ),
-                       );
-                       if (resultado == true) {
-                         _refreshActividades();
-                       }
-                     },
-                     tooltip: 'Editar',
-                   ),
-                   IconButton(
-                     icon: Icon(Icons.delete, color: Colors.red, size: 24),
-                     onPressed: () => _confirmarEliminarActividad(actividad),
-                     tooltip: 'Eliminar',
-                   ),
-                 ],
-               ),
                _infoRow(
                  Icons.attach_money,
                  Colors.green,
                  'Tarifa: \$${actividad['tarifa']?.toString() ?? '0'}',
+                 trailing: Row(
+                   mainAxisSize: MainAxisSize.min,
+                   children: [
+                     IconButton(
+                       icon: Icon(Icons.edit, color: Colors.green, size: 20),
+                       onPressed: () async {
+                         final resultado = await Navigator.push(
+                           context,
+                           MaterialPageRoute(
+                             builder: (context) => EditarActividadMultiplePage(
+                               actividad: actividad,
+                             ),
+                           ),
+                         );
+                         if (resultado == true) {
+                           _refreshActividades();
+                         }
+                       },
+                       tooltip: 'Editar',
+                     ),
+                     IconButton(
+                       icon: Icon(Icons.delete, color: Colors.red, size: 20),
+                       onPressed: () => _confirmarEliminarActividad(actividad),
+                       tooltip: 'Eliminar',
+                     ),
+                   ],
+                 ),
                ),
                _infoRow(
                  Icons.access_time,
@@ -668,156 +674,165 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
     return false;
   }
 
+
+
+
+
   Widget _buildCecosSection(Map<String, dynamic> actividad) {
-    List<Map<String, dynamic>> cecos = [];
-    String tipoCeco = '';
-    IconData iconCeco = Icons.business;
-    Color colorCeco = Colors.purple;
+    final List<Map<String, dynamic>> cecos = [];
     
-    // Determinar qué CECOs mostrar según el tipo
-    switch ((actividad['nombre_tipoceco'] ?? '').toString().toUpperCase()) {
-      case 'PRODUCTIVO':
-        if (actividad['cecos_productivos'] != null && actividad['cecos_productivos'].isNotEmpty) {
-          cecos = List<Map<String, dynamic>>.from(actividad['cecos_productivos']);
-          tipoCeco = 'CECOs Productivos';
-          iconCeco = Icons.agriculture;
-          colorCeco = Colors.green;
-        }
-        break;
-      case 'RIEGO':
-        if (actividad['cecos_riego'] != null && actividad['cecos_riego'].isNotEmpty) {
-          cecos = List<Map<String, dynamic>>.from(actividad['cecos_riego']);
-          tipoCeco = 'CECOs de Riego';
-          iconCeco = Icons.water_drop;
-          colorCeco = Colors.blue;
-        }
-        break;
+    // Agregar solo los tipos de CECO que tienen datos
+    if (actividad['cecos_productivos'] != null && actividad['cecos_productivos'].isNotEmpty) {
+      cecos.add({
+        'nombre': 'Productivos',
+        'icon': Icons.agriculture,
+        'color': Colors.green,
+        'cecos': actividad['cecos_productivos'] as List,
+      });
     }
-    
+    if (actividad['cecos_riego'] != null && actividad['cecos_riego'].isNotEmpty) {
+      cecos.add({
+        'nombre': 'De Riego',
+        'icon': Icons.water_drop,
+        'color': Colors.blue,
+        'cecos': actividad['cecos_riego'] as List,
+      });
+    }
+    if (actividad['cecos_maquinaria'] != null && actividad['cecos_maquinaria'].isNotEmpty) {
+      cecos.add({
+        'nombre': 'Maquinaria',
+        'icon': Icons.build,
+        'color': Colors.orange,
+        'cecos': actividad['cecos_maquinaria'] as List,
+      });
+    }
+    if (actividad['cecos_inversion'] != null && actividad['cecos_inversion'].isNotEmpty) {
+      cecos.add({
+        'nombre': 'Inversión',
+        'icon': Icons.trending_up,
+        'color': Colors.purple,
+        'cecos': actividad['cecos_inversion'] as List,
+      });
+    }
+    if (actividad['cecos_administrativos'] != null && actividad['cecos_administrativos'].isNotEmpty) {
+      cecos.add({
+        'nombre': 'Administrativos',
+        'icon': Icons.admin_panel_settings,
+        'color': Colors.indigo,
+        'cecos': actividad['cecos_administrativos'] as List,
+      });
+    }
+
     if (cecos.isEmpty) {
-      return _infoRow(
-        iconCeco,
-        colorCeco,
-        'CECOs: Sin CECOs asociados',
-      );
-    }
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Título de la sección
-        Row(
+      return Container(
+        padding: EdgeInsets.all(12),
+        margin: EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Row(
           children: [
-            Icon(iconCeco, size: 16, color: colorCeco),
+            Icon(Icons.folder_open, color: Colors.grey[600], size: 20),
             SizedBox(width: 8),
             Text(
-              tipoCeco,
+              'No hay CECOs asociados',
               style: TextStyle(
+                color: Colors.grey[600],
                 fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-              ),
-            ),
-            SizedBox(width: 8),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: colorCeco.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '${cecos.length}',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: colorCeco,
-                ),
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],
         ),
-        SizedBox(height: 8),
-        // Lista de CECOs
-        ...cecos.asMap().entries.map((entry) {
-          final index = entry.key;
-          final ceco = entry.value;
-          return Container(
-            margin: EdgeInsets.only(left: 24, bottom: 4),
-            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: colorCeco.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: colorCeco.withOpacity(0.3), width: 1),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 16,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: colorCeco,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${index + 1}',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    ceco['nombre'] ?? 'Sin nombre',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ],
-    );
-  }
-
-  String obtenerNombreCeco(Map<String, dynamic> actividad) {
-    String nombreCeco = 'Sin CECO';
-    
-    // Para actividades múltiples, solo pueden ser productivas o de riego
-    switch ((actividad['nombre_tipoceco'] ?? '').toString().toUpperCase()) {
-      case 'PRODUCTIVO':
-        if (actividad['cecos_productivos'] != null && actividad['cecos_productivos'].isNotEmpty) {
-          // Mostrar todos los CECOs productivos asociados
-          final cecos = actividad['cecos_productivos'] as List;
-          if (cecos.length == 1) {
-            nombreCeco = cecos[0]['nombre'] ?? 'Sin CECO';
-          } else {
-            // Mostrar todos los CECOs separados por comas
-            nombreCeco = cecos.map((ceco) => ceco['nombre'] ?? 'Sin nombre').join(', ');
-          }
-        }
-        break;
-      case 'RIEGO':
-        if (actividad['cecos_riego'] != null && actividad['cecos_riego'].isNotEmpty) {
-          // Mostrar todos los CECOs de riego asociados
-          final cecos = actividad['cecos_riego'] as List;
-          if (cecos.length == 1) {
-            nombreCeco = cecos[0]['nombre'] ?? 'Sin CECO';
-          } else {
-            // Mostrar todos los CECOs separados por comas
-            nombreCeco = cecos.map((ceco) => ceco['nombre'] ?? 'Sin nombre').join(', ');
-          }
-        }
-        break;
+      );
     }
-    return nombreCeco;
+
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.folder, color: Colors.amber, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'CECOs Asociados',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8),
+          ...cecos.map((item) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(item['icon'], color: item['color'], size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        item['nombre'],
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: item['color'],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                                     ...(item['cecos'] as List).map((ceco) {
+                     // Debug temporal para ver qué campos tiene el CECO
+             
+                     
+                     // Intentar diferentes campos posibles para el nombre
+                     String nombreCeco = ceco['nombre'] ?? 
+                                       ceco['nombre_ceco'] ?? 
+                                       ceco['descripcion'] ?? 
+                                       ceco['detalle_ceco'] ?? 
+                                       'Sin nombre';
+                     
+                     return Padding(
+                       padding: EdgeInsets.only(left: 22, top: 2),
+                       child: Row(
+                         children: [
+                           Icon(Icons.circle, size: 6, color: item['color']),
+                           SizedBox(width: 8),
+                           Expanded(
+                             child: Text(
+                               nombreCeco,
+                               style: TextStyle(
+                                 fontSize: 13,
+                                 color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                               ),
+                             ),
+                           ),
+                         ],
+                       ),
+                     );
+                   }).toList(),
+                ],
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
   }
 
   Future<bool?> _mostrarFormularioNuevaActividad() async {
@@ -852,8 +867,7 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
 
     if (confirmacion == true) {
       try {
-        print("🔍 Intentando eliminar actividad múltiple con ID: ${actividad['id']}");
-        print("🔍 Tipo de ID: ${actividad['id'].runtimeType}");
+
         
         final eliminado = await ApiService().eliminarActividadMultiple(actividad['id']);
         if (eliminado) {
@@ -863,7 +877,7 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
           _mostrarError('No se pudo eliminar la actividad múltiple');
         }
       } catch (e) {
-        print("❌ Error al eliminar actividad múltiple: $e");
+
         _mostrarError('Error al eliminar la actividad múltiple: $e');
       }
     }

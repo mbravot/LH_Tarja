@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import '../theme/app_theme.dart';
 import 'package:collection/collection.dart';
@@ -145,6 +144,7 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
             'id_colaborador': selectedColaborador,
             'id_ceco': cecoId, // Campo individual en la BD
             'rendimiento': double.tryParse(controller.text) ?? 0.0,
+            'horas_trabajadas': double.tryParse(controller.text) ?? 0.0, // Mismo valor que rendimiento
             'hora_inicio': widget.actividad['hora_inicio'],
             'hora_fin': widget.actividad['hora_fin'],
           });

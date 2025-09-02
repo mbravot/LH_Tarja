@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:dropdown_search/dropdown_search.dart';
 import '../services/api_service.dart';
 import 'package:app_lh_tarja/pages/actividades_multiples_page.dart';
 
@@ -41,13 +40,13 @@ class _CecoProductivoMultipleState extends State<CecoProductivoMultiple> {
 
   Future<void> _loadCuarteles() async {
     try {
-      print("🔍 Iniciando carga de cuarteles para actividad: ${widget.idActividad}");
+  
       setState(() => _isLoading = true);
       
       // Cargar todos los cuarteles productivos disponibles para la actividad múltiple
       final cuartelesData = await ApiService().getCuartelesProductivosPorActividad(widget.idActividad);
       
-      print("✅ Datos recibidos del API: ${cuartelesData.length} cuarteles");
+      
       
       // Normalizar los datos para usar campos estándar 'id' y 'nombre'
       List<Map<String, dynamic>> cuartelesNormalizados = [];
@@ -70,7 +69,7 @@ class _CecoProductivoMultipleState extends State<CecoProductivoMultiple> {
         };
         
         cuartelesNormalizados.add(cuartelNormalizado);
-        print("  - Cuartel normalizado: $nombre (ID: $id)");
+        
       }
       
       // Ordenar por nombre
@@ -85,9 +84,9 @@ class _CecoProductivoMultipleState extends State<CecoProductivoMultiple> {
         _isLoading = false;
       });
       
-      print("✅ Estado actualizado con ${cuarteles.length} cuarteles normalizados");
+      
     } catch (e) {
-      print("❌ Error al cargar cuarteles: $e");
+      
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -235,9 +234,7 @@ class _CecoProductivoMultipleState extends State<CecoProductivoMultiple> {
           'id_cuartel': _selectedCuarteles[0],
         };
 
-        print("🔍 Enviando datos para crear CECO productivo individual:");
-        print("  - id_actividad: ${cecoData['id_actividad']}");
-        print("  - id_cuartel: ${cecoData['id_cuartel']}");
+
 
         final response = await ApiService().crearCecoProductivoMultiple(cecoData);
         
@@ -270,9 +267,7 @@ class _CecoProductivoMultipleState extends State<CecoProductivoMultiple> {
           'id_cuarteles': _selectedCuarteles,
         };
 
-        print("🔍 Enviando datos para crear CECOs productivos múltiples:");
-        print("  - id_actividad: ${cecoData['id_actividad']}");
-        print("  - id_cuarteles: ${cecoData['id_cuarteles']}");
+
 
         final response = await ApiService().crearCecoProductivoMultipleBulk(cecoData);
         
@@ -332,6 +327,7 @@ class _CecoProductivoMultipleState extends State<CecoProductivoMultiple> {
         title: Text("CECO Productivo Múltiple", style: TextStyle(color: secondaryColor)),
         backgroundColor: primaryColor,
         iconTheme: IconThemeData(color: secondaryColor),
+        automaticallyImplyLeading: false, // Eliminar botón de retroceso
       ),
       body: _isLoading
           ? Center(
@@ -660,57 +656,160 @@ class _CecoProductivoMultipleState extends State<CecoProductivoMultiple> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) {
-            return AlertDialog(
-              title: Text('Seleccionar Cuarteles'),
-              content: Container(
-                width: double.maxFinite,
-                constraints: BoxConstraints(maxHeight: 300),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: items.map((item) {
-                      String itemId = item[keyField].toString();
-                      bool isSelected = selectedValues.contains(itemId);
-                      
-                      return CheckboxListTile(
-                        title: Text(item[labelField] ?? ''),
-                        value: isSelected,
-                        onChanged: (bool? value) {
-                          setDialogState(() {
-                            if (value == true) {
-                              selectedValues.add(itemId);
-                            } else {
-                              selectedValues.remove(itemId);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Cancelar'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    List<Map<String, dynamic>> selectedItems = items
-                        .where((item) => selectedValues.contains(item[keyField].toString()))
-                        .toList();
-                    onChanged(selectedItems);
-                    Navigator.of(context).pop();
-                  },
-                  child: Text('Confirmar'),
-                ),
-              ],
-            );
-          },
+        return _MultiSelectDialog(
+          items: items,
+          selectedValues: selectedValues,
+          onChanged: onChanged,
+          keyField: keyField,
+          labelField: labelField,
+          title: 'Seleccionar Cuarteles',
         );
       },
+    );
+  }
+}
+
+class _MultiSelectDialog extends StatefulWidget {
+  final List<Map<String, dynamic>> items;
+  final List<String> selectedValues;
+  final Function(List<Map<String, dynamic>>?) onChanged;
+  final String keyField;
+  final String labelField;
+  final String title;
+
+  const _MultiSelectDialog({
+    Key? key,
+    required this.items,
+    required this.selectedValues,
+    required this.onChanged,
+    required this.keyField,
+    required this.labelField,
+    required this.title,
+  }) : super(key: key);
+
+  @override
+  State<_MultiSelectDialog> createState() => _MultiSelectDialogState();
+}
+
+class _MultiSelectDialogState extends State<_MultiSelectDialog> {
+  late List<Map<String, dynamic>> filteredItems;
+  late TextEditingController searchController;
+  late List<String> tempSelectedValues;
+
+  @override
+  void initState() {
+    super.initState();
+    filteredItems = List.from(widget.items);
+    searchController = TextEditingController();
+    tempSelectedValues = List.from(widget.selectedValues);
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
+  void filterItems(String searchTerm) {
+    setState(() {
+      if (searchTerm.isEmpty) {
+        filteredItems = List.from(widget.items);
+      } else {
+        filteredItems = widget.items.where((item) {
+          final nombre = item[widget.labelField]?.toString().toLowerCase() ?? '';
+          return nombre.contains(searchTerm.toLowerCase());
+        }).toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: Container(
+        width: double.maxFinite,
+        constraints: BoxConstraints(maxHeight: 400),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Campo de búsqueda
+            TextField(
+              controller: searchController,
+              decoration: InputDecoration(
+                hintText: 'Buscar ${widget.labelField.toLowerCase()}...',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                suffixIcon: IconButton(
+                  icon: Icon(Icons.clear),
+                  onPressed: () {
+                    searchController.clear();
+                    filterItems('');
+                  },
+                ),
+              ),
+              onChanged: filterItems,
+              autofocus: true,
+            ),
+            SizedBox(height: 16),
+            // Lista filtrada
+            Expanded(
+              child: filteredItems.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No se encontraron resultados',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: filteredItems.map((item) {
+                          String itemId = item[widget.keyField].toString();
+                          bool isSelected = tempSelectedValues.contains(itemId);
+                          
+                          return CheckboxListTile(
+                            title: Text(item[widget.labelField] ?? ''),
+                            value: isSelected,
+                            onChanged: (bool? value) {
+                              setState(() {
+                                if (value == true) {
+                                  tempSelectedValues.add(itemId);
+                                } else {
+                                  tempSelectedValues.remove(itemId);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text('Cancelar'),
+        ),
+        TextButton(
+          onPressed: () {
+            List<Map<String, dynamic>> selectedItems = widget.items
+                .where((item) => tempSelectedValues.contains(item[widget.keyField].toString()))
+                .toList();
+            widget.onChanged(selectedItems);
+            Navigator.of(context).pop();
+          },
+          child: Text('Confirmar'),
+        ),
+      ],
     );
   }
 }

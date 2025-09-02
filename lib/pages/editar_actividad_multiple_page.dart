@@ -14,11 +14,7 @@ void logDebug(String message) {
   }
 }
 
-void logError(String message) {
-  if (kDebugMode) {
-    print("❌ $message");
-  }
-}
+
 
 void logInfo(String message) {
   // Comentado para mejorar rendimiento
@@ -73,9 +69,9 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
     selectedTipoRendimiento = widget.actividad['id_tiporendimiento']?.toString();
     selectedTipoCeco = widget.actividad['id_tipoceco']?.toString();
 
-    // Establecer tarifa automáticamente si la unidad es 35 o 36
+    // Establecer tarifa automáticamente si la unidad es 36 (Horas base)
     final unidadId = widget.actividad['id_unidad']?.toString();
-    final tarifaInicial = (unidadId == "35" || unidadId == "36") ? "1" : (widget.actividad['tarifa']?.toString() ?? '');
+    final tarifaInicial = (unidadId == "36") ? "1" : (widget.actividad['tarifa']?.toString() ?? '');
     tarifaController = TextEditingController(text: tarifaInicial);
 
     if (widget.actividad['hora_inicio'] != null) {
@@ -105,13 +101,19 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
     try {
       // Cargando opciones para actividades múltiples
       labores = await ApiService().getLabores();
-      unidades = await ApiService().getUnidades();
+      
+      // Filtrar solo las unidades permitidas para actividades múltiples
+      final todasUnidades = await ApiService().getUnidades();
+      unidades = todasUnidades.where((unidad) {
+        final id = unidad['id'].toString();
+        return id == '36' || id == '4'; // Solo Horas base (36) y Horas a trato (4)
+      }).toList();
 
       // Verificar que id_sucursalactiva no sea nulo ni vacío antes de llamar a la API
       String? idSucursal = widget.actividad['id_sucursalactiva']?.toString();
-      if (idSucursal == null || idSucursal.isEmpty) {
-        logError("❌ Error: id_sucursalactiva es nulo o vacío. No se pueden cargar contratistas.");
-      } else if (selectedTipoTrabajador == "2") {
+             if (idSucursal == null || idSucursal.isEmpty) {
+         print("❌ Error: id_sucursalactiva es nulo o vacío. No se pueden cargar contratistas.");
+       } else if (selectedTipoTrabajador == "2") {
         // Filtrar contratistas según el tipo de trabajador y sucursal
         await _cargarContratistas();
       }
@@ -122,9 +124,9 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
       _asegurarValorEnLista(contratistas, selectedContratista);
 
       setState(() {}); // 🔹 Actualizar UI después de cargar los datos
-    } catch (e) {
-      logError("❌ Error al cargar opciones: $e");
-    }
+         } catch (e) {
+       print("❌ Error al cargar opciones: $e");
+     }
   }
 
   void _asegurarValorEnLista(List<Map<String, dynamic>> lista, String? valor) {
@@ -148,7 +150,7 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
         "hora_inicio": horaInicio != null ? "${horaInicio!.hour.toString().padLeft(2, '0')}:${horaInicio!.minute.toString().padLeft(2, '0')}:00" : null,
         "hora_fin": horaFin != null ? "${horaFin!.hour.toString().padLeft(2, '0')}:${horaFin!.minute.toString().padLeft(2, '0')}:00" : null,
         "id_estadoactividad": widget.actividad['id_estadoactividad'],
-        "tarifa": (selectedUnidad == "35" || selectedUnidad == "36") ? "1" : tarifaController.text,
+        "tarifa": (selectedUnidad == "36") ? "1" : tarifaController.text,
         "id_tipoceco": selectedTipoCeco, // Valor fijo preservado
       };
 
@@ -161,29 +163,29 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Error: ${response['error']}")));
       }
-    } catch (e) {
-      logError("❌ Error guardando cambios: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
+         } catch (e) {
+       print("❌ Error guardando cambios: $e");
+       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error guardando cambios: ${e.toString()}")));
     }
   }
 
   Future<void> _cargarContratistas() async {
-    try {
-      String? idSucursal = widget.actividad['id_sucursalactiva']?.toString();
-      if (idSucursal == null || idSucursal.isEmpty) {
-        logError("❌ Error: id_sucursalactiva es nulo o vacío");
-        return;
-      }
+         try {
+       String? idSucursal = widget.actividad['id_sucursalactiva']?.toString();
+       if (idSucursal == null || idSucursal.isEmpty) {
+         print("❌ Error: id_sucursalactiva es nulo o vacío");
+         return;
+       }
 
       if (selectedTipoTrabajador == "2") {
         contratistas = await ApiService().getContratistas(idSucursal);
       } else {
         contratistas = [];
       }
-    } catch (e) {
-      logError("❌ Error al cargar contratistas: $e");
-    }
+         } catch (e) {
+       print("❌ Error al cargar contratistas: $e");
+     }
   }
 
   @override
@@ -288,8 +290,60 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
                             final unidadDefault = await ApiService().getUnidadDefaultLabor(laborId);
                             if (unidadDefault != null && unidadDefault['unidad_default'] != null) {
                               final unidad = unidadDefault['unidad_default'];
+                              final unidadId = unidad['id'].toString();
+                              
+                              // Verificar si la unidad por defecto está permitida para actividades múltiples
+                              final unidadPermitida = unidades.any((u) => u['id'].toString() == unidadId);
+                              
+                              if (unidadPermitida) {
+                                // Si la unidad por defecto está permitida, usarla
+                                setState(() {
+                                  selectedUnidad = unidadId;
+                                });
+                                
+                                // Mostrar mensaje informativo
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Row(
+                                        children: [
+                                          Icon(Icons.info_outline, color: Colors.white),
+                                          SizedBox(width: 8),
+                                          Text('Unidad por defecto cargada: ${unidad['nombre']}'),
+                                        ],
+                                      ),
+                                      backgroundColor: Colors.blue,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              } else {
+                                // Si la unidad por defecto no está permitida, usar "Horas base" (ID 36)
+                                setState(() {
+                                  selectedUnidad = "36";
+                                });
+                                
+                                // Mostrar mensaje informativo
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Row(
+                                        children: [
+                                          Icon(Icons.info_outline, color: Colors.white),
+                                          SizedBox(width: 8),
+                                          Text('Unidad por defecto no permitida para actividades múltiples. Se ha seleccionado: Horas base'),
+                                        ],
+                                      ),
+                                      backgroundColor: Colors.orange,
+                                      duration: Duration(seconds: 3),
+                                    ),
+                                  );
+                                }
+                              }
+                            } else {
+                              // Si no hay unidad por defecto, usar "Horas base" (ID 36)
                               setState(() {
-                                selectedUnidad = unidad['id'].toString();
+                                selectedUnidad = "36";
                               });
                               
                               // Mostrar mensaje informativo
@@ -300,7 +354,7 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
                                       children: [
                                         Icon(Icons.info_outline, color: Colors.white),
                                         SizedBox(width: 8),
-                                        Text('Unidad por defecto cargada: ${unidad['nombre']}'),
+                                        Text('No hay unidad por defecto. Se ha seleccionado: Horas base'),
                                       ],
                                     ),
                                     backgroundColor: Colors.blue,
@@ -309,8 +363,30 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
                                 );
                               }
                             }
-                          } catch (e) {
-                            logError("❌ Error al cargar unidad por defecto: $e");
+                                                     } catch (e) {
+                             print("❌ Error al cargar unidad por defecto: $e");
+                            
+                            // En caso de error, usar "Horas base" (ID 36) como fallback
+                            setState(() {
+                              selectedUnidad = "36";
+                            });
+                            
+                            // Mostrar mensaje informativo
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      Icon(Icons.info_outline, color: Colors.white),
+                                      SizedBox(width: 8),
+                                      Text('Error al cargar unidad por defecto. Se ha seleccionado: Horas base'),
+                                    ],
+                                  ),
+                                  backgroundColor: Colors.orange,
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
+                            }
                           }
                         }
                       },
@@ -330,23 +406,23 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
                         final newUnidad = val?['id']?.toString();
                         setState(() {
                           selectedUnidad = newUnidad;
-                          // Si se selecciona unidad 35 o 36, establecer tarifa en 1
-                          if (newUnidad == "35" || newUnidad == "36") {
-                            tarifaController.text = "1";
-                          } else {
-                            // Si se cambia de unidad 35/36 a otra, limpiar tarifa
-                            if (selectedUnidad == "35" || selectedUnidad == "36") {
-                              tarifaController.clear();
-                            }
-                          }
+                                                        // Si se selecciona unidad 36 (Horas base), establecer tarifa en 1
+                              if (newUnidad == "36") {
+                                tarifaController.text = "1";
+                              } else {
+                                // Si se cambia de unidad 36 a otra, limpiar tarifa
+                                if (selectedUnidad == "36") {
+                                  tarifaController.clear();
+                                }
+                              }
                         });
                       },
                       icon: Icons.straighten,
                     ),
                     SizedBox(height: 16),
                     
-                    // Solo mostrar campo tarifa si la unidad no es 35 o 36
-                    if (selectedUnidad != "35" && selectedUnidad != "36") ...[
+                                            // Solo mostrar campo tarifa si la unidad no es 36 (Horas base)
+                        if (selectedUnidad != "36") ...[
                       _buildTarifaField(),
                       SizedBox(height: 16),
                     ],
@@ -542,12 +618,12 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
         TextField(
           controller: tarifaController,
           keyboardType: TextInputType.number,
-          enabled: selectedUnidad != "35" && selectedUnidad != "36",
+                              enabled: selectedUnidad != "36",
           decoration: InputDecoration(
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             hintText: 'Ingrese la tarifa',
-            suffixText: selectedUnidad == "35" || selectedUnidad == "36" ? '(Automática)' : null,
+                          suffixText: selectedUnidad == "36" ? '(Automática)' : null,
           ),
         ),
       ],

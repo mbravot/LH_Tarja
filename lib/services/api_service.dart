@@ -4063,18 +4063,63 @@ class ApiService {
       for (var actividad in actividades) {
         final idActividad = actividad['id'].toString();
         
-        // Obtener CECOs productivos
-        final cecosProductivos = await getCecosProductivosMultiple(idActividad);
-        actividad['cecos_productivos'] = cecosProductivos;
-        
-        // Obtener CECOs de riego
-        final cecosRiego = await getCecosRiegoMultiple(idActividad);
-        actividad['cecos_riego'] = cecosRiego;
+        try {
+          // Obtener todos los CECOs de la actividad usando el método correcto
+          final cecos = await getCecosActividadMultiple(idActividad);
+          
+          // Separar los CECOs por tipo
+          final cecosProductivos = cecos.where((ceco) => 
+            ceco['tipo_ceco']?.toString().toUpperCase() == 'PRODUCTIVO' ||
+            ceco['nombre_tipoceco']?.toString().toUpperCase() == 'PRODUCTIVO'
+          ).toList();
+          
+          final cecosRiego = cecos.where((ceco) => 
+            ceco['tipo_ceco']?.toString().toUpperCase() == 'RIEGO' ||
+            ceco['nombre_tipoceco']?.toString().toUpperCase() == 'RIEGO'
+          ).toList();
+          
+          final cecosMaquinaria = cecos.where((ceco) => 
+            ceco['tipo_ceco']?.toString().toUpperCase() == 'MAQUINARIA' ||
+            ceco['nombre_tipoceco']?.toString().toUpperCase() == 'MAQUINARIA'
+          ).toList();
+          
+          final cecosInversion = cecos.where((ceco) => 
+            ceco['tipo_ceco']?.toString().toUpperCase() == 'INVERSION' ||
+            ceco['nombre_tipoceco']?.toString().toUpperCase() == 'INVERSION'
+          ).toList();
+          
+          final cecosAdministrativos = cecos.where((ceco) => 
+            ceco['tipo_ceco']?.toString().toUpperCase() == 'ADMINISTRATIVO' ||
+            ceco['nombre_tipoceco']?.toString().toUpperCase() == 'ADMINISTRATIVO'
+          ).toList();
+          
+          // Asignar los CECOs a la actividad
+          actividad['cecos_productivos'] = cecosProductivos;
+          actividad['cecos_riego'] = cecosRiego;
+          actividad['cecos_maquinaria'] = cecosMaquinaria;
+          actividad['cecos_inversion'] = cecosInversion;
+          actividad['cecos_administrativos'] = cecosAdministrativos;
+          
+        } catch (cecoError) {
+          // Si hay error al obtener CECOs, inicializar como listas vacías
+          logError('❌ Error obtener CECOs para actividad $idActividad: $cecoError');
+          actividad['cecos_productivos'] = [];
+          actividad['cecos_riego'] = [];
+          actividad['cecos_maquinaria'] = [];
+          actividad['cecos_inversion'] = [];
+          actividad['cecos_administrativos'] = [];
+        }
         
         // Obtener rendimientos múltiples
-        final rendimientosMultiples = await getRendimientosMultiples(idActividad);
-        actividad['rendimientos_multiples'] = rendimientosMultiples;
-        actividad['tiene_rendimientos_multiples'] = rendimientosMultiples.isNotEmpty;
+        try {
+          final rendimientosMultiples = await getRendimientosMultiples(idActividad);
+          actividad['rendimientos_multiples'] = rendimientosMultiples;
+          actividad['tiene_rendimientos_multiples'] = rendimientosMultiples.isNotEmpty;
+        } catch (rendimientoError) {
+          logError('❌ Error obtener rendimientos para actividad $idActividad: $rendimientoError');
+          actividad['rendimientos_multiples'] = [];
+          actividad['tiene_rendimientos_multiples'] = false;
+        }
       }
       
       return actividades;
@@ -4255,7 +4300,7 @@ class ApiService {
       });
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+        final List<dynamic> data = jsonDecode(response.body);
         return List<Map<String, dynamic>>.from(data);
       } else {
         throw Exception('Error al obtener CECOs de la actividad: ${response.statusCode}');

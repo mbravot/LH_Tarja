@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:collection/collection.dart';
 import 'crear_rendimiento_multiple_page.dart';
 import 'editar_rendimiento_multiple_page.dart';
@@ -436,13 +435,12 @@ class _RendimientoMultipleCard extends StatelessWidget {
       }
     }
 
-    // Obtener información de CECOs
-    String cecosInfo = '';
-    if (rendimiento['cecos'] != null && rendimiento['cecos'] is List) {
-      final cecos = rendimiento['cecos'] as List;
-      if (cecos.isNotEmpty) {
-        cecosInfo = cecos.map((ceco) => ceco['nombre'] ?? 'Sin nombre').join(', ');
-      }
+    // Obtener información del CECO individual
+    String cecoInfo = '';
+    if (rendimiento['nombre_ceco'] != null) {
+      cecoInfo = rendimiento['nombre_ceco'].toString();
+    } else if (rendimiento['tipo_ceco'] != null) {
+      cecoInfo = 'CECO ${rendimiento['tipo_ceco']}';
     }
 
     return InkWell(
@@ -528,7 +526,7 @@ class _RendimientoMultipleCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (cecosInfo.isNotEmpty) ...[
+                    if (cecoInfo.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Row(
                         children: [
@@ -536,13 +534,14 @@ class _RendimientoMultipleCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              'CECOs: $cecosInfo',
+                              'CECO: $cecoInfo',
                               style: TextStyle(
                                 color: Colors.grey[600],
                                 fontWeight: FontWeight.w500,
                                 fontSize: 12,
                               ),
                               overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ),
                         ],
