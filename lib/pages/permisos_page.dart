@@ -424,7 +424,7 @@ class _PermisoCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.event, color: theme.colorScheme.secondary, size: 18),
+                        Icon(Icons.event, color: Colors.orange, size: 18),
                         const SizedBox(width: 4),
                         Text(
                           _formatearFecha(permiso['fecha']),
@@ -438,7 +438,7 @@ class _PermisoCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        Icon(Icons.category, color: theme.colorScheme.primary, size: 18),
+                        Icon(Icons.category, color: Colors.blue, size: 18),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -455,7 +455,7 @@ class _PermisoCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        Icon(Icons.timer, color: theme.colorScheme.primary, size: 18),
+                        Icon(Icons.timer, color: Colors.purple, size: 18),
                         const SizedBox(width: 4),
                         Text(
                           permiso['horas'] != null ? '${permiso['horas']} horas' : '--',
@@ -467,22 +467,6 @@ class _PermisoCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Icon(Icons.assignment, color: theme.colorScheme.secondary, size: 18),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            permiso['nombre_actividad'] ?? 'Sin actividad asignada',
-                            style: const TextStyle(
-                              color: Colors.black54,
-                              fontSize: 14,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),

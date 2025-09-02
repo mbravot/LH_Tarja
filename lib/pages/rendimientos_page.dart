@@ -309,6 +309,8 @@ class _RendimientosPageState extends State<RendimientosPage> {
                           ),
                         ),
                       ),
+                      // Información de la actividad
+                      _buildActividadInfo(),
                       Expanded(
                         child: _rendimientosFiltrados.isEmpty
                             ? Center(
@@ -636,30 +638,6 @@ class _RendimientosPageState extends State<RendimientosPage> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _confirmarEliminarRendimiento(Map<String, dynamic> rendimiento) async {
     final bool confirmar = await showDialog(
       context: context,
@@ -719,6 +697,79 @@ class _RendimientosPageState extends State<RendimientosPage> {
         );
       }
     }
+  }
+
+  Widget _buildActividadInfo() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.work,
+                color: Theme.of(context).colorScheme.primary,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Información de la Actividad',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildInfoRow('Labor:', widget.actividad['nombre_labor'] ?? widget.actividad['nombre'] ?? 'N/A'),
+          _buildInfoRow('Fecha:', widget.actividad['fecha'] ?? 'N/A'),
+          _buildInfoRow('Hora Inicio:', widget.actividad['hora_inicio'] ?? 'N/A'),
+          _buildInfoRow('Hora Fin:', widget.actividad['hora_fin'] ?? 'N/A'),
+          _buildInfoRow('Sucursal:', widget.actividad['nombre_sucursal'] ?? 'N/A'),
+          _buildInfoRow('Estado:', widget.actividad['nombre_estado'] ?? 'N/A'),
+          _buildInfoRow('Tipo CECO:', widget.actividad['nombre_tipoceco'] ?? 'N/A'),
+          _buildInfoRow('Tarifa:', '\$${widget.actividad['tarifa']?.toString() ?? '0'}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

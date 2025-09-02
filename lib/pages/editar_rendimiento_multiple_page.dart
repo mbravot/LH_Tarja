@@ -122,7 +122,9 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
     }
 
     // Validar que el colaborador seleccionado no tenga otro rendimiento para esta actividad
-    if (idsConRendimiento.contains(selectedColaborador)) {
+    // PERO permitir editar el rendimiento actual
+    if (idsConRendimiento.contains(selectedColaborador) && 
+        selectedColaborador != widget.rendimiento['id_colaborador']?.toString()) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Este colaborador ya tiene un rendimiento registrado para esta actividad'),
@@ -148,7 +150,38 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
         datos
       );
 
-      if (resultado['success'] == true) {
+      // Debug: Imprimir la respuesta del API para entender la estructura
+      print('🔍 Respuesta del API editarRendimientoMultiple: $resultado');
+      print('🔍 Tipo de resultado: ${resultado.runtimeType}');
+
+      // El API puede devolver diferentes estructuras de respuesta
+      // Verificamos si la operación fue exitosa de varias maneras
+      bool isSuccess = false;
+      String? errorMessage;
+      
+      if (resultado is Map<String, dynamic>) {
+        // Si devuelve un Map, verificamos diferentes campos posibles
+        if (resultado['success'] == true) {
+          isSuccess = true;
+        } else if (resultado['message'] != null && (
+          resultado['message'].toString().toLowerCase().contains('exito') ||
+          resultado['message'].toString().toLowerCase().contains('correctamente') ||
+          resultado['message'].toString().toLowerCase().contains('actualizado')
+        )) {
+          isSuccess = true;
+        } else if (resultado['status'] == 'success' || resultado['status'] == 200) {
+          isSuccess = true;
+        } else if (resultado['error'] != null) {
+          errorMessage = resultado['error'].toString();
+        } else if (resultado['message'] != null) {
+          errorMessage = resultado['message'].toString();
+        }
+      } else if (resultado != null) {
+        // Si devuelve algo que no es null, consideramos que fue exitoso
+        isSuccess = true;
+      }
+
+      if (isSuccess) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Rendimiento múltiple actualizado exitosamente'),
@@ -157,7 +190,7 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
         );
         Navigator.pop(context, true);
       } else {
-        throw Exception(resultado['error'] ?? 'Error desconocido');
+        throw Exception(errorMessage ?? 'Error al actualizar rendimiento múltiple');
       }
     } catch (e) {
       setState(() => _isLoading = false);
@@ -390,14 +423,18 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
             showSelectedItems: true,
             showSearchBox: true,
             itemBuilder: (context, item, isSelected) {
-              final isDisabled = idsConRendimiento.contains(item['id'].toString());
+              final itemId = item['id'].toString();
+              final isCurrentRendimiento = itemId == widget.rendimiento['id_colaborador']?.toString();
+              final isDisabled = idsConRendimiento.contains(itemId) && !isCurrentRendimiento;
               final nombreCompleto = "${item['nombre']} ${item['apellido_paterno'] ?? ''} ${item['apellido_materno'] ?? ''}".trim();
               
               return ListTile(
                 title: Text(nombreCompleto),
                 enabled: !isDisabled,
-                trailing: isDisabled ? Icon(Icons.check_circle, color: Colors.green) : null,
-                subtitle: isDisabled ? Text('Ya ingresado', style: TextStyle(color: Colors.green, fontSize: 12)) : null,
+                trailing: isDisabled ? Icon(Icons.check_circle, color: Colors.green) : 
+                         isCurrentRendimiento ? Icon(Icons.edit, color: Colors.blue) : null,
+                subtitle: isDisabled ? Text('Ya ingresado', style: TextStyle(color: Colors.green, fontSize: 12)) :
+                         isCurrentRendimiento ? Text('Rendimiento actual', style: TextStyle(color: Colors.blue, fontSize: 12)) : null,
               );
             },
           ),
@@ -409,11 +446,16 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
           itemAsString: (Map<String, dynamic> item) => 
               '${item['nombre']} ${item['apellido_paterno'] ?? ''} ${item['apellido_materno'] ?? ''}'.trim(),
           onChanged: (Map<String, dynamic>? newValue) {
-            // Solo permitir seleccionar colaboradores que no tengan rendimiento
-            if (newValue != null && !idsConRendimiento.contains(newValue['id'].toString())) {
-              setState(() {
-                selectedColaborador = newValue['id'].toString();
-              });
+            if (newValue != null) {
+              final itemId = newValue['id'].toString();
+              final isCurrentRendimiento = itemId == widget.rendimiento['id_colaborador']?.toString();
+              
+              // Permitir seleccionar si no tiene rendimiento O si es el rendimiento actual
+              if (!idsConRendimiento.contains(itemId) || isCurrentRendimiento) {
+                setState(() {
+                  selectedColaborador = itemId;
+                });
+              }
             }
           },
           validator: (value) {

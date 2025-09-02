@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import '../theme/app_theme.dart';
 import 'package:collection/collection.dart';
+import 'dart:collection';
 
 class CrearRendimientoMultiplePage extends StatefulWidget {
   final Map<String, dynamic> actividad;
@@ -34,6 +35,13 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
   void initState() {
     super.initState();
     _cargarDatos();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Actualizar rendimientos existentes cada vez que se accede a la página
+    _cargarRendimientosExistentes();
   }
 
   Future<void> _cargarDatos() async {
@@ -86,9 +94,29 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
       final rendimientos = await _apiService.getRendimientosMultiples(idActividad);
       
       // Extraer IDs de colaboradores que ya tienen rendimiento
-      idsConRendimiento = rendimientos
+      final nuevosIdsConRendimiento = rendimientos
         .map<String>((r) => r['id_colaborador'].toString())
         .toSet();
+      
+      // Solo actualizar el estado si hay cambios
+      if (!const DeepCollectionEquality().equals(idsConRendimiento, nuevosIdsConRendimiento)) {
+        setState(() {
+          idsConRendimiento = nuevosIdsConRendimiento;
+          
+          // Si el colaborador seleccionado ya no tiene rendimiento, permitir su selección
+          if (selectedColaborador != null && !idsConRendimiento.contains(selectedColaborador)) {
+            // El colaborador ya no tiene rendimiento, se puede seleccionar
+            // No hacer nada, permitir que se mantenga seleccionado
+          }
+          
+          // Si el colaborador seleccionado ahora tiene rendimiento, limpiar la selección
+          if (selectedColaborador != null && idsConRendimiento.contains(selectedColaborador)) {
+            selectedColaborador = null;
+            selectedCecos.clear();
+            rendimientoControllers.clear();
+          }
+        });
+      }
         
     } catch (e) {
       // print("❌ Error al cargar rendimientos existentes: $e");
@@ -105,6 +133,31 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
         ),
       );
       return;
+    }
+
+    // Verificar si el colaborador ya tiene rendimiento en algún CECO seleccionado
+    try {
+      final idActividad = widget.actividad['id'].toString();
+      final rendimientosExistentes = await _apiService.getRendimientosMultiples(idActividad);
+      
+      for (String cecoId in selectedCecos) {
+        final yaExiste = rendimientosExistentes.any((r) => 
+          r['id_colaborador'].toString() == selectedColaborador && 
+          r['id_ceco'].toString() == cecoId
+        );
+        
+        if (yaExiste) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('El colaborador ya tiene rendimiento registrado en uno de los CECOs seleccionados'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      // Si hay error al verificar, continuar con la validación normal
     }
 
     // Validar que todos los CECOs seleccionados tengan rendimiento
@@ -245,30 +298,28 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
                         SizedBox(height: 24),
                         
                         // Botón refrescar rendimientos existentes
-                        if (idsConRendimiento.isNotEmpty) ...[
-                          OutlinedButton.icon(
-                            onPressed: () async {
-                              setState(() => _isLoading = true);
-                              await _cargarRendimientosExistentes();
-                              setState(() => _isLoading = false);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Información de rendimientos actualizada'),
-                                  backgroundColor: Colors.blue,
-                                ),
-                              );
-                            },
-                            icon: Icon(Icons.refresh, color: Colors.blue),
-                            label: Text(
-                              'Refrescar rendimientos existentes',
-                              style: TextStyle(color: Colors.blue),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: Colors.blue),
-                            ),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            setState(() => _isLoading = true);
+                            await _cargarRendimientosExistentes();
+                            setState(() => _isLoading = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Información de rendimientos actualizada'),
+                                backgroundColor: Colors.blue,
+                              ),
+                            );
+                          },
+                          icon: Icon(Icons.refresh, color: Colors.blue),
+                          label: Text(
+                            'Refrescar información de rendimientos',
+                            style: TextStyle(color: Colors.blue),
                           ),
-                          SizedBox(height: 16),
-                        ],
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.blue),
+                          ),
+                        ),
+                        SizedBox(height: 16),
                         
                         // Botón guardar
                         ElevatedButton(
@@ -411,14 +462,14 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
             showSelectedItems: true,
             showSearchBox: true,
             itemBuilder: (context, item, isSelected) {
-              final isDisabled = idsConRendimiento.contains(item['id'].toString());
+              final yaTieneRendimiento = idsConRendimiento.contains(item['id'].toString());
               final nombreCompleto = "${item['nombre']} ${item['apellido_paterno'] ?? ''} ${item['apellido_materno'] ?? ''}".trim();
               
               return ListTile(
                 title: Text(nombreCompleto),
-                enabled: !isDisabled,
-                trailing: isDisabled ? Icon(Icons.check_circle, color: Colors.green) : null,
-                subtitle: isDisabled ? Text('Ya ingresado', style: TextStyle(color: Colors.green, fontSize: 12)) : null,
+                enabled: true, // Siempre permitir selección
+                trailing: yaTieneRendimiento ? Icon(Icons.info, color: Colors.orange, size: 20) : null,
+                subtitle: yaTieneRendimiento ? Text('Ya tiene rendimiento (puede agregar en otros CECOs)', style: TextStyle(color: Colors.orange, fontSize: 11)) : null,
               );
             },
           ),
@@ -430,10 +481,13 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
           itemAsString: (Map<String, dynamic> item) => 
               '${item['nombre']} ${item['apellido_paterno'] ?? ''} ${item['apellido_materno'] ?? ''}'.trim(),
           onChanged: (Map<String, dynamic>? newValue) {
-            // Solo permitir seleccionar colaboradores que no tengan rendimiento
-            if (newValue != null && !idsConRendimiento.contains(newValue['id'].toString())) {
+            // Permitir seleccionar cualquier colaborador
+            if (newValue != null) {
               setState(() {
                 selectedColaborador = newValue['id'].toString();
+                // Limpiar selecciones previas cuando se cambia de colaborador
+                selectedCecos.clear();
+                rendimientoControllers.clear();
               });
             }
           },
@@ -451,12 +505,28 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
         ),
         if (idsConRendimiento.isNotEmpty) ...[
           SizedBox(height: 8),
-          Text(
-            'Colaboradores con rendimiento ya registrado: ${idsConRendimiento.length}',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.green[600],
-              fontStyle: FontStyle.italic,
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange, size: 16),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${idsConRendimiento.length} colaborador(es) ya tienen rendimiento. Pueden agregar rendimientos en CECOs diferentes.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.orange[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

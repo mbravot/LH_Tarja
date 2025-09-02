@@ -23,6 +23,10 @@ class _RendimientoMultiplePageState extends State<RendimientoMultiplePage> {
   List<Map<String, dynamic>> bonos = [];
   bool _seRealizoAccion = false;
   final TextEditingController _searchController = TextEditingController();
+  
+  // Variables para agrupación por colaborador
+  Map<String, bool> _colaboradoresExpandidos = {};
+  Map<String, List<Map<String, dynamic>>> _rendimientosPorColaborador = {};
 
   @override
   void initState() {
@@ -52,6 +56,25 @@ class _RendimientoMultiplePageState extends State<RendimientoMultiplePage> {
           return nombre.toLowerCase().contains(query.toLowerCase());
         }).toList();
       }
+      _agruparRendimientosPorColaborador();
+    });
+  }
+
+  void _agruparRendimientosPorColaborador() {
+    Map<String, List<Map<String, dynamic>>> grupos = {};
+    
+    for (var rendimiento in _rendimientosFiltrados) {
+      String idColaborador = rendimiento['id_colaborador']?.toString() ?? '';
+      if (idColaborador.isNotEmpty) {
+        if (!grupos.containsKey(idColaborador)) {
+          grupos[idColaborador] = [];
+        }
+        grupos[idColaborador]!.add(rendimiento);
+      }
+    }
+    
+    setState(() {
+      _rendimientosPorColaborador = grupos;
     });
   }
 
@@ -102,6 +125,7 @@ class _RendimientoMultiplePageState extends State<RendimientoMultiplePage> {
           return map;
         }).toList();
         _rendimientosFiltrados = List.from(_rendimientos);
+        _agruparRendimientosPorColaborador();
         _isLoading = false;
       });
       
@@ -255,15 +279,23 @@ class _RendimientoMultiplePageState extends State<RendimientoMultiplePage> {
                               )
                             : ListView.builder(
                                 padding: const EdgeInsets.only(bottom: 80),
-                                itemCount: _rendimientosFiltrados.length,
+                                itemCount: _rendimientosPorColaborador.length,
                                 itemBuilder: (context, index) {
-                                  final rendimiento = _rendimientosFiltrados[index];
-                                  return _RendimientoMultipleCard(
-                                    rendimiento: rendimiento,
+                                  final colaboradorId = _rendimientosPorColaborador.keys.elementAt(index);
+                                  final rendimientosColaborador = _rendimientosPorColaborador[colaboradorId]!;
+                                  return _ColaboradorGroupCard(
+                                    colaboradorId: colaboradorId,
+                                    rendimientos: rendimientosColaborador,
                                     colaboradores: colaboradores,
                                     actividad: widget.actividad,
-                                    onEditar: () => _editarRendimiento(rendimiento),
-                                    onEliminar: () => _eliminarRendimiento(rendimiento),
+                                    isExpanded: _colaboradoresExpandidos[colaboradorId] ?? false,
+                                    onToggleExpansion: () {
+                                      setState(() {
+                                        _colaboradoresExpandidos[colaboradorId] = !(_colaboradoresExpandidos[colaboradorId] ?? false);
+                                      });
+                                    },
+                                    onEditar: (rendimiento) => _editarRendimiento(rendimiento),
+                                    onEliminar: (rendimiento) => _eliminarRendimiento(rendimiento),
                                   );
                                 },
                               ),
@@ -406,17 +438,23 @@ class _RendimientoMultiplePageState extends State<RendimientoMultiplePage> {
   }
 }
 
-class _RendimientoMultipleCard extends StatelessWidget {
-  final Map<String, dynamic> rendimiento;
+class _ColaboradorGroupCard extends StatelessWidget {
+  final String colaboradorId;
+  final List<Map<String, dynamic>> rendimientos;
   final List<Map<String, dynamic>> colaboradores;
   final Map<String, dynamic> actividad;
-  final VoidCallback onEditar;
-  final VoidCallback onEliminar;
+  final bool isExpanded;
+  final VoidCallback onToggleExpansion;
+  final Function(Map<String, dynamic>) onEditar;
+  final Function(Map<String, dynamic>) onEliminar;
 
-  const _RendimientoMultipleCard({
-    required this.rendimiento,
+  const _ColaboradorGroupCard({
+    required this.colaboradorId,
+    required this.rendimientos,
     required this.colaboradores,
     required this.actividad,
+    required this.isExpanded,
+    required this.onToggleExpansion,
     required this.onEditar,
     required this.onEliminar,
     Key? key,
@@ -428,13 +466,160 @@ class _RendimientoMultipleCard extends StatelessWidget {
     
     // Obtener nombre del colaborador
     String nombre = '';
-    if (rendimiento['id_colaborador'] != null && colaboradores.isNotEmpty) {
-      final c = colaboradores.firstWhereOrNull((x) => x['id'].toString() == rendimiento['id_colaborador'].toString());
+    if (colaboradorId.isNotEmpty && colaboradores.isNotEmpty) {
+      final c = colaboradores.firstWhereOrNull((x) => x['id'].toString() == colaboradorId);
       if (c != null) {
         nombre = ('${c['nombre']} ${c['apellido_paterno'] ?? ''} ${c['apellido_materno'] ?? ''}').trim();
       }
     }
 
+    // Calcular total de rendimiento
+    double totalRendimiento = 0;
+    for (var rendimiento in rendimientos) {
+      if (rendimiento['rendimiento'] != null) {
+        totalRendimiento += (rendimiento['rendimiento'] is num) 
+            ? (rendimiento['rendimiento'] as num).toDouble() 
+            : double.tryParse(rendimiento['rendimiento'].toString()) ?? 0;
+      }
+    }
+
+    return Card(
+      color: Colors.white,
+      elevation: 3,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        children: [
+          // Header del colaborador
+          InkWell(
+            onTap: onToggleExpansion,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(15),
+              topRight: Radius.circular(15),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(Icons.person, color: theme.colorScheme.primary, size: 32),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          nombre.isNotEmpty ? nombre : 'Colaborador no encontrado',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.speed, color: Colors.orange, size: 18),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Total: ',
+                              style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                            ),
+                            Text(
+                              totalRendimiento.toStringAsFixed(2),
+                              style: const TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.straighten,
+                              color: Colors.blue,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              actividad['nombre_unidad'] ?? 'unidad',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          '${rendimientos.length} rendimiento${rendimientos.length != 1 ? 's' : ''}',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: theme.colorScheme.primary,
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Lista de rendimientos expandida
+          if (isExpanded) ...[
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(15),
+                  bottomRight: Radius.circular(15),
+                ),
+              ),
+              child: Column(
+                children: rendimientos.map((rendimiento) {
+                  return _RendimientoItemCard(
+                    rendimiento: rendimiento,
+                    actividad: actividad,
+                    onEditar: () => onEditar(rendimiento),
+                    onEliminar: () => onEliminar(rendimiento),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RendimientoItemCard extends StatelessWidget {
+  final Map<String, dynamic> rendimiento;
+  final Map<String, dynamic> actividad;
+  final VoidCallback onEditar;
+  final VoidCallback onEliminar;
+
+  const _RendimientoItemCard({
+    required this.rendimiento,
+    required this.actividad,
+    required this.onEditar,
+    required this.onEliminar,
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
     // Obtener información del CECO individual
     String cecoInfo = '';
     if (rendimiento['nombre_ceco'] != null) {
@@ -443,136 +628,84 @@ class _RendimientoMultipleCard extends StatelessWidget {
       cecoInfo = 'CECO ${rendimiento['tipo_ceco']}';
     }
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(15),
-      onTap: onEditar,
-      child: Card(
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
         color: Colors.white,
-        elevation: 3,
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-          side: BorderSide(color: Colors.grey[200]!),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.all(8),
-                child: Icon(Icons.person, color: theme.colorScheme.primary, size: 32),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            nombre.isNotEmpty ? nombre : 'Colaborador no encontrado',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.edit, color: theme.colorScheme.primary),
-                          onPressed: onEditar,
-                          tooltip: 'Editar',
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.delete, color: Colors.red),
-                          onPressed: onEliminar,
-                          tooltip: 'Eliminar',
-                        ),
-                      ],
+                    Icon(Icons.speed, color: Colors.orange, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Rendimiento: ',
+                      style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500, fontSize: 12),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.speed, color: Colors.orange, size: 18),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Rendimiento: ',
-                          style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
-                        ),
-                        Text(
-                          rendimiento['rendimiento']?.toString() ?? '-',
-                          style: const TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.straighten,
-                          color: Colors.blue,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          actividad['nombre_unidad'] ?? 'unidad',
+                    Text(
+                      rendimiento['rendimiento']?.toString() ?? '-',
+                      style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.straighten,
+                      color: Colors.blue,
+                      size: 12,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      actividad['nombre_unidad'] ?? 'unidad',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                if (cecoInfo.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(Icons.category, color: Colors.purple, size: 16),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'CECO: $cecoInfo',
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontWeight: FontWeight.w500,
-                            fontSize: 12,
+                            fontSize: 11,
                           ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
-                      ],
-                    ),
-                    if (cecoInfo.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(Icons.category, color: Colors.purple, size: 18),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'CECO: $cecoInfo',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                                fontSize: 12,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                          ),
-                        ],
                       ),
                     ],
-                    if (rendimiento['observaciones'] != null && rendimiento['observaciones'].toString().isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(Icons.note, color: Colors.grey, size: 18),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'Obs: ${rendimiento['observaciones']}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
-                                fontSize: 12,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
+          IconButton(
+            icon: Icon(Icons.edit, color: Theme.of(context).colorScheme.primary, size: 20),
+            onPressed: onEditar,
+            tooltip: 'Editar',
+          ),
+          IconButton(
+            icon: Icon(Icons.delete, color: Colors.red, size: 20),
+            onPressed: onEliminar,
+            tooltip: 'Eliminar',
+          ),
+        ],
       ),
     );
   }

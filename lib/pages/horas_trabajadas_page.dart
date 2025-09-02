@@ -223,7 +223,14 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Center(child: CircularProgressIndicator());
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Horas Trabajadas'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Colors.white,
+        ),
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (_actividadSeleccionada == null) {
@@ -248,6 +255,8 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
       return Scaffold(
         appBar: AppBar(
           title: Text('Horas Trabajadas'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Colors.white,
         ),
         body: Column(
           children: [
@@ -327,9 +336,10 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
                         final expandido = _mesExpandido[dia] ?? true;
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          elevation: 2,
+                          elevation: 3,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(15),
+                            side: BorderSide(color: Colors.grey[200]!),
                           ),
                           child: Theme(
                             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -345,20 +355,21 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
                                       nombreDia,
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.green[800],
+                                        color: Theme.of(context).colorScheme.primary,
+                                        fontSize: 16,
                                       ),
                                     ),
                                   ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: Colors.green[800]!.withOpacity(0.1),
+                                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(
                                       '$cantidad ${cantidad == 1 ? 'actividad' : 'actividades'}',
                                       style: TextStyle(
-                                        color: Colors.green[800],
+                                        color: Theme.of(context).colorScheme.primary,
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -366,10 +377,16 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
                                   ),
                                 ],
                               ),
-                              children: actividadesDelDia.map((actividad) {
-                                final nombreColaborador = ((actividad['nombre_colaborador'] ?? '') + ' ' + (actividad['apellido_paterno'] ?? '') + ' ' + (actividad['apellido_materno'] ?? '')).trim();
-                                final horasTrabajadas = actividad['horas_trabajadas']?.toString() ?? '--';
-                                return InkWell(
+                                                             children: actividadesDelDia.map((actividad) {
+                                 final nombreColaborador = ((actividad['nombre_colaborador'] ?? '') + ' ' + (actividad['apellido_paterno'] ?? '') + ' ' + (actividad['apellido_materno'] ?? '')).trim();
+                                 
+                                 // Calcular cantidad real de registros de colaboradores para esta actividad
+                                 final registrosColaboradores = actividadesDelDia
+                                     .where((a) => a['id'] == actividad['id'])
+                                     .length;
+                                 final cantidadColaboradores = registrosColaboradores.toString();
+                                 
+                                 return InkWell(
                                   onTap: () {
                                     Navigator.push(
                                       context,
@@ -394,11 +411,11 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
                                         children: [
                                           Container(
                                             decoration: BoxDecoration(
-                                              color: Colors.green.withOpacity(0.1),
+                                              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                             padding: const EdgeInsets.all(8),
-                                            child: Icon(Icons.assignment, color: Colors.green, size: 32),
+                                            child: Icon(Icons.assignment, color: Theme.of(context).colorScheme.primary, size: 32),
                                           ),
                                           const SizedBox(width: 16),
                                           Expanded(
@@ -420,12 +437,34 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
                                                   ],
                                                 ),
                                                 const SizedBox(height: 4),
-                                                Text(
-                                                  'CECO: ${actividad['ceco'] ?? 'Sin CECO'}',
-                                                  style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                                Row(
+                                                  children: [
+                                                    Icon(Icons.category, color: Colors.purple, size: 16),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'CECO: ${actividad['ceco'] ?? 'Sin CECO'}',
+                                                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Row(
+                                                  children: [
+                                                    Icon(Icons.people, color: Colors.orange, size: 16),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'Colaboradores: $cantidadColaboradores',
+                                                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                                    ),
+                                                  ],
                                                 ),
                                               ],
                                             ),
+                                          ),
+                                          Icon(
+                                            Icons.arrow_forward_ios,
+                                            color: Theme.of(context).colorScheme.primary,
+                                            size: 16,
                                           ),
                                         ],
                                       ),
@@ -450,6 +489,8 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Horas Trabajadas'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: Icon(Icons.refresh),
@@ -469,25 +510,43 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
         children: [
           if (_actividadInfo != null)
             Container(
-              padding: EdgeInsets.all(16),
-              color: Colors.grey[200],
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Labor: ${_actividadInfo!['labor']}',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.work,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Información de la Actividad',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    'CECO: ${_actividadInfo!['ceco']}',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Fecha: $fechaMostradaActividad',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  ),
+                  const SizedBox(height: 12),
+                  _buildInfoRow('Labor:', _actividadInfo!['labor'] ?? 'N/A'),
+                  _buildInfoRow('CECO:', _actividadInfo!['ceco'] ?? 'N/A'),
+                  _buildInfoRow('Fecha:', fechaMostradaActividad),
                 ],
               ),
             ),
@@ -514,33 +573,65 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
                       final nombreCompleto = '${rendimiento['nombre_colaborador']} ${rendimiento['apellido_paterno']} ${rendimiento['apellido_materno']}';
                       
                       return Card(
-                        margin: EdgeInsets.only(bottom: 12),
+                        color: Colors.white,
+                        elevation: 3,
+                        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          side: BorderSide(color: Colors.grey[200]!),
+                        ),
                         child: InkWell(
                           onTap: () => _editarHoras(rendimiento),
+                          borderRadius: BorderRadius.circular(15),
                           child: Padding(
-                            padding: EdgeInsets.all(16),
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                             child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(8),
+                                  child: Icon(Icons.person, color: Theme.of(context).colorScheme.primary, size: 32),
+                                ),
+                                const SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         nombreCompleto,
-                                        style: TextStyle(
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 16,
+                                          color: Colors.black87,
                                         ),
                                       ),
-                                      SizedBox(height: 8),
-                                      Text(
-                                        'Horas Trabajadas: ${rendimiento['horas_trabajadas']}',
-                                        style: TextStyle(fontSize: 14),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.access_time, color: Colors.blue, size: 18),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Horas Trabajadas: ',
+                                            style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                                          ),
+                                          Text(
+                                            '${rendimiento['horas_trabajadas']}',
+                                            style: const TextStyle(fontWeight: FontWeight.w500),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
                                 ),
-                                Icon(Icons.edit, color: Colors.grey),
+                                IconButton(
+                                  icon: Icon(Icons.edit, color: Theme.of(context).colorScheme.primary),
+                                  onPressed: () => _editarHoras(rendimiento),
+                                  tooltip: 'Editar',
+                                ),
                               ],
                             ),
                           ),
@@ -548,6 +639,30 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
                       );
                     },
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -596,6 +711,8 @@ class _DetalleHorasTrabajadasPageState extends State<DetalleHorasTrabajadasPage>
     return Scaffold(
       appBar: AppBar(
         title: Text('Detalle Horas Trabajadas'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Colors.white,
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
@@ -603,27 +720,59 @@ class _DetalleHorasTrabajadasPageState extends State<DetalleHorasTrabajadasPage>
               children: [
                 if (_actividadInfo != null)
                   Container(
-                    padding: EdgeInsets.all(16),
-                    color: Colors.grey[200],
+                    margin: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Labor: ${_actividadInfo!['labor']}',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.work,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Información de la Actividad',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 4),
-                        Text(
-                          'CECO: ${_actividadInfo!['ceco']}',
-                          style: TextStyle(fontSize: 16),
-                        ),
+                        const SizedBox(height: 12),
+                        _buildInfoRow('Labor:', _actividadInfo!['labor'] ?? 'N/A'),
+                        _buildInfoRow('CECO:', _actividadInfo!['ceco'] ?? 'N/A'),
                       ],
                     ),
                   ),
                 Expanded(
                   child: _rendimientos.isEmpty
                       ? Center(
-                          child: Text('No hay colaboradores registrados en esta actividad'),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.people, size: 64, color: Colors.grey),
+                              SizedBox(height: 16),
+                              Text(
+                                'No hay colaboradores registrados en esta actividad',
+                                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
                         )
                       : ListView.builder(
                           padding: EdgeInsets.all(16),
@@ -631,13 +780,68 @@ class _DetalleHorasTrabajadasPageState extends State<DetalleHorasTrabajadasPage>
                           itemBuilder: (context, index) {
                             final r = _rendimientos[index];
                             return Card(
-                              margin: EdgeInsets.only(bottom: 12),
-                              child: ListTile(
-                                leading: Icon(Icons.person, color: Colors.green),
-                                title: Text(r['nombre_colaborador'] ?? '--', style: TextStyle(fontWeight: FontWeight.bold)),
-                                subtitle: Text('Horas trabajadas: ${r['horas_trabajadas'] ?? '--'}'),
-                                trailing: Icon(Icons.edit, color: Colors.grey),
+                              color: Colors.white,
+                              elevation: 3,
+                              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                                side: BorderSide(color: Colors.grey[200]!),
+                              ),
+                              child: InkWell(
                                 onTap: () => _mostrarEditarHorasDialog(r),
+                                borderRadius: BorderRadius.circular(15),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        padding: const EdgeInsets.all(8),
+                                        child: Icon(Icons.person, color: Theme.of(context).colorScheme.primary, size: 32),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              r['nombre_colaborador'] ?? '--',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.access_time, color: Colors.blue, size: 18),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Horas trabajadas: ',
+                                                  style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                                                ),
+                                                Text(
+                                                  '${r['horas_trabajadas'] ?? '--'}',
+                                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(Icons.edit, color: Theme.of(context).colorScheme.primary),
+                                        onPressed: () => _mostrarEditarHorasDialog(r),
+                                        tooltip: 'Editar',
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             );
                           },
@@ -645,6 +849,30 @@ class _DetalleHorasTrabajadasPageState extends State<DetalleHorasTrabajadasPage>
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

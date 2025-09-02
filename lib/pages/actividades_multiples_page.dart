@@ -566,6 +566,13 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
                ),
                // Sección de CECOs organizada
                _buildCecosSection(actividad),
+               // Tipo de rendimiento
+               _infoRow(
+                 Icons.category,
+                 Colors.orange,
+                 'Rendimiento: ${_obtenerTipoRendimiento(actividad)}',
+               ),
+               // Tarifa
                _infoRow(
                  Icons.attach_money,
                  Colors.green,
@@ -672,6 +679,12 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
     if (actividad['tiene_rendimientos_multiples'] == true) return true;
     if (actividad['rendimientos_multiples'] is List && (actividad['rendimientos_multiples'] as List).isNotEmpty) return true;
     return false;
+  }
+
+  String _obtenerTipoRendimiento(Map<String, dynamic> actividad) {
+    // Para actividades múltiples, el tipo de rendimiento es siempre "Múltiple"
+    // independientemente de si ya tiene rendimientos registrados o no
+    return 'MÚLTIPLE';
   }
 
 

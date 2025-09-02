@@ -320,8 +320,8 @@ Widget build(BuildContext context) {
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       padding: const EdgeInsets.all(8),
-                                      child: Icon(Icons.apartment,
-                                          color: theme.colorScheme.primary,
+                                      child: Icon(Icons.groups,
+                                          color: Colors.orange,
                                           size: 24),
                                     ),
                                     const SizedBox(width: 12),
@@ -468,9 +468,7 @@ Widget build(BuildContext context) {
                                                     Row(
                                                       children: [
                                                         Icon(Icons.badge,
-                                                            color: theme
-                                                                .colorScheme
-                                                                .secondary,
+                                                            color: Colors.blue,
                                                             size: 18),
                                                         const SizedBox(
                                                             width: 4),
@@ -489,10 +487,8 @@ Widget build(BuildContext context) {
                                                     const SizedBox(height: 2),
                                                     Row(
                                                       children: [
-                                                        Icon(Icons.apartment,
-                                                            color: theme
-                                                                .colorScheme
-                                                                .primary,
+                                                        Icon(Icons.groups,
+                                                            color: Colors.orange,
                                                             size: 18),
                                                         const SizedBox(
                                                             width: 4),
@@ -518,9 +514,7 @@ Widget build(BuildContext context) {
                                                     Row(
                                                       children: [
                                                         Icon(Icons.percent,
-                                                            color: theme
-                                                                .colorScheme
-                                                                .primary,
+                                                            color: Colors.purple,
                                                             size: 18),
                                                         const SizedBox(
                                                             width: 4),

@@ -219,7 +219,7 @@ class _ContratistasPageState extends State<ContratistasPage> {
                                             borderRadius: BorderRadius.circular(8),
                                           ),
                                           padding: const EdgeInsets.all(8),
-                                          child: Icon(Icons.apartment, color: primaryColor, size: 32),
+                                          child: Icon(Icons.groups, color: Colors.orange, size: 32),
                                         ),
                                         const SizedBox(width: 16),
                                         Expanded(
@@ -260,7 +260,7 @@ class _ContratistasPageState extends State<ContratistasPage> {
                                               const SizedBox(height: 4),
                                               Row(
                                                 children: [
-                                                  Icon(Icons.badge, color: accentColor, size: 18),
+                                                  Icon(Icons.badge, color: Colors.blue, size: 18),
                                                   const SizedBox(width: 4),
                                                   Text(
                                                     '${contratista['rut']}-${contratista['codigo_verificador']}',

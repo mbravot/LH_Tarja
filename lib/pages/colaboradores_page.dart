@@ -206,7 +206,7 @@ class _ColaboradoresPageState extends State<ColaboradoresPage> {
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       padding: const EdgeInsets.all(8),
-                                      child: Icon(Icons.person, color: theme.colorScheme.primary, size: 32),
+                                      child: Icon(Icons.person, color: Colors.orange, size: 32),
                                     ),
                                     const SizedBox(width: 16),
                                     Expanded(
@@ -247,7 +247,7 @@ class _ColaboradoresPageState extends State<ColaboradoresPage> {
                                           const SizedBox(height: 4),
                                           Row(
                                             children: [
-                                              Icon(Icons.badge, color: theme.colorScheme.secondary, size: 18),
+                                              Icon(Icons.badge, color: Colors.blue, size: 18),
                                               const SizedBox(width: 4),
                                               Text(
                                                 (colab['rut'] != null && colab['codigo_verificador'] != null)
