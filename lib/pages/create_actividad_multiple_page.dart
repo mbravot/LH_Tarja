@@ -82,7 +82,6 @@ class _CreateActividadMultiplePageState extends State<CreateActividadMultiplePag
         _isLoading = false;
       });
     } catch (e) {
-             print("❌ Error al cargar datos: $e");
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -157,9 +156,7 @@ class _CreateActividadMultiplePageState extends State<CreateActividadMultiplePag
         'id_estadoactividad': 1, // Estado creada
       };
 
-             // Debug: Imprimir los datos que se están enviando
-       print("🔍 Datos enviados a crearActividadMultiple: $actividad");
-       print("🔍 selectedTipoCeco: $selectedTipoCeco");
+      // Debug: Imprimir los datos que se están enviando
 
       final response = await ApiService().crearActividadMultiple(actividad);
 
@@ -343,8 +340,6 @@ class _CreateActividadMultiplePageState extends State<CreateActividadMultiplePag
                                   }
                                 }
                               } catch (e) {
-                                                                 print("❌ Error al cargar unidad por defecto: $e");
-                                
                                 // En caso de error, usar "Horas base" (ID 36) como fallback
                                 setState(() {
                                   selectedUnidad = "36";

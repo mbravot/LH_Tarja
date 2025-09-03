@@ -112,7 +112,6 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
       // Verificar que id_sucursalactiva no sea nulo ni vacío antes de llamar a la API
       String? idSucursal = widget.actividad['id_sucursalactiva']?.toString();
              if (idSucursal == null || idSucursal.isEmpty) {
-         print("❌ Error: id_sucursalactiva es nulo o vacío. No se pueden cargar contratistas.");
        } else if (selectedTipoTrabajador == "2") {
         // Filtrar contratistas según el tipo de trabajador y sucursal
         await _cargarContratistas();
@@ -125,7 +124,6 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
 
       setState(() {}); // 🔹 Actualizar UI después de cargar los datos
          } catch (e) {
-       print("❌ Error al cargar opciones: $e");
      }
   }
 
@@ -164,7 +162,6 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
             SnackBar(content: Text("Error: ${response['error']}")));
       }
          } catch (e) {
-       print("❌ Error guardando cambios: $e");
        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error guardando cambios: ${e.toString()}")));
     }
@@ -174,7 +171,6 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
          try {
        String? idSucursal = widget.actividad['id_sucursalactiva']?.toString();
        if (idSucursal == null || idSucursal.isEmpty) {
-         print("❌ Error: id_sucursalactiva es nulo o vacío");
          return;
        }
 
@@ -184,7 +180,6 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
         contratistas = [];
       }
          } catch (e) {
-       print("❌ Error al cargar contratistas: $e");
      }
   }
 
@@ -364,8 +359,6 @@ class _EditarActividadMultiplePageState extends State<EditarActividadMultiplePag
                               }
                             }
                                                      } catch (e) {
-                             print("❌ Error al cargar unidad por defecto: $e");
-                            
                             // En caso de error, usar "Horas base" (ID 36) como fallback
                             setState(() {
                               selectedUnidad = "36";

@@ -2841,6 +2841,24 @@ class ApiService {
     return response;
   }
 
+  Future<Map<String, dynamic>> getRendimientosPropiosPorCeco(String idActividad, String ceco) async {
+    // Si no se proporciona CECO, obtener todos los rendimientos de la actividad
+    if (ceco.isEmpty) {
+      final response = await _get('/rendimientopropio/actividad/$idActividad');
+      return response;
+    }
+    
+    // Si se proporciona CECO, intentar usar endpoint filtrado
+    try {
+      final response = await _get('/rendimientopropio/actividad/$idActividad/ceco/$ceco');
+      return response;
+    } catch (e) {
+      // Fallback: usar el endpoint general
+      final response = await _get('/rendimientopropio/actividad/$idActividad');
+      return response;
+    }
+  }
+
   Future<void> editarRendimientoPropio(String idRendimiento, Map<String, dynamic> datos) async {
     await _put('/rendimientopropio/$idRendimiento', datos);
   }

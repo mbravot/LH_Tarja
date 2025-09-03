@@ -68,9 +68,34 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
     try {
       final actividades = await ApiService().getActividadesConRendimientos();
       final propias = actividades.where((a) => a['id_tipotrabajador'] == 1).toList();
+      
+      // Agrupar actividades por ID para evitar duplicados
+      Map<String, Map<String, dynamic>> actividadesUnicas = {};
+      for (var actividad in propias) {
+        final id = actividad['id'].toString();
+        if (!actividadesUnicas.containsKey(id)) {
+          // Crear una actividad única con información de todos los CECOs
+          actividadesUnicas[id] = {
+            ...actividad,
+            'cecos': <String>[actividad['ceco']?.toString() ?? ''],
+            'total_cecos': 1,
+          };
+        } else {
+          // Agregar el CECO a la lista si no está ya incluido
+          final cecos = actividadesUnicas[id]!['cecos'] as List<String>;
+          final cecoString = actividad['ceco']?.toString() ?? '';
+          if (!cecos.contains(cecoString)) {
+            cecos.add(cecoString);
+            actividadesUnicas[id]!['total_cecos'] = cecos.length;
+          }
+        }
+      }
+      
+      final actividadesSinDuplicados = actividadesUnicas.values.toList();
+      
       setState(() {
-        _actividades = propias;
-        _actividadesFiltradas = List.from(propias);
+        _actividades = actividadesSinDuplicados;
+        _actividadesFiltradas = List.from(actividadesSinDuplicados);
         _isLoading = false;
       });
     } catch (e) {
@@ -136,7 +161,11 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
 
     setState(() => _isLoading = true);
     try {
-      final response = await ApiService().getRendimientosPropios(_actividadSeleccionada!['id'].toString());
+      // Obtener todos los rendimientos de la actividad sin filtrar por CECO
+      final response = await ApiService().getRendimientosPropiosPorCeco(
+        _actividadSeleccionada!['id'].toString(),
+        '', // No necesitamos filtrar por CECO aquí
+      );
       setState(() {
         _rendimientos = List<Map<String, dynamic>>.from(response['rendimientos']);
         _actividadInfo = response['actividad'];
@@ -380,11 +409,8 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
                                                              children: actividadesDelDia.map((actividad) {
                                  final nombreColaborador = ((actividad['nombre_colaborador'] ?? '') + ' ' + (actividad['apellido_paterno'] ?? '') + ' ' + (actividad['apellido_materno'] ?? '')).trim();
                                  
-                                 // Calcular cantidad real de registros de colaboradores para esta actividad
-                                 final registrosColaboradores = actividadesDelDia
-                                     .where((a) => a['id'] == actividad['id'])
-                                     .length;
-                                 final cantidadColaboradores = registrosColaboradores.toString();
+                                 // Usar el total de CECOs como indicador de la actividad
+                                 final cantidadColaboradores = actividad['total_cecos'].toString();
                                  
                                  return InkWell(
                                   onTap: () {
@@ -441,9 +467,13 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
                                                   children: [
                                                     Icon(Icons.category, color: Colors.purple, size: 16),
                                                     const SizedBox(width: 4),
-                                                    Text(
-                                                      'CECO: ${actividad['ceco'] ?? 'Sin CECO'}',
-                                                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                                    Expanded(
+                                                      child: Text(
+                                                        actividad['total_cecos'] > 1 
+                                                            ? 'CECOs: ${(actividad['cecos'] as List<String>).join(', ')}'
+                                                            : 'CECO: ${actividad['ceco'] ?? 'Sin CECO'}',
+                                                        style: const TextStyle(fontSize: 14, color: Colors.black87),
+                                                      ),
                                                     ),
                                                   ],
                                                 ),
@@ -692,7 +722,11 @@ class _DetalleHorasTrabajadasPageState extends State<DetalleHorasTrabajadasPage>
   Future<void> _cargarRendimientos() async {
     setState(() => _isLoading = true);
     try {
-      final response = await ApiService().getRendimientosPropios(widget.actividad['id'].toString());
+      // Obtener todos los rendimientos de la actividad sin filtrar por CECO
+      final response = await ApiService().getRendimientosPropiosPorCeco(
+        widget.actividad['id'].toString(),
+        '', // No necesitamos filtrar por CECO aquí
+      );
       setState(() {
         _rendimientos = List<Map<String, dynamic>>.from(response['rendimientos']);
         _actividadInfo = response['actividad'];
@@ -755,7 +789,10 @@ class _DetalleHorasTrabajadasPageState extends State<DetalleHorasTrabajadasPage>
                         ),
                         const SizedBox(height: 12),
                         _buildInfoRow('Labor:', _actividadInfo!['labor'] ?? 'N/A'),
-                        _buildInfoRow('CECO:', _actividadInfo!['ceco'] ?? 'N/A'),
+                        if (widget.actividad['total_cecos'] > 1)
+                          _buildInfoRow('CECOs:', (widget.actividad['cecos'] as List<String>).join(', '))
+                        else
+                          _buildInfoRow('CECO:', widget.actividad['ceco'] ?? 'N/A'),
                       ],
                     ),
                   ),

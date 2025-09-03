@@ -1398,7 +1398,7 @@ class _IndicadoresPageState extends State<IndicadoresPage> with SingleTickerProv
                                                           'CECO: ${actividad['nombre_ceco'] ?? 'N/A'} - ${actividad['detalle_ceco'] ?? 'N/A'}',
                                                           style: TextStyle(
                                                             fontSize: 12,
-                                                            color: Colors.grey[600],
+                                                            fontWeight: FontWeight.bold,
                                                           ),
                                                         ),
                                                         Text(

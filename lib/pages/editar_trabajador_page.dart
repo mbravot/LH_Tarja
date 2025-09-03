@@ -13,11 +13,7 @@ void logInfo(String message) {
   // }
 }
 
-void logError(String message) {
-  if (const bool.fromEnvironment('dart.vm.product') == false) {
-    print("❌ $message");
-  }
-}
+
 
 class EditarTrabajadorPage extends StatefulWidget {
   final dynamic trabajador;

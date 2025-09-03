@@ -82,7 +82,6 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
         cecosDisponibles = List<Map<String, dynamic>>.from(cecos);
       });
     } catch (e) {
-      // print("❌ Error al cargar CECOs disponibles: $e");
     }
   }
 
@@ -119,7 +118,6 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
       }
         
     } catch (e) {
-      // print("❌ Error al cargar rendimientos existentes: $e");
     }
   }
 
