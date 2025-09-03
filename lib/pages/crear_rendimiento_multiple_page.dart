@@ -595,6 +595,8 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
                           child: TextFormField(
                             controller: rendimientoControllers[cecoId],
                             keyboardType: TextInputType.numberWithOptions(decimal: true),
+                            textInputAction: TextInputAction.done,
+                            enableInteractiveSelection: true,
                             decoration: InputDecoration(
                               labelText: 'Rendimiento para ${ceco['nombre_ceco']}',
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),

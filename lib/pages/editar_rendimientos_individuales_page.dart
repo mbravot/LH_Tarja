@@ -322,6 +322,8 @@ class _EditarRendimientosIndividualesPageState extends State<EditarRendimientosI
                         TextFormField(
                           controller: rendimientoController,
                           keyboardType: TextInputType.numberWithOptions(decimal: true),
+                          textInputAction: TextInputAction.done,
+                          enableInteractiveSelection: true,
                           decoration: InputDecoration(
                             labelText: 'Rendimiento',
                             prefixIcon: Icon(Icons.speed, color: Colors.green),

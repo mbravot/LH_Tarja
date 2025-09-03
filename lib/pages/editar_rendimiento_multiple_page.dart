@@ -545,6 +545,8 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
         TextFormField(
           controller: rendimientoController,
           keyboardType: TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.done,
+          enableInteractiveSelection: true,
           decoration: InputDecoration(
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),

@@ -107,6 +107,8 @@ class _EditarRendimientosGrupalesPageState extends State<EditarRendimientosGrupa
                   children: [
                     TextFormField(
                       controller: _rendimientoTotalController,
+                      textInputAction: TextInputAction.done,
+                      enableInteractiveSelection: true,
                       decoration: InputDecoration(
                         labelText: 'Rendimiento total',
                         border: OutlineInputBorder(),
@@ -126,6 +128,8 @@ class _EditarRendimientosGrupalesPageState extends State<EditarRendimientosGrupa
                     SizedBox(height: 16),
                     TextFormField(
                       controller: _cantidadTrabController,
+                      textInputAction: TextInputAction.done,
+                      enableInteractiveSelection: true,
                       decoration: InputDecoration(
                         labelText: 'Cantidad de trabajadores',
                         border: OutlineInputBorder(),
