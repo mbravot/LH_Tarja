@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import '../theme/app_theme.dart';
 import 'package:collection/collection.dart';
+import '../widgets/numeric_text_field.dart';
 
 class EditarRendimientoMultiplePage extends StatefulWidget {
   final Map<String, dynamic> rendimiento;
@@ -542,16 +543,12 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
           ),
         ),
         SizedBox(height: 8),
-        TextFormField(
+        NumericTextField(
           controller: rendimientoController,
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
-          textInputAction: TextInputAction.done,
-          enableInteractiveSelection: true,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            hintText: 'Ingresa el rendimiento',
-          ),
+          labelText: 'Rendimiento',
+          hintText: 'Ingresa el rendimiento',
+          allowDecimal: true,
+          forceNumericKeyboard: true,
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'Por favor ingresa un rendimiento';

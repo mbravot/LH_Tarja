@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:collection/collection.dart';
+import '../widgets/numeric_text_field.dart';
 
 // Sistema de logging condicional
 void logInfo(String message) {
@@ -352,16 +353,14 @@ class _CrearRendimientoIndividualPageState extends State<CrearRendimientoIndivid
                               ),
                               SizedBox(height: 16),
                             ],
-                            TextFormField(
-                              controller: rendimientoController,
-                              keyboardType: TextInputType.numberWithOptions(decimal: true),
-                              textInputAction: TextInputAction.done,
-                              enableInteractiveSelection: true,
-                              decoration: InputDecoration(
-                                labelText: 'Rendimiento',
-                                prefixIcon: Icon(Icons.speed, color: Colors.green),
-                                border: OutlineInputBorder(),
-                              ),
+                                                         NumericTextField(
+                               controller: rendimientoController,
+                               labelText: 'Rendimiento',
+                               hintText: 'Ingresa el rendimiento',
+                               prefixIcon: Icons.speed,
+                               prefixIconColor: Colors.green,
+                               allowDecimal: true,
+                               forceNumericKeyboard: true,
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'El rendimiento es requerido';

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import 'package:collection/collection.dart';
+import '../widgets/numeric_text_field.dart';
 
 class CrearRendimientoGrupalPage extends StatefulWidget {
   final Map<String, dynamic> actividad;
@@ -86,16 +87,14 @@ class _CrearRendimientoGrupalPageState extends State<CrearRendimientoGrupalPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextFormField(
+                    NumericTextField(
                       controller: _rendimientoTotalController,
-                      textInputAction: TextInputAction.done,
-                      enableInteractiveSelection: true,
-                      decoration: InputDecoration(
-                        labelText: 'Rendimiento total',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.speed, color: Colors.green),
-                      ),
-                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      labelText: 'Rendimiento total',
+                      hintText: 'Ingresa el rendimiento total',
+                      prefixIcon: Icons.speed,
+                      prefixIconColor: Colors.green,
+                      allowDecimal: true,
+                      forceNumericKeyboard: true,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Por favor ingrese el rendimiento total';
@@ -107,16 +106,14 @@ class _CrearRendimientoGrupalPageState extends State<CrearRendimientoGrupalPage>
                       },
                     ),
                     SizedBox(height: 16),
-                    TextFormField(
+                    NumericTextField(
                       controller: _cantidadTrabController,
-                      textInputAction: TextInputAction.done,
-                      enableInteractiveSelection: true,
-                      decoration: InputDecoration(
-                        labelText: 'Cantidad de trabajadores',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.groups, color: Colors.green),
-                      ),
-                      keyboardType: TextInputType.number,
+                      labelText: 'Cantidad de trabajadores',
+                      hintText: 'Ingresa la cantidad de trabajadores',
+                      prefixIcon: Icons.groups,
+                      prefixIconColor: Colors.green,
+                      allowDecimal: false,
+                      forceNumericKeyboard: true,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Por favor ingrese la cantidad de trabajadores';

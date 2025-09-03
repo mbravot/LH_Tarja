@@ -4,6 +4,7 @@ import 'package:dropdown_search/dropdown_search.dart';
 import '../theme/app_theme.dart';
 import 'package:collection/collection.dart';
 import 'dart:collection';
+import '../widgets/numeric_text_field.dart';
 
 class CrearRendimientoMultiplePage extends StatefulWidget {
   final Map<String, dynamic> actividad;
@@ -592,17 +593,12 @@ class _CrearRendimientoMultiplePageState extends State<CrearRendimientoMultipleP
                       if (isSelected)
                         Padding(
                           padding: EdgeInsets.only(left: 48, right: 16, bottom: 8),
-                          child: TextFormField(
-                            controller: rendimientoControllers[cecoId],
-                            keyboardType: TextInputType.numberWithOptions(decimal: true),
-                            textInputAction: TextInputAction.done,
-                            enableInteractiveSelection: true,
-                            decoration: InputDecoration(
-                              labelText: 'Rendimiento para ${ceco['nombre_ceco']}',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              hintText: 'Ingresa el rendimiento',
-                            ),
+                          child: NumericTextField(
+                            controller: rendimientoControllers[cecoId]!,
+                            labelText: 'Rendimiento para ${ceco['nombre_ceco']}',
+                            hintText: 'Ingresa el rendimiento',
+                            allowDecimal: true,
+                            forceNumericKeyboard: true,
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Por favor ingresa un rendimiento';
