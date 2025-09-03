@@ -309,10 +309,140 @@ class _RendimientosPageState extends State<RendimientosPage> {
                           ),
                         ),
                       ),
-                      // Información de la actividad
-                      _buildActividadInfo(),
-                      Expanded(
-                        child: _rendimientosFiltrados.isEmpty
+                                             // Información de la actividad
+                       _buildActividadInfo(),
+                       
+                       // Widget de resumen total (después de la información de la actividad)
+                       if (_rendimientosFiltrados.isNotEmpty) ...[
+                         Container(
+                           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                           padding: const EdgeInsets.all(16),
+                           decoration: BoxDecoration(
+                             color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                             borderRadius: BorderRadius.circular(12),
+                             border: Border.all(
+                               color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                               width: 1,
+                             ),
+                           ),
+                           child: Row(
+                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                             children: [
+                               Row(
+                                 children: [
+                                   Icon(
+                                     Icons.calculate,
+                                     color: Theme.of(context).colorScheme.primary,
+                                     size: 24,
+                                   ),
+                                   const SizedBox(width: 8),
+                                                                       Text(
+                                      'Rendimiento Total:',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(context).colorScheme.primary,
+                                      ),
+                                    ),
+                                 ],
+                               ),
+                               Row(
+                                 children: [
+                                   Text(
+                                     _calcularRendimientoTotal().toStringAsFixed(1),
+                                     style: TextStyle(
+                                       fontSize: 18,
+                                       fontWeight: FontWeight.bold,
+                                       color: Theme.of(context).colorScheme.primary,
+                                     ),
+                                   ),
+                                   const SizedBox(width: 8),
+                                   Icon(
+                                     Icons.category,
+                                     color: Theme.of(context).colorScheme.primary,
+                                     size: 16,
+                                   ),
+                                   const SizedBox(width: 2),
+                                   Text(
+                                     widget.actividad['nombre_unidad'] ?? 'unidad',
+                                     style: TextStyle(
+                                       fontSize: 14,
+                                       fontWeight: FontWeight.w500,
+                                       color: Theme.of(context).colorScheme.primary,
+                                     ),
+                                   ),
+                                 ],
+                               ),
+                             ],
+                           ),
+                         ),
+                         // Widget de pago total actividad
+                         Container(
+                           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                           padding: const EdgeInsets.all(16),
+                           decoration: BoxDecoration(
+                             color: Colors.green.withOpacity(0.1),
+                             borderRadius: BorderRadius.circular(12),
+                             border: Border.all(
+                               color: Colors.green.withOpacity(0.3),
+                               width: 1,
+                             ),
+                           ),
+                           child: Row(
+                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                             children: [
+                               Row(
+                                 children: [
+                                   Icon(
+                                     Icons.attach_money,
+                                     color: Colors.green,
+                                     size: 24,
+                                   ),
+                                   const SizedBox(width: 8),
+                                                                       Text(
+                                      'Pago Total:',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green,
+                                      ),
+                                    ),
+                                 ],
+                               ),
+                               Row(
+                                 children: [
+                                   Text(
+                                     _formatearPesoChileno(_calcularPagoTotal()),
+                                     style: TextStyle(
+                                       fontSize: 18,
+                                       fontWeight: FontWeight.bold,
+                                       color: Colors.green,
+                                     ),
+                                   ),
+                                   const SizedBox(width: 8),
+                                   Icon(
+                                     Icons.monetization_on,
+                                     color: Colors.green,
+                                     size: 16,
+                                   ),
+                                   const SizedBox(width: 2),
+                                   Text(
+                                     'CLP',
+                                     style: TextStyle(
+                                       color: Colors.green,
+                                       fontWeight: FontWeight.w500,
+                                       fontSize: 14,
+                                     ),
+                                   ),
+                                 ],
+                               ),
+                             ],
+                           ),
+                         ),
+                       ],
+                       
+                       Expanded(
+                         child: _rendimientosFiltrados.isEmpty
                             ? Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -375,143 +505,12 @@ class _RendimientosPageState extends State<RendimientosPage> {
                                         );
                                       },
                                     ),
-                                  ),
-                                                                                                        // Widget de resumen total (abajo de la lista, arriba del botón flotante)
-                                   if (_rendimientosFiltrados.isNotEmpty)
-                                     Column(
-                                       children: [
-                                         Container(
-                                           margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                                           padding: const EdgeInsets.all(16),
-                                           decoration: BoxDecoration(
-                                             color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                                             borderRadius: BorderRadius.circular(12),
-                                             border: Border.all(
-                                               color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                                               width: 1,
-                                             ),
-                                           ),
-                                           child: Row(
-                                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                             children: [
-                                               Row(
-                                                 children: [
-                                                   Icon(
-                                                     Icons.calculate,
-                                                     color: Theme.of(context).colorScheme.primary,
-                                                     size: 24,
-                                                   ),
-                                                   const SizedBox(width: 8),
-                                                   Text(
-                                                     'Rendimiento Total Actividad:',
-                                                     style: TextStyle(
-                                                       fontSize: 16,
-                                                       fontWeight: FontWeight.bold,
-                                                       color: Theme.of(context).colorScheme.primary,
-                                                     ),
-                                                   ),
-                                                 ],
-                                               ),
-                                               Row(
-                                                 children: [
-                                                   Text(
-                                                     _calcularRendimientoTotal().toStringAsFixed(1),
-                                                     style: TextStyle(
-                                                       fontSize: 18,
-                                                       fontWeight: FontWeight.bold,
-                                                       color: Theme.of(context).colorScheme.primary,
-                                                     ),
-                                                   ),
-                                                   const SizedBox(width: 8),
-                                                   Icon(
-                                                     Icons.category,
-                                                     color: Theme.of(context).colorScheme.primary,
-                                                     size: 16,
-                                                   ),
-                                                   const SizedBox(width: 2),
-                                                   Text(
-                                                     widget.actividad['nombre_unidad'] ?? 'unidad',
-                                                     style: TextStyle(
-                                                       fontSize: 14,
-                                                       fontWeight: FontWeight.w500,
-                                                       color: Theme.of(context).colorScheme.primary,
-                                                     ),
-                                                   ),
-                                                 ],
-                                               ),
-                                             ],
-                                           ),
-                                         ),
-                                         // Widget de pago total actividad
-                                         Container(
-                                           margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
-                                           padding: const EdgeInsets.all(16),
-                                           decoration: BoxDecoration(
-                                             color: Colors.green.withOpacity(0.1),
-                                             borderRadius: BorderRadius.circular(12),
-                                             border: Border.all(
-                                               color: Colors.green.withOpacity(0.3),
-                                               width: 1,
-                                             ),
-                                           ),
-                                           child: Row(
-                                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                             children: [
-                                               Row(
-                                                 children: [
-                                                   Icon(
-                                                     Icons.attach_money,
-                                                     color: Colors.green,
-                                                     size: 24,
-                                                   ),
-                                                   const SizedBox(width: 8),
-                                                   Text(
-                                                     'Pago Total Actividad:',
-                                                     style: TextStyle(
-                                                       fontSize: 16,
-                                                       fontWeight: FontWeight.bold,
-                                                       color: Colors.green,
-                                                     ),
-                                                   ),
-                                                 ],
-                                               ),
-                                               Row(
-                                                 children: [
-                                                   Text(
-                                                     _formatearPesoChileno(_calcularPagoTotal()),
-                                                     style: TextStyle(
-                                                       fontSize: 18,
-                                                       fontWeight: FontWeight.bold,
-                                                       color: Colors.green,
-                                                     ),
-                                                   ),
-                                                   const SizedBox(width: 8),
-                                                   Icon(
-                                                     Icons.monetization_on,
-                                                     color: Colors.green,
-                                                     size: 16,
-                                                   ),
-                                                   const SizedBox(width: 2),
-                                                   Text(
-                                                     'CLP',
-                                                     style: TextStyle(
-                                                       fontSize: 14,
-                                                       fontWeight: FontWeight.w500,
-                                                       color: Colors.green,
-                                                     ),
-                                                   ),
-                                                 ],
-                                               ),
-                                             ],
-                                           ),
-                                         ),
-                                       ],
-                                     ),
-                                ],
-                              ),
-                      ),
-                    ],
-                  ),
+                                                                     ),
+                                 ],
+                               ),
+                       ),
+                     ],
+                   ),
         floatingActionButton: FloatingActionButton(
           onPressed: () async {
             final tipo = widget.actividad['id_tiporendimiento'];
@@ -737,11 +736,6 @@ class _RendimientosPageState extends State<RendimientosPage> {
           const SizedBox(height: 12),
           _buildInfoRow('Labor:', widget.actividad['nombre_labor'] ?? widget.actividad['nombre'] ?? 'N/A'),
           _buildInfoRow('Fecha:', widget.actividad['fecha'] ?? 'N/A'),
-          _buildInfoRow('Hora Inicio:', widget.actividad['hora_inicio'] ?? 'N/A'),
-          _buildInfoRow('Hora Fin:', widget.actividad['hora_fin'] ?? 'N/A'),
-          _buildInfoRow('Sucursal:', widget.actividad['nombre_sucursal'] ?? 'N/A'),
-          _buildInfoRow('Estado:', widget.actividad['nombre_estado'] ?? 'N/A'),
-          _buildInfoRow('Tipo CECO:', widget.actividad['nombre_tipoceco'] ?? 'N/A'),
           _buildInfoRow('Tarifa:', '\$${widget.actividad['tarifa']?.toString() ?? '0'}'),
         ],
       ),

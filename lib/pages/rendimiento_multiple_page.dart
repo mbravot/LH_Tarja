@@ -403,11 +403,7 @@ class _RendimientoMultiplePageState extends State<RendimientoMultiplePage> {
           const SizedBox(height: 12),
           _buildInfoRow('Labor:', widget.actividad['nombre_labor'] ?? 'N/A'),
           _buildInfoRow('Fecha:', widget.actividad['fecha'] ?? 'N/A'),
-          _buildInfoRow('Hora Inicio:', widget.actividad['hora_inicio'] ?? 'N/A'),
-          _buildInfoRow('Hora Fin:', widget.actividad['hora_fin'] ?? 'N/A'),
-          _buildInfoRow('Sucursal:', widget.actividad['nombre_sucursal'] ?? 'N/A'),
-          _buildInfoRow('Estado:', widget.actividad['nombre_estado'] ?? 'N/A'),
-          _buildInfoRow('Tipo CECO:', widget.actividad['nombre_tipoceco'] ?? 'N/A'),
+          _buildInfoRow('Tarifa:', '\$${widget.actividad['tarifa']?.toString() ?? '0'}'),
         ],
       ),
     );

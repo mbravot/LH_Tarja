@@ -2859,6 +2859,18 @@ class ApiService {
     }
   }
 
+  /// 🔹 Nuevo método para obtener rendimientos múltiples por CECO específico
+  /// Usa el nuevo endpoint: GET /api/rendimiento_multiple/por-ceco/<int:id_ceco>
+  Future<Map<String, dynamic>> getRendimientosMultiplesPorCeco(int idCeco) async {
+    try {
+      final response = await _get('/rendimiento_multiple/por-ceco/$idCeco');
+      return response;
+    } catch (e) {
+      logError('Error al obtener rendimientos múltiples por CECO $idCeco: $e');
+      rethrow;
+    }
+  }
+
   Future<void> editarRendimientoPropio(String idRendimiento, Map<String, dynamic> datos) async {
     await _put('/rendimientopropio/$idRendimiento', datos);
   }
@@ -4325,6 +4337,18 @@ class ApiService {
       }
     } catch (e) {
       // print('❌ Error en getCecosActividadMultiple: $e');
+      rethrow;
+    }
+  }
+
+  /// 🔹 Obtener horas trabajadas por colaborador específico
+  /// Usa el nuevo endpoint: GET /api/rendimientopropio/colaborador/<id_colaborador>/horas-trabajadas
+  Future<Map<String, dynamic>> getHorasTrabajadasPorColaborador(String idColaborador) async {
+    try {
+      final response = await _get('/rendimientopropio/colaborador/$idColaborador/horas-trabajadas');
+      return response;
+    } catch (e) {
+      logError('Error al obtener horas trabajadas del colaborador $idColaborador: $e');
       rethrow;
     }
   }

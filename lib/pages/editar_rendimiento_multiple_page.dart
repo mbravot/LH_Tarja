@@ -347,8 +347,7 @@ class _EditarRendimientoMultiplePageState extends State<EditarRendimientoMultipl
             ),
             SizedBox(height: 12),
             _buildInfoRow('Fecha', widget.actividad['fecha'] ?? 'Sin fecha'),
-            _buildInfoRow('Unidad', widget.actividad['nombre_unidad'] ?? 'Sin unidad'),
-            _buildInfoRow('Tipo CECO', widget.actividad['nombre_tipoceco'] ?? 'Sin tipo CECO'),
+            _buildInfoRow('Tarifa', '\$${widget.actividad['tarifa']?.toString() ?? '0'}'),
             if (idsConRendimiento.isNotEmpty) ...[
               SizedBox(height: 8),
               Container(

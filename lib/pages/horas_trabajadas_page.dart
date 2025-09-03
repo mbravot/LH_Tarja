@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../services/api_service.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/rendering.dart';
@@ -69,7 +70,7 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
       final actividades = await ApiService().getActividadesConRendimientos();
       final propias = actividades.where((a) => a['id_tipotrabajador'] == 1).toList();
       
-      // Agrupar actividades por ID para evitar duplicados
+      // Agrupar actividades por ID pero mantener información de CECOs individuales
       Map<String, Map<String, dynamic>> actividadesUnicas = {};
       for (var actividad in propias) {
         final id = actividad['id'].toString();
@@ -79,6 +80,7 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
             ...actividad,
             'cecos': <String>[actividad['ceco']?.toString() ?? ''],
             'total_cecos': 1,
+            'ceco_principal': actividad['ceco']?.toString() ?? 'N/A',
           };
         } else {
           // Agregar el CECO a la lista si no está ya incluido
@@ -161,16 +163,52 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
 
     setState(() => _isLoading = true);
     try {
-      // Obtener todos los rendimientos de la actividad sin filtrar por CECO
+      // NO consolidar registros duplicados - mantener cada registro con su CECO específico
+      Map<String, Map<String, dynamic>> trabajadoresUnicos = {};
+      
+      // Obtener todos los rendimientos de la actividad específica
       final response = await ApiService().getRendimientosPropiosPorCeco(
         _actividadSeleccionada!['id'].toString(),
-        '', // No necesitamos filtrar por CECO aquí
+        '',
       );
-      setState(() {
-        _rendimientos = List<Map<String, dynamic>>.from(response['rendimientos']);
-        _actividadInfo = response['actividad'];
-        _isLoading = false;
-      });
+      
+      if (response['rendimientos'] != null) {
+        final rendimientos = List<Map<String, dynamic>>.from(response['rendimientos']);
+        
+                 for (var rendimiento in rendimientos) {
+           final nombreCompleto = '${rendimiento['nombre_colaborador']} ${rendimiento['apellido_paterno']} ${rendimiento['apellido_materno']}';
+           final cecoEspecifico = rendimiento['nombre_ceco']?.toString() ?? 
+                                  rendimiento['ceco']?.toString() ?? 
+                                  rendimiento['id_ceco']?.toString() ?? 
+                                  'N/A';
+           
+           // Crear una clave única por trabajador + CECO para mantener registros separados
+           final claveUnica = '$nombreCompleto-$cecoEspecifico';
+          
+          if (!trabajadoresUnicos.containsKey(claveUnica)) {
+            // Crear nuevo registro del trabajador para este CECO específico
+            trabajadoresUnicos[claveUnica] = {
+              ...rendimiento,
+              'ceco_especifico': cecoEspecifico,
+              'horas_trabajadas': rendimiento['horas_trabajadas'] ?? 0.0,
+            };
+          }
+        }
+        
+        final rendimientosConsolidados = trabajadoresUnicos.values.toList();
+        
+        setState(() {
+          _rendimientos = rendimientosConsolidados;
+          _actividadInfo = response['actividad'];
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _rendimientos = [];
+          _actividadInfo = response['actividad'];
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al cargar los rendimientos: $e')),
@@ -575,7 +613,7 @@ class _HorasTrabajadasPageState extends State<HorasTrabajadasPage> {
                   ),
                   const SizedBox(height: 12),
                   _buildInfoRow('Labor:', _actividadInfo!['labor'] ?? 'N/A'),
-                  _buildInfoRow('CECO:', _actividadInfo!['ceco'] ?? 'N/A'),
+                  _buildInfoRow('CECO:', _actividadSeleccionada?['ceco_especifico'] ?? 'N/A'),
                   _buildInfoRow('Fecha:', fechaMostradaActividad),
                 ],
               ),
@@ -722,14 +760,44 @@ class _DetalleHorasTrabajadasPageState extends State<DetalleHorasTrabajadasPage>
   Future<void> _cargarRendimientos() async {
     setState(() => _isLoading = true);
     try {
-      // Obtener todos los rendimientos de la actividad sin filtrar por CECO
+      List<Map<String, dynamic>> todosLosRendimientos = [];
+      
+      // Obtener todos los rendimientos de la actividad usando el endpoint general
       final response = await ApiService().getRendimientosPropiosPorCeco(
         widget.actividad['id'].toString(),
-        '', // No necesitamos filtrar por CECO aquí
+        '',
       );
+      
+      if (response['rendimientos'] != null) {
+        final rendimientos = List<Map<String, dynamic>>.from(response['rendimientos']);
+        
+                 // Para cada rendimiento, usar el nombre_ceco real del backend
+         for (var rendimiento in rendimientos) {
+           // Si el nombre_ceco es "Sin nombre", usar el CECO de la actividad
+           String cecoEspecifico;
+           if (rendimiento['nombre_ceco']?.toString() == 'Sin nombre') {
+             cecoEspecifico = widget.actividad['ceco']?.toString() ?? 'N/A';
+           } else {
+             cecoEspecifico = rendimiento['nombre_ceco']?.toString() ?? 
+                              'CECO ${rendimiento['id_ceco']?.toString() ?? 'N/A'}';
+           }
+           
+           todosLosRendimientos.add({
+             ...rendimiento,
+             'ceco_especifico': cecoEspecifico,
+           });
+         }
+      }
+      
+      // Obtener información de la actividad
+      final responseActividad = await ApiService().getRendimientosPropiosPorCeco(
+        widget.actividad['id'].toString(),
+        '',
+      );
+      
       setState(() {
-        _rendimientos = List<Map<String, dynamic>>.from(response['rendimientos']);
-        _actividadInfo = response['actividad'];
+        _rendimientos = todosLosRendimientos;
+        _actividadInfo = responseActividad['actividad'];
         _isLoading = false;
       });
     } catch (e) {
@@ -738,6 +806,19 @@ class _DetalleHorasTrabajadasPageState extends State<DetalleHorasTrabajadasPage>
       );
       setState(() => _isLoading = false);
     }
+  }
+
+  String? _obtenerCecoDelRendimiento(Map<String, dynamic> rendimiento) {
+    // Priorizar el CECO específico que obtenemos durante la consolidación
+    if (rendimiento['ceco_especifico'] != null) return rendimiento['ceco_especifico'].toString();
+    
+    // Fallback a los campos del rendimiento, priorizando nombre_ceco
+    if (rendimiento['nombre_ceco'] != null) return rendimiento['nombre_ceco'].toString();
+    if (rendimiento['ceco'] != null) return rendimiento['ceco'].toString();
+    if (rendimiento['id_ceco'] != null) return rendimiento['id_ceco'].toString();
+    
+    // Último fallback: usar el CECO de la actividad
+    return widget.actividad['ceco']?.toString() ?? 'N/A';
   }
 
   @override
@@ -789,10 +870,8 @@ class _DetalleHorasTrabajadasPageState extends State<DetalleHorasTrabajadasPage>
                         ),
                         const SizedBox(height: 12),
                         _buildInfoRow('Labor:', _actividadInfo!['labor'] ?? 'N/A'),
-                        if (widget.actividad['total_cecos'] > 1)
-                          _buildInfoRow('CECOs:', (widget.actividad['cecos'] as List<String>).join(', '))
-                        else
-                          _buildInfoRow('CECO:', widget.actividad['ceco'] ?? 'N/A'),
+                        _buildInfoRow('CECO:', widget.actividad['ceco'] ?? 'N/A'),
+                        _buildInfoRow('Fecha:', _actividadInfo!['fecha'] != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(_actividadInfo!['fecha'])) : 'N/A'),
                       ],
                     ),
                   ),
@@ -865,6 +944,23 @@ class _DetalleHorasTrabajadasPageState extends State<DetalleHorasTrabajadasPage>
                                                 Text(
                                                   '${r['horas_trabajadas'] ?? '--'}',
                                                   style: const TextStyle(fontWeight: FontWeight.w500),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.location_on, color: Colors.orange, size: 18),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'CECO: ',
+                                                  style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w500),
+                                                ),
+                                                Expanded(
+                                                  child: Text(
+                                                    '${_obtenerCecoDelRendimiento(r) ?? 'N/A'}',
+                                                    style: const TextStyle(fontWeight: FontWeight.w500),
+                                                  ),
                                                 ),
                                               ],
                                             ),
