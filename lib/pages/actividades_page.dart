@@ -19,6 +19,9 @@ class ActividadesPage extends StatefulWidget {
   State<ActividadesPage> createState() => _ActividadesPageState();
 }
 
+// GlobalKey para acceder al estado de la página de actividades
+final GlobalKey<_ActividadesPageState> actividadesPageKey = GlobalKey<_ActividadesPageState>();
+
 class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProviderStateMixin {
   Future<List<dynamic>>? _futureActividades;
   Map<String, bool> _expansionState = {};
@@ -47,6 +50,13 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
     });
     searchController.addListener(_filtrarActividades);
   }
+
+
+  // Método para actualizar la lista cuando regresamos de otras páginas
+  void actualizarLista() {
+    _cargarActividades();
+  }
+
 
   @override
   void dispose() {
@@ -79,6 +89,9 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
   Future<void> _cargarActividades() async {
     setState(() => _isLoading = true);
     try {
+      // Limpiar cache de verificación para forzar nueva verificación de rendimientos
+      _actividadesVerificadas.clear();
+      
       // Usar el método optimizado: solo 2 llamadas (actividades + rendimientos/todos)
       final actividadesProcesadas = await ApiService().getActividadesConRendimientosOptimizado();
       if (!mounted) return;
@@ -194,7 +207,29 @@ class _ActividadesPageState extends State<ActividadesPage> with SingleTickerProv
   Future<void> _refreshActividades() async {
     _refreshIconController.repeat();
     await _cargarActividades();
+    
+    // Forzar verificación de rendimientos para todas las actividades después de actualizar
+    await _verificarRendimientosTodasActividades();
+    
     _refreshIconController.stop();
+  }
+
+  Future<void> _verificarRendimientosTodasActividades() async {
+    for (var actividad in todasActividades) {
+      final actividadId = actividad['id'].toString();
+      if (!_tieneRendimientos(actividad)) {
+        try {
+          final datos = await ApiService().getRendimientos(idActividad: actividadId);
+          if (mounted && datos is Map && datos['rendimientos'] is List && (datos['rendimientos'] as List).isNotEmpty) {
+            setState(() {
+              actividad['tiene_rendimientos_cache'] = true;
+            });
+          }
+        } catch (e) {
+          // Error silencioso
+        }
+      }
+    }
   }
 
   @override

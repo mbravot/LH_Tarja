@@ -56,6 +56,8 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
     searchController.addListener(_filtrarActividades);
   }
 
+
+
   @override
   void dispose() {
     _refreshIconController.dispose();
@@ -116,6 +118,9 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
 
   Future<void> _cargarActividades() async {
     try {
+      // Limpiar cache de verificación para forzar nueva verificación de rendimientos
+      _actividadesVerificadas.clear();
+      
       // Usar el método actualizado que incluye CECOs y rendimientos múltiples
       final actividades = await ApiService().getActividadesMultiplesConCecos();
       if (!mounted) return;
@@ -176,7 +181,29 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
   Future<void> _refreshActividades() async {
     _refreshIconController.repeat();
     await _cargarDatos();
+    
+    // Forzar verificación de rendimientos para todas las actividades después de actualizar
+    await _verificarRendimientosTodasActividades();
+    
     _refreshIconController.stop();
+  }
+
+  Future<void> _verificarRendimientosTodasActividades() async {
+    for (var actividad in todasActividades) {
+      final actividadId = actividad['id'].toString();
+      if (!_tieneRendimientos(actividad)) {
+        try {
+          final datos = await ApiService().getRendimientos(idActividad: actividadId);
+          if (mounted && datos is Map && datos['rendimientos'] is List && (datos['rendimientos'] as List).isNotEmpty) {
+            setState(() {
+              actividad['tiene_rendimientos_cache'] = true;
+            });
+          }
+        } catch (e) {
+          // Error silencioso
+        }
+      }
+    }
   }
 
   void _mostrarError(String mensaje) {
