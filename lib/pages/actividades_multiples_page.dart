@@ -413,11 +413,20 @@ class _ActividadesMultiplesPageState extends State<ActividadesMultiplesPage>
           actividadesPorFecha[fecha]!.add(actividad);
         }
 
+        // Ordenar las fechas de más reciente a más antigua
+        List<String> fechasOrdenadas = actividadesPorFecha.keys.toList();
+        fechasOrdenadas.sort((a, b) {
+          // Extraer la fecha original para comparar correctamente
+          String fechaA = actividadesFiltradas.firstWhere((act) => _formatearFecha(act['fecha']) == a)['fecha'];
+          String fechaB = actividadesFiltradas.firstWhere((act) => _formatearFecha(act['fecha']) == b)['fecha'];
+          return DateTime.parse(fechaB).compareTo(DateTime.parse(fechaA));
+        });
+
         return ListView.builder(
           padding: EdgeInsets.only(bottom: 100),
-          itemCount: actividadesPorFecha.length,
+          itemCount: fechasOrdenadas.length,
           itemBuilder: (context, index) {
-            String fecha = actividadesPorFecha.keys.elementAt(index);
+            String fecha = fechasOrdenadas[index];
             List<Map<String, dynamic>> actividadesDelDia = actividadesPorFecha[fecha]!;
 
             return Card(
