@@ -98,26 +98,41 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$baseUrl/usuarios/sucursal-activa'),
         headers: await _getHeaders(),
-      );
+      ).timeout(Duration(seconds: 10)); // Agregar timeout
 
       if (response.statusCode == 401) {
-        await manejarTokenExpirado();
-        return false;
+        // Token expirado, intentar refresh primero
+        try {
+          await refreshToken();
+          return true; // Si el refresh fue exitoso, el token es válido
+        } catch (refreshError) {
+          // Si el refresh falla, limpiar sesión
+          await manejarTokenExpirado();
+          return false;
+        }
       }
 
       return response.statusCode == 200;
     } catch (e) {
       logError('Error al verificar token al inicio: $e');
-      // Si hay error de conexión, no cerrar sesión automáticamente
+      
+      // Si hay error de conexión o timeout, mantener la sesión
       if (e.toString().contains('SocketException') || 
           e.toString().contains('Connection refused') ||
-          e.toString().contains('Network is unreachable')) {
+          e.toString().contains('Network is unreachable') ||
+          e.toString().contains('TimeoutException')) {
         return true; // Mantener la sesión si es error de red
       }
       
-      // Para otros errores, asumir que el token no es válido
-      await manejarTokenExpirado();
-      return false;
+      // Para otros errores, intentar refresh del token
+      try {
+        await refreshToken();
+        return true;
+      } catch (refreshError) {
+        // Si el refresh falla, limpiar sesión
+        await manejarTokenExpirado();
+        return false;
+      }
     }
   }
 
