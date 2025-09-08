@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:app_lh_tarja/pages/login_page.dart';
 import 'package:app_lh_tarja/pages/home_page.dart';
@@ -37,6 +38,16 @@ class MyApp extends StatelessWidget {
       navigatorKey: ApiService.navigatorKey,
       theme: themeProvider.currentTheme,
       home: startPage,
+      localizationsDelegates: [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: [
+        Locale('es', 'ES'), // Español
+        Locale('en', 'US'), // Inglés
+      ],
+      locale: Locale('es', 'ES'),
     );
   }
 } 
