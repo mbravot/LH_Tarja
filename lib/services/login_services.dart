@@ -41,8 +41,6 @@ class AuthService {
         body: jsonEncode(body),
       );
 
-      // Log solo en caso de error para debugging
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
@@ -65,8 +63,7 @@ class AuthService {
         await prefs.setString('id_rol', idRol.toString());
         await prefs.setString('id_perfil', idPerfil.toString());
 
-                // logInfo(
-        //   "✅ Login exitoso - Usuario: $nombreUsuario, Sucursal: $idSucursal ($nombreSucursal)");
+        // logInfo("✅ Login exitoso - Usuario: $nombreUsuario, Sucursal: $idSucursal ($nombreSucursal)");
       } else {
         logError("❌ Error en login - Código: ${response.statusCode}");
         logError("❌ Detalle del error: ${response.body}");

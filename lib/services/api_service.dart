@@ -2063,12 +2063,13 @@ class ApiService {
   }
 
   Future<bool> eliminarActividad(String actividadId) async {
-    final headers = await _getHeaders();
-    final response = await http.delete(
-      Uri.parse('$baseUrl/actividades/$actividadId'),
-      headers: headers,
-    );
-    await _manejarRespuesta(response);
+    final response = await _makeRequest(() async {
+      return await http.delete(
+        Uri.parse('$baseUrl/actividades/$actividadId'),
+        headers: await _getHeaders(),
+      );
+    });
+
     if (response.statusCode == 200) {
       return true;
     } else {
